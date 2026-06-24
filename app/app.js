@@ -71,6 +71,7 @@ document.getElementById("saveSettings").onclick = async () => {
   saveState();
   document.getElementById("settingsPanel").classList.add("hidden");
   await registerAndLoad();
+  loadMetaData();
 };
 
 document.getElementById("resetData").onclick = () => {
@@ -355,12 +356,70 @@ function formatSeasonStart() {
     : "Season-Start";
 }
 
+// ---------- Tages-Meta: Trio-Combos & Augment/Item-Synergien ----------
+// Tagesaktuelle Community-Daten (taeglich vom Server via metasrc.com
+// aktualisiert) - rein informativ, KEINE Live-Erkennung im Spiel.
+
+async function loadMetaData() {
+  try {
+    const res = await fetch(serverUrl("/meta"));
+    if (!res.ok) return; // noch keine Daten vorhanden, einfach ausblenden
+    const data = await res.json();
+    renderMeta(data);
+  } catch (err) {
+    console.error("Meta-Daten konnten nicht geladen werden:", err);
+  }
+}
+
+function renderMeta(data) {
+  const section = document.getElementById("metaSection");
+  const comboList = document.getElementById("comboList");
+  const synergyList = document.getElementById("synergyList");
+
+  comboList.innerHTML = "";
+  for (const combo of data.trioCombos || []) {
+    const div = document.createElement("div");
+    div.className = "metaItem";
+    const partners = combo.partners && combo.partners.length
+      ? combo.partners.join(" + ")
+      : "-";
+    div.innerHTML = `
+      <span class="metaTier">${combo.tier}</span>
+      <span class="metaName">${combo.champion}</span>
+      <span class="metaPartners">mit ${partners}</span>
+    `;
+    comboList.appendChild(div);
+  }
+
+  synergyList.innerHTML = "";
+  for (const champName in (data.augmentSynergies || {})) {
+    const augments = data.augmentSynergies[champName];
+    const div = document.createElement("div");
+    div.className = "metaItem";
+    const augText = augments.map((a) => `${a.name} (${a.rarity})`).join(", ");
+    div.innerHTML = `
+      <span class="metaName">${champName}</span>
+      <span class="metaPartners">${augText}</span>
+    `;
+    synergyList.appendChild(div);
+  }
+
+  if ((data.trioCombos && data.trioCombos.length) || Object.keys(data.augmentSynergies || {}).length) {
+    section.classList.remove("hidden");
+  }
+
+  document.getElementById("metaUpdatedText").textContent = data.updatedAt
+    ? `Stand: ${new Date(data.updatedAt).toLocaleString("de-DE")}`
+    : "";
+}
+
 // ---------- Start ----------
 
 (async function init() {
   setStatus("Champion-Liste wird geladen...");
   await loadChampionList();
   renderGrid();
+  loadMetaData();
 
   if (state.riotId && state.serverUrl) {
     await registerAndLoad();
