@@ -13,6 +13,7 @@
       <div class="brand"><span class="dot"></span> Arena Win Tracker</div>
       <div class="links">
         <a href="index.html">Übersicht</a>
+        <a href="app/index.html">Web-App</a>
         <a href="privacy.html">Datenschutz</a>
         <a href="terms.html">Nutzungsbedingungen</a>
       </div>
@@ -44,19 +45,106 @@
 
   <section class="block">
     <div class="wrap">
-      <h2><span class="num">02</span>Eigener API-Key</h2>
+      <h2><span class="num">02</span>Zentraler Sync-Server</h2>
       <p>
-        Für die Nutzung benötigst du einen eigenen Riot API-Key, den du selbst
-        über das Riot Developer Portal beziehst. Du bist für die sichere
-        Verwahrung deines Keys und die Einhaltung der Riot-Richtlinien bei dessen
-        Nutzung selbst verantwortlich.
+        Du benötigst für die Nutzung <strong>keinen eigenen Riot API-Key</strong> mehr.
+        Der Abruf deiner Match-Daten erfolgt über einen zentralen Server, der mit einem
+        einzigen, vom Betreiber bereitgestellten API-Key arbeitet. Du gibst lediglich
+        deine Riot-ID (Name#Tag) an, damit dein Sync zugeordnet werden kann.
+      </p>
+      <p>
+        Der Betreiber des Sync-Servers haftet im Rahmen dieser Bedingungen für die
+        ordnungsgemäße Nutzung des verwendeten API-Keys gegenüber Riot Games. Du bist
+        dafür verantwortlich, deine Zugangsdaten zum Server (Sync-Secret) nicht an
+        Unberechtigte weiterzugeben.
       </p>
     </div>
   </section>
 
   <section class="block">
     <div class="wrap">
-      <h2><span class="num">03</span>Keine Garantie & Haftungsausschluss</h2>
+      <h2><span class="num">03</span>Faire Nutzung des geteilten Rate-Limits</h2>
+      <p>
+        Da alle Nutzer denselben API-Key teilen, gilt auch das Riot-Rate-Limit
+        gemeinsam für alle. Übermäßig häufige manuelle Sync-Anfragen einzelner
+        Nutzer können den Sync für alle anderen verlangsamen. Der Betreiber kann
+        deshalb die Häufigkeit manueller Syncs einschränken oder Zugänge bei
+        Missbrauch sperren.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">04</span>Keine Garantie & Haftungsausschluss</h2>
       <p>
         Arena Win Tracker wird "wie besehen" ohne Gewährleistung für
         Verfügbarkeit, Richtigkeit oder Vollständigkeit der angezeigten Daten
+        bereitgestellt. Abweichungen können insbesondere durch Änderungen der
+        Riot-API, Rate-Limits oder Anpassungen am Arena-Spielmodus entstehen.
+        Eine Haftung für mittelbare oder unmittelbare Schäden aus der Nutzung
+        der App ist, soweit gesetzlich zulässig, ausgeschlossen.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">05</span>Verhältnis zu Riot Games</h2>
+      <p>
+        Arena Win Tracker steht in keiner Verbindung zu und wird nicht unterstützt
+        von Riot Games. Die Nutzung der App erfolgt zusätzlich zu und unter
+        Einhaltung der Nutzungsbedingungen und Richtlinien von Riot Games,
+        insbesondere der Vorgaben für Drittanbieter-Anwendungen im Riot
+        Developer Portal.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">06</span>Änderungen der App</h2>
+      <p>
+        Funktionsumfang und Verfügbarkeit der App können sich jederzeit ändern,
+        insbesondere während der aktuellen privaten Testphase. Es besteht kein
+        Anspruch auf Fortführung einzelner Funktionen.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">07</span>Anwendbares Recht</h2>
+      <p>
+        Es gilt deutsches Recht, soweit zwingende Verbraucherschutzvorschriften
+        deines Wohnsitzlandes dem nicht entgegenstehen.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">08</span>Kontakt</h2>
+      <div class="contact-box">
+        Fragen zu diesen Bedingungen? <a href="mailto:arenawintracker.support@proton.me">arenawintracker.support@proton.me</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <p class="riot-disclaimer">
+        Arena Win Tracker isn't endorsed by Riot Games and doesn't reflect the views or
+        opinions of Riot Games or anyone officially involved in producing or managing
+        Riot Games properties. Riot Games, and all associated properties are trademarks
+        or registered trademarks of Riot Games, Inc.
+      </p>
+      <div class="links">
+        <a href="index.html">Übersicht</a>
+        <a href="privacy.html">Datenschutz</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

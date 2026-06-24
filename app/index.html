@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arena Win Tracker - Web</title>
+  <link rel="stylesheet" href="app.css" />
+  <style>
+    /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
+       nicht noetig sind (dort ist die Fenstergroesse fix). */
+    html, body { height: auto; min-height: 100vh; }
+    #app { height: auto; min-height: 100vh; max-width: 480px; margin: 0 auto; }
+    #grid { max-height: 70vh; }
+    .webNotice {
+      background: rgba(124,58,237,0.12); border: 1px solid #7c3aed;
+      border-radius: 8px; padding: 10px 12px; font-size: 11px;
+      color: #c084fc; margin-bottom: 10px; -webkit-app-region: no-drag;
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+
+    <header>
+      <h1>Arena Win Tracker</h1>
+      <button id="settingsToggle" title="Einstellungen">⚙</button>
+    </header>
+
+    <p class="webNotice">
+      Browser-Testversion. Funktioniert identisch zur Overwolf-App,
+      läuft aber als normale Webseite - kein Overwolf nötig.
+    </p>
+
+    <section id="settingsPanel" class="hidden">
+      <label>Riot ID (Name#Tag)
+        <input id="riotId" type="text" placeholder="z.B. Glitch#EUW" />
+      </label>
+      <label>Region
+        <select id="region">
+          <option value="europe">Europe (EUW/EUNE/TR/RU)</option>
+          <option value="americas">Americas (NA/BR/LAN/LAS)</option>
+          <option value="asia">Asia (KR/JP)</option>
+          <option value="sea">SEA (OCE/SG/PH/...)</option>
+        </select>
+      </label>
+      <label>Server-URL
+        <input id="serverUrl" type="text" placeholder="https://arena-win-tracker-server.onrender.com" />
+      </label>
+      <label>Sync-Secret
+        <input id="syncSecret" type="password" placeholder="gemeinsames Secret vom Server" />
+      </label>
+      <label>Season-Start (Arena-Reset Datum)
+        <input id="seasonStart" type="date" />
+      </label>
+      <div class="settingsActions">
+        <button id="saveSettings">Speichern</button>
+        <button id="resetData" class="danger">Lokale Anzeige zurücksetzen</button>
+      </div>
+      <p class="hint">
+        Kein eigener Riot API-Key nötig - der zentrale Server synct deine
+        Daten automatisch täglich. Riot-ID, Server-URL und Sync-Secret
+        bekommst du von der Person, die den Server betreibt.
+      </p>
+    </section>
+
+    <section id="statusBar">
+      <span id="statusText">Noch nicht verbunden</span>
+      <button id="syncBtn">🔄 Jetzt syncen</button>
+    </section>
+
+    <section id="summary">
+      <span id="summaryText">0 / 0 Champions gewonnen</span>
+      <span id="overallStatsText">0 Spiele (0 Siege / 0 Niederlagen)</span>
+      <input id="filterInput" type="text" placeholder="Champion suchen..." />
+      <label class="checkboxLabel">
+        <input id="onlyMissing" type="checkbox" />
+        nur offene zeigen
+      </label>
+    </section>
+
+    <section id="grid"></section>
+
+    <div id="champTooltip" class="hidden"></div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,371 @@
+// ============================================================
+// Arena Win Tracker - overlay.js
+//
+// WICHTIGE AENDERUNG: Die App spricht NICHT MEHR direkt mit der
+// Riot-API. Stattdessen laeuft der gesamte Riot-API-Zugriff auf
+// einem zentralen Server (siehe "Arena Win Tracker Server"-Projekt).
+// Diese App ist jetzt nur noch ein duenner Client, der:
+//   1. die eigene Riot-ID beim Server registriert
+//   2. die bereits gesyncten Stats vom Server abruft
+//   3. optional einen sofortigen Sync anstoesst (statt auf den
+//      naechsten taeglichen Cron-Lauf zu warten)
+//
+// Vorteil: kein eigener Riot API-Key mehr in der App noetig, kein
+// 24h-Ablauf-Problem mehr fuer einzelne Nutzer.
+// ============================================================
+
+const STORAGE_KEY = "arenaWinTracker";
+const DEFAULT_SERVER_URL = "https://arena-win-tracker-server.onrender.com";
+
+let state = loadState();
+let championList = []; // [{id, name, key}] aus Data Dragon
+let isSyncing = false;
+
+// ---------- Persistenz ----------
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    return { ...defaultState(), ...JSON.parse(raw) };
+  } catch (e) {
+    return defaultState();
+  }
+}
+
+function defaultState() {
+  return {
+    riotId: "",
+    region: "europe",
+    serverUrl: DEFAULT_SERVER_URL,
+    syncSecret: "",
+    seasonStart: "2026-04-29",
+    wins: {},          // { championKey: true } - kommt vom Server
+    matchHistory: {},  // { championKey: [...] } - kommt vom Server
+    lastSync: null
+  };
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// ---------- UI Init ----------
+
+document.getElementById("riotId").value = state.riotId;
+document.getElementById("region").value = state.region;
+document.getElementById("serverUrl").value = state.serverUrl;
+document.getElementById("syncSecret").value = state.syncSecret;
+document.getElementById("seasonStart").value = state.seasonStart;
+
+document.getElementById("settingsToggle").onclick = () => {
+  document.getElementById("settingsPanel").classList.toggle("hidden");
+};
+
+document.getElementById("saveSettings").onclick = async () => {
+  state.riotId = document.getElementById("riotId").value.trim();
+  state.region = document.getElementById("region").value;
+  state.serverUrl = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
+  state.syncSecret = document.getElementById("syncSecret").value.trim();
+  state.seasonStart = document.getElementById("seasonStart").value;
+  saveState();
+  document.getElementById("settingsPanel").classList.add("hidden");
+  await registerAndLoad();
+};
+
+document.getElementById("resetData").onclick = () => {
+  if (!confirm("Lokal angezeigte Daten wirklich zurücksetzen? (Auf dem Server bleiben sie erhalten)")) return;
+  state.wins = {};
+  state.matchHistory = {};
+  state.lastSync = null;
+  saveState();
+  renderGrid();
+  setStatus("Lokale Anzeige zurückgesetzt. Mit 'Jetzt syncen' neu laden.");
+};
+
+document.getElementById("syncBtn").onclick = () => triggerSync();
+document.getElementById("filterInput").oninput = renderGrid;
+document.getElementById("onlyMissing").onchange = renderGrid;
+
+function setStatus(text) {
+  document.getElementById("statusText").textContent = text;
+}
+
+// ---------- Data Dragon: Champion-Liste ----------
+// (unveraendert - das ist oeffentliches Spiel-Datenmaterial, kein
+// Riot-API-Key noetig, bleibt deshalb client-seitig)
+
+async function loadChampionList() {
+  const versionsRes = await fetch("https://ddragon.leagueoflegends.com/api/versions.json");
+  const versions = await versionsRes.json();
+  const latest = versions[0];
+
+  const champRes = await fetch(
+    `https://ddragon.leagueoflegends.com/cdn/${latest}/data/de_DE/champion.json`
+  );
+  const champData = await champRes.json();
+
+  championList = Object.values(champData.data)
+    .map((c) => ({
+      key: c.key,
+      id: c.id,
+      name: c.name,
+      icon: `https://ddragon.leagueoflegends.com/cdn/${latest}/img/champion/${c.image.full}`
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+// ---------- Server-Kommunikation ----------
+
+function serverUrl(path) {
+  return `${state.serverUrl}${path}`;
+}
+
+// Registriert die Riot-ID beim Server (idempotent - schadet nicht,
+// wenn der Nutzer schon existiert).
+async function registerWithServer() {
+  const res = await fetch(serverUrl("/register"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      riotId: state.riotId,
+      region: state.region,
+      seasonStart: state.seasonStart
+    })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Registrierung fehlgeschlagen (${res.status})`);
+  }
+  return res.json();
+}
+
+// Holt die zuletzt gesyncten Stats vom Server (kein Riot-Aufruf hier,
+// nur ein Datenbank-Abruf - entsprechend schnell).
+async function fetchStatsFromServer() {
+  const encodedId = encodeURIComponent(state.riotId);
+  const res = await fetch(serverUrl(`/stats/${encodedId}`));
+  if (res.status === 404) {
+    throw new Error("Noch nicht registriert. Erst Einstellungen speichern.");
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Stats-Abruf fehlgeschlagen (${res.status})`);
+  }
+  return res.json();
+}
+
+// Stoesst einen sofortigen Sync fuer die eigene Riot-ID an, statt auf
+// den naechsten taeglichen Cron-Lauf zu warten.
+async function triggerSyncOnServer() {
+  const encodedId = encodeURIComponent(state.riotId);
+  const res = await fetch(serverUrl(`/sync/${encodedId}`), {
+    method: "POST",
+    headers: { "x-cron-secret": state.syncSecret }
+  });
+  if (res.status === 401) {
+    throw new Error("Sync-Secret falsch oder fehlt. Bitte in den Einstellungen prüfen.");
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || `Sync fehlgeschlagen (${res.status})`);
+  }
+  return res.json();
+}
+
+// ---------- Ablauf: Registrieren + Laden ----------
+
+async function registerAndLoad() {
+  if (!state.riotId || !state.serverUrl) {
+    setStatus("Bitte Riot-ID und Server-URL eintragen.");
+    document.getElementById("settingsPanel").classList.remove("hidden");
+    return;
+  }
+  try {
+    setStatus("Verbinde mit Server (kann beim ersten Mal bis zu 60s dauern)...");
+    await registerWithServer();
+    setStatus("Lade Stats vom Server...");
+    const stats = await fetchStatsFromServer();
+    applyStats(stats);
+    setStatus(`Verbunden. Letzter Server-Sync: ${formatLastSync(stats.lastSync)}`);
+  } catch (err) {
+    console.error(err);
+    setStatus("Fehler: " + err.message);
+  }
+}
+
+function applyStats(stats) {
+  state.wins = stats.wins || {};
+  state.matchHistory = stats.matchHistory || {};
+  state.lastSync = stats.lastSync || null;
+  saveState();
+  renderGrid();
+}
+
+function formatLastSync(lastSync) {
+  return lastSync ? new Date(lastSync).toLocaleString("de-DE") : "noch nie";
+}
+
+// ---------- Sync-Button ----------
+
+async function triggerSync() {
+  if (isSyncing) return;
+  if (!state.riotId || !state.syncSecret) {
+    setStatus("Bitte Riot-ID und Sync-Secret in den Einstellungen eintragen.");
+    document.getElementById("settingsPanel").classList.remove("hidden");
+    return;
+  }
+
+  isSyncing = true;
+  document.getElementById("syncBtn").disabled = true;
+
+  try {
+    setStatus("Sync läuft auf dem Server (kann etwas dauern, je nach Anzahl neuer Matches)...");
+    await triggerSyncOnServer();
+    setStatus("Sync fertig, lade aktualisierte Stats...");
+    const stats = await fetchStatsFromServer();
+    applyStats(stats);
+    setStatus(`Sync abgeschlossen: ${formatLastSync(stats.lastSync)}`);
+  } catch (err) {
+    console.error(err);
+    setStatus("Fehler: " + err.message);
+  } finally {
+    isSyncing = false;
+    document.getElementById("syncBtn").disabled = false;
+  }
+}
+
+// ---------- Rendering ----------
+
+function renderGrid() {
+  const grid = document.getElementById("grid");
+  const filterText = document.getElementById("filterInput").value.toLowerCase();
+  const onlyMissing = document.getElementById("onlyMissing").checked;
+
+  grid.innerHTML = "";
+  let wonCount = 0;
+
+  const visible = championList.filter((c) => c.name.toLowerCase().includes(filterText));
+
+  for (const champ of visible) {
+    const hasWin = !!state.wins[champ.key];
+    const hasGames = !!(state.matchHistory[champ.key] && state.matchHistory[champ.key].length > 0);
+    if (hasWin) wonCount++;
+    if (onlyMissing && hasWin) continue;
+
+    // Drei Status: "won" (gruen, mind. 1 Sieg), "lost" (rot, gespielt
+    // aber noch kein Sieg), "missing" (grau, noch nie gespielt).
+    let status;
+    if (hasWin) status = "won";
+    else if (hasGames) status = "lost";
+    else status = "missing";
+
+    const div = document.createElement("div");
+    div.className = "champ " + status;
+    div.innerHTML = `
+      <img src="${champ.icon}" alt="${champ.name}" />
+      <span>${champ.name}</span>
+    `;
+    div.addEventListener("mouseenter", (e) => showChampTooltip(e, champ));
+    div.addEventListener("mousemove", positionTooltip);
+    div.addEventListener("mouseleave", hideChampTooltip);
+    grid.appendChild(div);
+  }
+
+  document.getElementById("summaryText").textContent =
+    `${wonCount} / ${championList.length} Champions gewonnen`;
+
+  updateOverallStats();
+}
+
+// Zaehlt ALLE Arena-Spiele ueber alle Champions hinweg (unabhaengig
+// vom aktuellen Filter), inkl. Aufschluesselung Sieg/Niederlage.
+function updateOverallStats() {
+  let totalGames = 0;
+  let totalWins = 0;
+
+  for (const champKey in state.matchHistory) {
+    const games = state.matchHistory[champKey] || [];
+    totalGames += games.length;
+    totalWins += games.filter((g) => g.placement === 1).length;
+  }
+
+  const totalLosses = totalGames - totalWins;
+
+  document.getElementById("overallStatsText").textContent =
+    `${totalGames} Spiel(e) insgesamt (${totalWins} Siege / ${totalLosses} Niederlagen)`;
+}
+
+// ---------- Hover-Tooltip: Match-History pro Champion ----------
+
+function showChampTooltip(e, champ) {
+  const tooltip = document.getElementById("champTooltip");
+  const history = (state.matchHistory[champ.key] || [])
+    .slice()
+    .sort((a, b) => b.date - a.date);
+
+  let html = `<div class="tooltipTitle">${champ.name}</div>`;
+
+  if (history.length === 0) {
+    html += `<div class="tooltipEmpty">Keine Arena-Spiele seit Season-Start.</div>`;
+  } else {
+    html += `<div class="tooltipCount">${history.length} Spiel(e) seit ${formatSeasonStart()}</div>`;
+    html += `<ul class="tooltipList">`;
+    for (const g of history) {
+      const isWin = g.placement === 1;
+      const resultText = isWin ? "Sieg" : "Niederlage";
+      const dateStr = new Date(g.date).toLocaleDateString("de-DE");
+      const mates = g.teammates && g.teammates.length
+        ? g.teammates.map((m) => `${m.champion} (${m.summoner})`).join(", ")
+        : "?";
+      html += `<li class="${isWin ? "tooltipWin" : "tooltipLose"}">
+        <div class="tooltipDate">${dateStr} – ${resultText} (Platz ${g.placement})</div>
+        <div class="tooltipMates">mit ${mates}</div>
+      </li>`;
+    }
+    html += `</ul>`;
+  }
+
+  tooltip.innerHTML = html;
+  tooltip.classList.remove("hidden");
+  positionTooltip(e);
+}
+
+function positionTooltip(e) {
+  const tooltip = document.getElementById("champTooltip");
+  const offset = 14;
+  let x = e.clientX + offset;
+  let y = e.clientY + offset;
+
+  const rect = tooltip.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
+  if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
+
+  tooltip.style.left = x + "px";
+  tooltip.style.top = y + "px";
+}
+
+function hideChampTooltip() {
+  document.getElementById("champTooltip").classList.add("hidden");
+}
+
+function formatSeasonStart() {
+  return state.seasonStart
+    ? new Date(state.seasonStart).toLocaleDateString("de-DE")
+    : "Season-Start";
+}
+
+// ---------- Start ----------
+
+(async function init() {
+  setStatus("Champion-Liste wird geladen...");
+  await loadChampionList();
+  renderGrid();
+
+  if (state.riotId && state.serverUrl) {
+    await registerAndLoad();
+  } else {
+    setStatus("Bereit. Einstellungen ausfüllen (Riot-ID, Server-URL, Sync-Secret).");
+    document.getElementById("settingsPanel").classList.remove("hidden");
+  }
+})();
