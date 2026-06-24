@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arena Win Tracker</title>
+  <meta name="description" content="Arena Win Tracker zeigt dir auf einen Blick, mit welchen Champions du in dieser League of Legends Arena-Season schon einen 1. Platz erreicht hast." />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <nav class="top">
+    <div class="wrap">
+      <div class="brand"><span class="dot"></span> Arena Win Tracker</div>
+      <div class="links">
+        <a href="index.html">Übersicht</a>
+        <a href="privacy.html">Datenschutz</a>
+        <a href="terms.html">Nutzungsbedingungen</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <div class="wrap">
+      <div class="eyebrow">Overwolf-App · League of Legends Arena</div>
+      <h1>Welche Champions fehlen dir noch zum Sieg?</h1>
+      <p class="lead">
+        Arena Win Tracker liest deine Match-Historie aus und markiert jeden Champion,
+        mit dem du in dieser Arena-Season schon einen 1. Platz geholt hast. Kein Excel,
+        kein Mitschreiben – das Overlay zeigt es dir direkt im Spiel.
+      </p>
+      <div class="tile-row" aria-hidden="true">
+        <div class="tile won"></div><div class="tile won"></div><div class="tile"></div>
+        <div class="tile won"></div><div class="tile"></div><div class="tile"></div>
+        <div class="tile won"></div><div class="tile won"></div><div class="tile"></div>
+        <div class="tile"></div><div class="tile won"></div><div class="tile"></div>
+        <div class="tile"></div><div class="tile"></div><div class="tile won"></div>
+        <div class="tile"></div><div class="tile won"></div><div class="tile"></div>
+      </div>
+      <p class="tile-caption"><strong>Grün</strong> = bereits gewonnen, grau = noch offen.</p>
+    </div>
+  </header>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">01</span>Was die App macht</h2>
+      <p>
+        Arena Win Tracker verbindet sich mit der Riot Match-API und prüft alle deine
+        Arena-Spiele seit Season-Start. Jeder Champion, mit dem du einen echten 1. Platz
+        (nicht nur Top-4) erreicht hast, wird grün markiert. Alles andere bleibt rot,
+        bis der nächste Sieg fällt.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">02</span>Funktionen</h2>
+      <ul class="feature-list">
+        <li><span class="mark">✓</span> Champion-Übersicht mit Sieg-Status pro Season</li>
+        <li><span class="mark">✓</span> Automatischer Sync über die Riot Match-V5 API</li>
+        <li><span class="mark">✓</span> Verlauf pro Champion: Datum, Sieg/Niederlage, Teammates</li>
+        <li><span class="mark">✓</span> Filter- und Suchfunktion im Champion-Grid</li>
+        <li><span class="mark">✓</span> Läuft als Overlay direkt im Spiel oder im Hintergrund</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">03</span>Status</h2>
+      <p class="status-badge"><span class="pulse"></span> Aktuell in privater Testphase</p>
+      <p class="muted" style="margin-top:14px;">
+        Arena Win Tracker befindet sich derzeit in der Entwicklung und wird mit einer
+        kleinen Gruppe getestet. Ein öffentlicher Release über den Overwolf App Store
+        ist geplant.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">04</span>Kontakt</h2>
+      <div class="contact-box">
+        Fragen, Feedback oder Bugs? <a href="mailto:kontakt@arenawintracker.example">kontakt@arenawintracker.example</a>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <p class="riot-disclaimer">
+        Arena Win Tracker isn't endorsed by Riot Games and doesn't reflect the views or
+        opinions of Riot Games or anyone officially involved in producing or managing
+        Riot Games properties. Riot Games, and all associated properties are trademarks
+        or registered trademarks of Riot Games, Inc.
+      </p>
+      <div class="links">
+        <a href="privacy.html">Datenschutz</a>
+        <a href="terms.html">Nutzungsbedingungen</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
