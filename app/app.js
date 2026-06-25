@@ -91,7 +91,22 @@ const I18N = {
     statsFetchFailed: "Stats-Abruf fehlgeschlagen ({status})",
     resetConfirm: "Lokal angezeigte Daten wirklich zurücksetzen? (Auf dem Server bleiben sie erhalten)",
     playerViewSummary: "{won} / {total} Champions gewonnen · {games} Spiel(e) ({wins} Siege)",
-    playerViewLastSync: " · letzter Sync: {time}"
+    playerViewLastSync: " · letzter Sync: {time}",
+
+    champDetailBack: "← Zurück zum Grid",
+    champDetailBestPartners: "Beste Partner (Trio)",
+    champDetailBestItems: "Beste Items",
+    champDetailBestAugments: "Beste Augments",
+    champDetailNoPartners: "Noch keine Trio-Daten für diesen Champion.",
+    champDetailNoBuild: "Noch keine Item-/Augment-Daten für diesen Champion.",
+    champDetailStatCheck: "💡 Lohnt sich auf Stats zu spielen",
+    backArrow: "←",
+    backToGridTitle: "Zurück zum Grid",
+    backToChampTitle: "Zurück zur Champion-Ansicht",
+    itemDetailHeading: "Item-Synergien",
+    augmentDetailHeading: "Augment-Synergien",
+    detailSynergyHeading: "Funktioniert gut mit",
+    detailNoSynergyData: "Noch keine Synergie-Daten dafür."
   },
   en: {
     rankingToggleTitle: "Show ranking",
@@ -163,7 +178,22 @@ const I18N = {
     statsFetchFailed: "Stats fetch failed ({status})",
     resetConfirm: "Really reset locally displayed data? (Stays intact on the server)",
     playerViewSummary: "{won} / {total} champions won · {games} game(s) ({wins} wins)",
-    playerViewLastSync: " · last sync: {time}"
+    playerViewLastSync: " · last sync: {time}",
+
+    champDetailBack: "← Back to grid",
+    champDetailBestPartners: "Best partners (trio)",
+    champDetailBestItems: "Best items",
+    champDetailBestAugments: "Best augments",
+    champDetailNoPartners: "No trio data for this champion yet.",
+    champDetailNoBuild: "No item/augment data for this champion yet.",
+    champDetailStatCheck: "💡 Worth playing on stats",
+    backArrow: "←",
+    backToGridTitle: "Back to grid",
+    backToChampTitle: "Back to champion view",
+    itemDetailHeading: "Item synergies",
+    augmentDetailHeading: "Augment synergies",
+    detailSynergyHeading: "Works well with",
+    detailNoSynergyData: "No synergy data for this yet."
   }
 };
 
@@ -239,7 +269,15 @@ function getWinCount(champKey) {
 let state = loadState();
 let championList = []; // [{id, name, key}] aus Data Dragon
 let championByApiName = {}; // { "Ahri": {icon, name}, "MonkeyKing": {...}, ... } - id ist Riots interner Name
+let championByNormName = {}; // wie championByApiName, aber Key normalisiert (kein Apostroph/Leerzeichen, lowercase)
 let lastFriendsList = null; // zuletzt geladene Freundesliste, fuer Re-Render bei Sprachwechsel
+let metaData = null; // zuletzt vom Server geladene /meta-Antwort, fuer die Champion-Detailansicht
+
+// Normalisiert einen Champion-Namen fuer Vergleiche, unabhaengig von
+// Apostroph/Punkt/Leerzeichen-Schreibweise ("Cho'Gath" / "ChoGath" -> "chogath").
+function normName(s) {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
 
 // ---------- Persistenz ----------
 
@@ -367,6 +405,14 @@ async function loadChampionList() {
   championByApiName = {};
   for (const c of championList) {
     championByApiName[c.id] = c;
+  }
+
+  // Normalisierter Index (z.B. "Cho'Gath" / "ChoGath" / "cho gath" -> "chogath"),
+  // damit Meta-Daten (Anzeigename mit Apostroph/Leerzeichen) zuverlaessig auf
+  // den richtigen Champion aus championList matchen, unabhaengig von Schreibweise.
+  championByNormName = {};
+  for (const c of championList) {
+    championByNormName[normName(c.id)] = c;
   }
 }
 
@@ -512,6 +558,7 @@ function renderGrid() {
     div.addEventListener("mouseenter", (e) => showChampTooltip(e, champ));
     div.addEventListener("mousemove", positionTooltip);
     div.addEventListener("mouseleave", hideChampTooltip);
+    div.addEventListener("click", () => openChampDetail(champ));
     grid.appendChild(div);
   }
 
@@ -623,6 +670,7 @@ async function loadMetaData() {
     const res = await fetch(serverUrl("/meta"));
     if (!res.ok) return; // noch keine Daten vorhanden, einfach ausblenden
     const data = await res.json();
+    metaData = data;
     renderMeta(data);
   } catch (err) {
     console.error("Meta-Daten konnten nicht geladen werden:", err);
@@ -669,6 +717,171 @@ function renderMeta(data) {
   document.getElementById("metaUpdatedText").textContent = data.updatedAt
     ? t("metaUpdatedAt", { time: new Date(data.updatedAt).toLocaleString(currentLang === "de" ? "de-DE" : "en-US") })
     : "";
+}
+
+// ---------- Champion-Detailansicht (Klick auf eine Kachel im Grid) ----------
+// Zeigt zu einem einzelnen Champion: beste Trio-Partner (aus den bereits
+// geladenen /meta-Daten, gleiche Quelle wie die Tages-Meta-Box), sowie
+// beste Items/Augments, falls der Server dafuer Daten liefert
+// (data.championBuilds, siehe Server-Doku). Reine Arena-Daten - ARAM
+// wird hier bewusst nicht beruecksichtigt.
+
+// Findet alle Trio-Kombinationen aus den Meta-Daten, in denen der
+// uebergebene Champion vorkommt (egal ob als "champion" oder "partner"),
+// und gibt jeweils die beiden anderen Champions + Tier/Winrate zurueck.
+function getBestPartners(champ) {
+  if (!metaData || !metaData.trioCombos) return [];
+  const target = normName(champ.id);
+  const results = [];
+  for (const combo of metaData.trioCombos) {
+    const allNames = [combo.champion, ...(combo.partners || [])];
+    if (!allNames.some((n) => normName(n) === target)) continue;
+    const others = allNames.filter((n) => normName(n) !== target);
+    results.push({ partners: others, tier: combo.tier, winRate: combo.winRate });
+  }
+  // Beste zuerst: hoehere Winrate vor niedrigerer.
+  results.sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
+  return results;
+}
+
+// Loest einen Anzeigenamen (z.B. "Cho'Gath") ueber den normalisierten
+// Index wieder auf ein echtes Champion-Objekt (mit Icon) auf, damit die
+// Partnerliste mit Bild statt nur Text dargestellt werden kann.
+function resolveChampByName(displayName) {
+  return championByNormName[normName(displayName)] || null;
+}
+
+function getChampBuild(champ) {
+  if (!metaData || !metaData.championBuilds) return null;
+  return metaData.championBuilds[normName(champ.id)] || null;
+}
+
+let currentDetailChamp = null; // zuletzt geoeffneter Champion, fuer den Rueckweg von der Item-/Augment-Ansicht
+
+function openChampDetail(champ) {
+  currentDetailChamp = champ;
+  hideChampTooltip();
+  document.getElementById("grid").classList.add("hidden");
+  const detail = document.getElementById("champDetail");
+  detail.classList.remove("hidden");
+
+  const build = getChampBuild(champ);
+  const partners = getBestPartners(champ);
+
+  let html = `
+    <div class="detailHeader">
+      <button class="backArrowBtn" id="champDetailBackBtn" title="${t("backToGridTitle")}">${t("backArrow")}</button>
+      <img src="${champ.icon}" alt="${champ.name}" />
+      <h2>${champ.name}</h2>
+    </div>
+  `;
+
+  // ---- Beste Partner (Trio) ----
+  html += `<div class="detailSection"><h3>${t("champDetailBestPartners")}</h3>`;
+  if (partners.length === 0) {
+    html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
+  } else {
+    html += `<ul class="detailPartnerList">`;
+    for (const p of partners) {
+      const partnerHtml = p.partners.map((name) => {
+        const c = resolveChampByName(name);
+        const icon = c ? `<img src="${c.icon}" alt="${c.name}" />` : "";
+        return `<span class="detailPartner">${icon}${c ? c.name : name}</span>`;
+      }).join("");
+      const winRateText = typeof p.winRate === "number" ? `${p.winRate.toFixed(1)}%` : "";
+      html += `
+        <li>
+          <span class="metaTier">${p.tier || ""}</span>
+          <span class="detailPartnerGroup">${partnerHtml}</span>
+          <span class="detailWinRate">${winRateText}</span>
+        </li>
+      `;
+    }
+    html += `</ul>`;
+  }
+  html += `</div>`;
+
+  // ---- Beste Items & Augments (klickbar -> zeigt Synergien) ----
+  html += `<div class="detailSection"><h3>${t("champDetailBestItems")}</h3>`;
+  if (build && build.bestItems && build.bestItems.length) {
+    html += `<ul class="detailTagList">` +
+      build.bestItems.map((i) => `<li class="clickableTag" data-name="${i}" data-type="item">${i}</li>`).join("") +
+      `</ul>`;
+  } else {
+    html += `<p class="detailEmpty">${t("champDetailNoBuild")}</p>`;
+  }
+  html += `</div>`;
+
+  html += `<div class="detailSection"><h3>${t("champDetailBestAugments")}</h3>`;
+  if (build && build.bestAugments && build.bestAugments.length) {
+    html += `<ul class="detailTagList">` +
+      build.bestAugments.map((a) => `<li class="clickableTag" data-name="${a}" data-type="augment">${a}</li>`).join("") +
+      `</ul>`;
+  } else {
+    html += `<p class="detailEmpty">${t("champDetailNoBuild")}</p>`;
+  }
+  html += `</div>`;
+
+  // ---- Hinweis: lohnt sich der Champion auf reine Stats? ----
+  if (build && build.statCheckNote) {
+    html += `<div class="detailStatCheck">${t("champDetailStatCheck")}: ${build.statCheckNote}</div>`;
+  }
+
+  detail.innerHTML = html;
+  document.getElementById("champDetailBackBtn").addEventListener("click", closeChampDetail);
+  detail.querySelectorAll(".clickableTag").forEach((li) => {
+    li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
+  });
+}
+
+// ---------- Item-/Augment-Detailansicht (Klick auf ein Item- oder Augment-Tag) ----------
+// Zweite Ebene unterhalb der Champion-Ansicht: zeigt, mit welchen anderen
+// Items/Augments eine gute Synergie besteht. Rueckweg fuehrt zurueck zur
+// zuletzt geoeffneten Champion-Ansicht (nicht direkt zum Grid).
+
+function getSynergyMap(type) {
+  if (!metaData) return {};
+  return type === "item" ? (metaData.itemSynergyMap || {}) : (metaData.augmentSynergyMap || {});
+}
+
+function getSynergiesFor(name, type) {
+  const map = getSynergyMap(type);
+  const key = normName(name);
+  for (const k in map) {
+    if (normName(k) === key) return map[k];
+  }
+  return null;
+}
+
+function openItemOrAugmentDetail(name, type) {
+  const detail = document.getElementById("champDetail");
+  const synergy = getSynergiesFor(name, type);
+  const heading = type === "item" ? t("itemDetailHeading") : t("augmentDetailHeading");
+
+  let html = `
+    <div class="detailHeader">
+      <button class="backArrowBtn" id="itemDetailBackBtn" title="${t("backToChampTitle")}">${t("backArrow")}</button>
+      <h2>${name}</h2>
+    </div>
+    <div class="detailSection"><h3>${heading} · ${t("detailSynergyHeading")}</h3>`;
+
+  if (synergy && synergy.with && synergy.with.length) {
+    html += `<ul class="detailTagList">` + synergy.with.map((n) => `<li>${n}</li>`).join("") + `</ul>`;
+    if (synergy.note) {
+      html += `<p class="detailEmpty" style="margin-top:6px;">${synergy.note}</p>`;
+    }
+  } else {
+    html += `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
+  }
+  html += `</div>`;
+
+  detail.innerHTML = html;
+  document.getElementById("itemDetailBackBtn").addEventListener("click", () => openChampDetail(currentDetailChamp));
+}
+
+function closeChampDetail() {
+  document.getElementById("champDetail").classList.add("hidden");
+  document.getElementById("grid").classList.remove("hidden");
 }
 
 // ---------- Freunde ----------
