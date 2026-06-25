@@ -1218,8 +1218,8 @@ function renderRanking(ranking) {
 
     li.innerHTML = `
       <span class="rankNum">${i + 1}.</span>
-      <span class="rankName">${entry.riotId}</span>
       ${opggLink}
+      <span class="rankName">${entry.riotId}</span>
       ${valueHtml}
     `;
     li.title = t("progressTitle");
