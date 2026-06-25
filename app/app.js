@@ -26,6 +26,9 @@ const I18N = {
     tabGlobal: "Global",
     tabFriends: "Freunde",
     rankingUpdateNote: "🕕 Update um 02:00 / 08:00 / 14:00 / 20:00 Uhr",
+    rankCatChampions: "Champions",
+    rankCatTotalWins: "Gesamt-Wins",
+    rankCatBestChamp: "Bester Champ",
     friendsToggleTitle: "Freunde verwalten",
     settingsToggleTitle: "Einstellungen",
     webNotice: "Browser-Testversion. Funktioniert identisch zur Overwolf-App, läuft aber als normale Webseite - kein Overwolf nötig.",
@@ -119,6 +122,9 @@ const I18N = {
     tabGlobal: "Global",
     tabFriends: "Friends",
     rankingUpdateNote: "🕕 Updates at 02:00 / 08:00 / 14:00 / 20:00",
+    rankCatChampions: "Champions",
+    rankCatTotalWins: "Total wins",
+    rankCatBestChamp: "Best champ",
     friendsToggleTitle: "Manage friends",
     settingsToggleTitle: "Settings",
     webNotice: "Browser test version. Works identically to the Overwolf app, but runs as a normal website - no Overwolf needed.",
@@ -1076,6 +1082,7 @@ safeBind("friendIdInput", "addEventListener", { event: "keydown", fn: (e) => {
 // ---------- Ranking ----------
 
 let currentRankingMode = "global";
+let currentRankingCategory = "champions"; // "champions" | "totalWins" | "bestChampion"
 let rankingLoadedOnce = false;
 
 function ensureRankingLoaded() {
@@ -1086,6 +1093,19 @@ function ensureRankingLoaded() {
 
 safeBind("rankingTabGlobal", "onclick", () => loadRanking("global"));
 safeBind("rankingTabFriends", "onclick", () => loadRanking("friends"));
+
+function bindRankCategoryTab(id, category) {
+  safeBind(id, "onclick", () => {
+    currentRankingCategory = category;
+    document.getElementById("rankCatChampions").classList.toggle("active", category === "champions");
+    document.getElementById("rankCatTotalWins").classList.toggle("active", category === "totalWins");
+    document.getElementById("rankCatBestChamp").classList.toggle("active", category === "bestChampion");
+    loadRanking(currentRankingMode);
+  });
+}
+bindRankCategoryTab("rankCatChampions", "champions");
+bindRankCategoryTab("rankCatTotalWins", "totalWins");
+bindRankCategoryTab("rankCatBestChamp", "bestChampion");
 
 async function loadRanking(mode) {
   currentRankingMode = mode;
@@ -1101,9 +1121,10 @@ async function loadRanking(mode) {
   }
 
   try {
-    const path = mode === "global"
+    const basePath = mode === "global"
       ? "/ranking/global"
       : `/ranking/friends/${encodeURIComponent(state.riotId)}`;
+    const path = `${basePath}?sort=${currentRankingCategory}`;
     const res = await fetch(serverUrl(path));
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || t("rankLoadFailed"));
@@ -1159,11 +1180,28 @@ function renderRanking(ranking) {
       ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}">op.gg</a>`
       : "";
 
+    // Je nach gewaehlter Kategorie wird ein anderer Wert angezeigt:
+    // Anzahl verschiedener Champions, Gesamt-Wins, oder bei "bestChampion"
+    // zusaetzlich der Champion-Name selbst (sonst waere die Zahl ohne
+    // Kontext, mit welchem Champion sie erzielt wurde).
+    let valueHtml;
+    if (currentRankingCategory === "totalWins") {
+      valueHtml = `<span class="rankWins">${entry.totalWins}</span>`;
+    } else if (currentRankingCategory === "bestChampion") {
+      const champ = entry.bestChampionKey ? championByApiName[entry.bestChampionKey] : null;
+      const champIcon = champ
+        ? `<img src="${champ.icon}" alt="${champ.name}" title="${champ.name}" class="rankBestChampIcon" />`
+        : "";
+      valueHtml = `${champIcon}<span class="rankWins">${entry.bestChampionWins}</span>`;
+    } else {
+      valueHtml = `<span class="rankWins">${entry.championsWon}</span>`;
+    }
+
     li.innerHTML = `
       <span class="rankNum">${i + 1}.</span>
       <span class="rankName">${entry.riotId}</span>
       ${opggLink}
-      <span class="rankWins">${entry.championsWon}</span>
+      ${valueHtml}
     `;
     li.title = t("progressTitle");
     li.addEventListener("click", () => openPlayerView(entry.riotId));
