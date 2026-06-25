@@ -256,10 +256,13 @@ button.danger:hover { background: #c43b4a; }
 #rankingList li.clickable { cursor: pointer; }
 #rankingList li.clickable:hover { background: rgba(255,122,60,0.16); }
 .opggLink {
-  font-size: 11px; color: #9c8882; text-decoration: none; flex-shrink: 0;
-  border: 1px solid #3a2620; border-radius: 4px; padding: 2px 6px;
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; flex-shrink: 0;
+  border: 1px solid #3a2620; border-radius: 4px; padding: 2px;
+  background: #16100d;
 }
-.opggLink:hover { color: #fff; border-color: #ff7a3c; }
+.opggLink img { width: 14px; height: 14px; border-radius: 2px; display: block; }
+.opggLink:hover { border-color: #ff7a3c; }
 .rankingUpdateNote { font-size: 12px; color: #9c8882; margin: 10px 0 0; }
 
 /* ---------- Spieler-Fortschritts-Modal (Klick auf Ranking-Eintrag) ---------- */
