@@ -322,7 +322,7 @@ button.danger:hover { background: #c43b4a; }
 }
 #rankingPanel { flex: 0 0 30%; }
 #mainRow #grid, #mainRow #champDetail { flex: 1 1 auto; min-width: 0; }
-#top30Trio { flex: 0 0 14%; }
+#top30Trio { flex: 0 0 8%; }
 
 /* ---------- Top-30-Trio-Section (immer sichtbar, ausser bei offener Champion-Detailansicht) ---------- */
 #top30Trio {
