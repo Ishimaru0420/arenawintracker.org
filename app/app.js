@@ -1151,6 +1151,15 @@ async function loadRanking(mode) {
 // Gruppe (z.B. EUNE statt EUW) zeigt der Link auf den naheliegendsten.
 const OPGG_REGION_MAP = { europe: "euw", americas: "na", asia: "kr", sea: "oce" };
 
+// Eigenes kleines Balkendiagramm-Icon fuer den op.gg-Link statt eines
+// externen Hotlinks auf op.gg's favicon (das zuverlaessig 404'te). Kann
+// dadurch nie "kaputt" aussehen, da nichts nachgeladen werden muss.
+const OPGG_ICON_SVG = `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="1" y="9" width="3" height="6" rx="0.5" fill="#ff7a3c"/>
+  <rect x="6.5" y="5" width="3" height="10" rx="0.5" fill="#ffb37a"/>
+  <rect x="12" y="1" width="3" height="14" rx="0.5" fill="#ff7a3c"/>
+</svg>`;
+
 function buildOpggUrl(riotId, region) {
   const platform = OPGG_REGION_MAP[region] || "euw";
   const [name, tag] = riotId.split("#");
@@ -1187,7 +1196,7 @@ function renderRanking(ranking) {
 
     const opggUrl = buildOpggUrl(entry.riotId, entry.region);
     const opggLink = opggUrl
-      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}"><img src="https://www.op.gg/favicon.ico" alt="op.gg" /></a>`
+      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}">${OPGG_ICON_SVG}</a>`
       : "";
 
     // Je nach gewaehlter Kategorie wird ein anderer Wert angezeigt:
