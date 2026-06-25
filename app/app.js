@@ -958,6 +958,21 @@ function confidenceLabel(confidence) {
   return t("champDetailAiConfidenceLow");
 }
 
+// Rendert ein einzelnes Tag der KI-Empfehlung: NUR Icon, kein Text -
+// Hover-Tooltip zeigt die offizielle Spielbeschreibung in der gerade
+// aktiven Sprache (currentLang). Laedt das Icon nicht (kaputter Pfad o.ä.),
+// faellt automatisch auf den Namen als Text zurueck statt leer zu bleiben.
+function renderAiTag(entry) {
+  const tooltipText = entry.tooltip ? (entry.tooltip[currentLang] || entry.tooltip.en || "") : "";
+  const title = tooltipText ? `${entry.name}: ${tooltipText}` : entry.name;
+  if (entry.icon) {
+    return `<li class="detailTagList-item" title="${title.replace(/"/g, "&quot;")}">` +
+      `<img src="${entry.icon}" alt="${entry.name}" onerror="this.parentElement.textContent='${entry.name}';" />` +
+      `</li>`;
+  }
+  return `<li class="detailTagList-item" title="${title.replace(/"/g, "&quot;")}">${entry.name}</li>`;
+}
+
 function renderAiMetaContent(aiMeta) {
   if (!aiMeta) {
     return `<h3>${t("champDetailAiHeading")}</h3><p class="detailEmpty">${t("champDetailAiNone")}</p>`;
@@ -968,19 +983,19 @@ function renderAiMetaContent(aiMeta) {
 
   if (aiMeta.coreItems && aiMeta.coreItems.length) {
     html += `<p class="detailSkillOrderLabel">${t("champDetailAiCore")}</p><ul class="detailTagList">` +
-      aiMeta.coreItems.map((i) => renderItemTag(i.name, false)).join("") + `</ul>`;
+      aiMeta.coreItems.map(renderAiTag).join("") + `</ul>`;
   }
   if (aiMeta.situationalItems && aiMeta.situationalItems.length) {
     html += `<p class="detailSkillOrderLabel">${t("champDetailAiSituational")}</p><ul class="detailTagList">` +
-      aiMeta.situationalItems.map((i) => renderItemTag(i.name, false)).join("") + `</ul>`;
+      aiMeta.situationalItems.map(renderAiTag).join("") + `</ul>`;
   }
   if (aiMeta.recommendedAugments && aiMeta.recommendedAugments.length) {
     html += `<p class="detailSkillOrderLabel">${t("champDetailAiAugments")}</p><ul class="detailTagList">` +
-      aiMeta.recommendedAugments.map((a) => `<li class="detailTagList-item">${a.name}</li>`).join("") + `</ul>`;
+      aiMeta.recommendedAugments.map(renderAiTag).join("") + `</ul>`;
   }
   if (aiMeta.recommendedSummonerSpells && aiMeta.recommendedSummonerSpells.length) {
     html += `<p class="detailSkillOrderLabel">${t("champDetailAiSpells")}</p><ul class="detailTagList">` +
-      aiMeta.recommendedSummonerSpells.map((s) => `<li class="detailTagList-item">${s.name}</li>`).join("") + `</ul>`;
+      aiMeta.recommendedSummonerSpells.map(renderAiTag).join("") + `</ul>`;
   }
   if (aiMeta.buildPathSummary) {
     html += `<p class="detailEmpty" style="margin-top:8px;">${aiMeta.buildPathSummary}</p>`;
