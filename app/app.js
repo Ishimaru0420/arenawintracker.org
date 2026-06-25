@@ -800,6 +800,11 @@ function buildOpggUrl(riotId, region) {
   return `https://www.op.gg/summoners/${platform}/${encodeURIComponent(name)}-${encodeURIComponent(tag)}`;
 }
 
+// Spezieller Spass-Fall: dieser Account bekommt eine "schlechte" Holz-/
+// Braun-Farbe, ausser er schafft es selbst auf einen Podiumsplatz - dann
+// gilt fuer ihn ganz normal die Gold/Silber/Bronze-Farbe wie fuer alle.
+const RUNNING_GAG_RIOTID = "xlizardx#4747";
+
 function renderRanking(ranking) {
   const list = document.getElementById("rankingList");
   list.innerHTML = "";
@@ -811,6 +816,16 @@ function renderRanking(ranking) {
     const li = document.createElement("li");
     li.classList.add("clickable");
     if (entry.riotId === state.riotId) li.classList.add("me");
+
+    // Podium-Farbe nach Platzierung (0-indiziert: 0=Gold, 1=Silber, 2=Bronze).
+    const podiumClass = i === 0 ? "rank-gold" : i === 1 ? "rank-silver" : i === 2 ? "rank-bronze" : "";
+    const isLizard = entry.riotId.toLowerCase() === RUNNING_GAG_RIOTID;
+    if (podiumClass) {
+      li.classList.add(podiumClass);
+    } else if (isLizard) {
+      // Nicht in den Top 3 UND der running gag - schlechte Holzfarbe.
+      li.classList.add("rank-lizard");
+    }
 
     const opggUrl = buildOpggUrl(entry.riotId, entry.region);
     const opggLink = opggUrl
