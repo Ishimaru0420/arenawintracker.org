@@ -171,6 +171,30 @@ const I18N = {
 
 let currentLang = localStorage.getItem(LANG_STORAGE_KEY) || "de";
 
+// Setzt einen Event-Handler nur, wenn das Element wirklich existiert.
+// Verhindert, dass EIN fehlendes/falsch benanntes Element (z.B. durch
+// eine veraltete index.html) das GESAMTE restliche Skript zum Absturz
+// bringt - ohne diese Absicherung wuerde ein einzelner Tippfehler oder
+// ein Versions-Mismatch dazu fuehren, dass die komplette App leer bleibt.
+function safeBind(id, prop, handler) {
+  const el = document.getElementById(id);
+  if (!el) {
+    console.warn(`safeBind: Element #${id} nicht gefunden - "${prop}" wurde NICHT gesetzt.`);
+    return;
+  }
+  if (prop === "addEventListener") {
+    el.addEventListener(handler.event, handler.fn);
+  } else {
+    el[prop] = handler;
+  }
+}
+
+function safeSetValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+  else console.warn(`safeSetValue: Element #${id} nicht gefunden.`);
+}
+
 // Holt einen uebersetzten String und ersetzt {platzhalter} mit Werten aus vars.
 function t(key, vars) {
   const str = (I18N[currentLang] && I18N[currentLang][key]) || I18N.de[key] || key;
@@ -250,13 +274,13 @@ function saveState() {
 
 // ---------- UI Init ----------
 
-document.getElementById("riotId").value = state.riotId;
-document.getElementById("region").value = state.region;
-document.getElementById("seasonStart").value = state.seasonStart;
+safeSetValue("riotId", state.riotId);
+safeSetValue("region", state.region);
+safeSetValue("seasonStart", state.seasonStart);
 
 applyStaticTranslations();
 
-document.getElementById("langToggle").onclick = () => {
+safeBind("langToggle", "onclick", () => {
   currentLang = currentLang === "de" ? "en" : "de";
   localStorage.setItem(LANG_STORAGE_KEY, currentLang);
   applyStaticTranslations();
@@ -268,22 +292,22 @@ document.getElementById("langToggle").onclick = () => {
     loadRanking(currentRankingMode);
   }
   if (viewedPlayerStats) renderPlayerViewGrid();
-};
+});
 
 const DEFAULT_SEASON_START = "2026-04-29";
-document.getElementById("resetSeasonStart").onclick = () => {
-  document.getElementById("seasonStart").value = DEFAULT_SEASON_START;
-};
+safeBind("resetSeasonStart", "onclick", () => {
+  safeSetValue("seasonStart", DEFAULT_SEASON_START);
+});
 
-document.getElementById("settingsToggle").onclick = () => {
+safeBind("settingsToggle", "onclick", () => {
   document.getElementById("settingsPanel").classList.toggle("hidden");
-};
+});
 
-document.getElementById("friendsToggle").onclick = () => {
+safeBind("friendsToggle", "onclick", () => {
   document.getElementById("friendsPanel").classList.toggle("hidden");
-};
+});
 
-document.getElementById("saveSettings").onclick = async () => {
+safeBind("saveSettings", "onclick", async () => {
   state.riotId = document.getElementById("riotId").value.trim();
   state.region = document.getElementById("region").value;
   const newSeasonStart = document.getElementById("seasonStart").value;
@@ -295,9 +319,9 @@ document.getElementById("saveSettings").onclick = async () => {
   if (seasonStartChanged) await updateSeasonOnServer();
   loadMetaData();
   loadFriends();
-};
+});
 
-document.getElementById("resetData").onclick = () => {
+safeBind("resetData", "onclick", () => {
   if (!confirm(t("resetConfirm"))) return;
   state.wins = {};
   state.winCounts = {};
@@ -306,11 +330,11 @@ document.getElementById("resetData").onclick = () => {
   saveState();
   renderGrid();
   setStatus(t("statusResetDone"));
-};
+});
 
-document.getElementById("filterInput").oninput = renderGrid;
-document.getElementById("onlyMissing").onchange = renderGrid;
-document.getElementById("sortMode").onchange = renderGrid;
+safeBind("filterInput", "oninput", renderGrid);
+safeBind("onlyMissing", "onchange", renderGrid);
+safeBind("sortMode", "onchange", renderGrid);
 
 function setStatus(text) {
   document.getElementById("statusText").textContent = text;
@@ -714,27 +738,27 @@ async function removeFriend(friendRiotId) {
   }
 }
 
-document.getElementById("addFriendBtn").onclick = addFriend;
-document.getElementById("friendIdInput").addEventListener("keydown", (e) => {
+safeBind("addFriendBtn", "onclick", addFriend);
+safeBind("friendIdInput", "addEventListener", { event: "keydown", fn: (e) => {
   if (e.key === "Enter") addFriend();
-});
+} });
 
 // ---------- Ranking ----------
 
 let currentRankingMode = "global";
 let rankingLoadedOnce = false;
 
-document.getElementById("rankingToggle").onclick = () => {
+safeBind("rankingToggle", "onclick", () => {
   const box = document.getElementById("rankingBox");
   box.classList.toggle("hidden");
   if (!box.classList.contains("hidden") && !rankingLoadedOnce) {
     rankingLoadedOnce = true;
     loadRanking("global");
   }
-};
+});
 
-document.getElementById("rankingTabGlobal").onclick = () => loadRanking("global");
-document.getElementById("rankingTabFriends").onclick = () => loadRanking("friends");
+safeBind("rankingTabGlobal", "onclick", () => loadRanking("global"));
+safeBind("rankingTabFriends", "onclick", () => loadRanking("friends"));
 
 async function loadRanking(mode) {
   currentRankingMode = mode;
@@ -868,7 +892,7 @@ async function updatePlayerViewFriendButton(riotId) {
   }
 }
 
-document.getElementById("playerViewAddFriend").onclick = async () => {
+safeBind("playerViewAddFriend", "onclick", async () => {
   const riotId = document.getElementById("playerViewName").textContent;
   const btn = document.getElementById("playerViewAddFriend");
   btn.disabled = true;
@@ -881,7 +905,7 @@ document.getElementById("playerViewAddFriend").onclick = async () => {
     btn.disabled = false;
     btn.textContent = t("addFriendBtnShort");
   }
-};
+});
 
 function renderPlayerViewGrid() {
   if (!viewedPlayerStats) return;
@@ -933,12 +957,12 @@ function renderPlayerViewGrid() {
     (viewedPlayerStats.lastSync ? t("playerViewLastSync", { time: formatLastSync(viewedPlayerStats.lastSync) }) : "");
 }
 
-document.getElementById("playerViewClose").onclick = () => {
+safeBind("playerViewClose", "onclick", () => {
   document.getElementById("playerViewOverlay").classList.add("hidden");
   viewedPlayerStats = null;
-};
+});
 
-document.getElementById("playerViewFilter").oninput = renderPlayerViewGrid;
+safeBind("playerViewFilter", "oninput", renderPlayerViewGrid);
 
 // ---------- Start ----------
 

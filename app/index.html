@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Arena Win Tracker - Web</title>
-  <link rel="stylesheet" href="app.css?v=4" />
+  <link rel="stylesheet" href="app.css?v=5" />
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
        nicht noetig sind (dort ist die Fenstergroesse fix). */
@@ -51,7 +51,7 @@
     </p>
 
     <section id="friendsPanel" class="hidden">
-      <label data-i18n="friendIdLabel">Riot-ID des Freundes
+      <label><span data-i18n="friendIdLabel">Riot-ID des Freundes</span>
         <input id="friendIdInput" type="text" placeholder="z.B. Buddy#EUW" data-i18n-placeholder="friendIdPlaceholder" list="registeredUsersList" />
         <datalist id="registeredUsersList"></datalist>
       </label>
@@ -63,10 +63,10 @@
     </section>
 
     <section id="settingsPanel" class="hidden">
-      <label data-i18n="riotIdLabel">Riot ID (Name#Tag)
+      <label><span data-i18n="riotIdLabel">Riot ID (Name#Tag)</span>
         <input id="riotId" type="text" placeholder="z.B. Glitch#EUW" data-i18n-placeholder="riotIdPlaceholder" />
       </label>
-      <label data-i18n="regionLabel">Region
+      <label><span data-i18n="regionLabel">Region</span>
         <select id="region">
           <option value="europe">Europe (EUW/EUNE/TR/RU)</option>
           <option value="americas">Americas (NA/BR/LAN/LAS)</option>
@@ -74,7 +74,7 @@
           <option value="sea">SEA (OCE/SG/PH/...)</option>
         </select>
       </label>
-      <label data-i18n="seasonStartLabel">Season-Start (Arena-Reset Datum)
+      <label><span data-i18n="seasonStartLabel">Season-Start (Arena-Reset Datum)</span>
         <div class="seasonStartRow">
           <input id="seasonStart" type="date" />
           <button id="resetSeasonStart" type="button" title="Auf Standard zurücksetzen (29.04.2026)" data-i18n="resetSeasonStartBtn" data-i18n-title="resetSeasonStartTitle">↺ Standard</button>
@@ -144,6 +144,6 @@
     </div>
   </div>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>
