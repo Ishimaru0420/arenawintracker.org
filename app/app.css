@@ -157,23 +157,13 @@ button.danger:hover { background: #c43b4a; }
 }
 #langToggle:hover { background: #2a1c17; }
 
-/* ---------- Ranking-Panel: fest oben links auf der Seite ---------- */
+/* ---------- Ranking-Panel: jetzt feste linke Spalte in #mainRow ---------- */
 #rankingPanel {
-  position: fixed; top: 12px; left: 12px; z-index: 50;
-  font-family: "Segoe UI", Arial, sans-serif;
-}
-#rankingToggle {
-  background: #ff7a3c; color: #1f0e04; border: none; border-radius: 50%;
-  width: 46px; height: 46px; font-size: 20px; cursor: pointer;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-}
-#rankingToggle:hover { background: #ff9159; }
-#rankingBox {
-  margin-top: 8px; width: 340px;
   background: rgba(20, 13, 11, 0.97); border: 1px solid #3a2620;
-  border-radius: 10px; padding: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  border-radius: 10px; padding: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  display: flex; flex-direction: column; min-width: 0;
 }
-#rankingBox.hidden { display: none; }
+#rankingPanel.hidden { display: none; }
 .rankingTabs { display: flex; gap: 6px; margin-bottom: 10px; }
 .rankingTab {
   flex: 1; background: #221715; color: #b3a39c; border: 1px solid #3a2620;
@@ -181,7 +171,7 @@ button.danger:hover { background: #c43b4a; }
 }
 .rankingTab.active { background: #ff7a3c; color: #1f0e04; border-color: #ff7a3c; }
 #rankingList {
-  list-style: none; margin: 0; padding: 0; max-height: 420px; overflow-y: auto;
+  list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1;
   display: flex; flex-direction: column; gap: 5px;
 }
 #rankingList li {
@@ -311,14 +301,13 @@ button.danger:hover { background: #c43b4a; }
 }
 #grid.hidden { display: none; }
 
-/* ---------- Hauptzeile: Grid/Detailansicht links, Top-30-Trios fest rechts ---------- */
+/* ---------- Hauptzeile: Leaderboard | Grid/Detailansicht | Top-30-Trios ---------- */
 #mainRow {
   flex: 1; min-height: 0; display: flex; gap: 10px;
 }
-#mainRow #grid, #mainRow #champDetail { flex: 1; min-width: 0; }
-#top30Trio {
-  flex-shrink: 0; width: 340px;
-}
+#rankingPanel { flex: 0 0 22%; }
+#mainRow #grid, #mainRow #champDetail { flex: 1 1 auto; min-width: 0; }
+#top30Trio { flex: 0 0 22%; }
 
 /* ---------- Top-30-Trio-Section (immer sichtbar, ausser bei offener Champion-Detailansicht) ---------- */
 #top30Trio {
@@ -334,9 +323,9 @@ button.danger:hover { background: #c43b4a; }
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 900px) {
   #mainRow { flex-direction: column; }
-  #top30Trio { width: auto; }
+  #rankingPanel, #top30Trio { flex: 1 1 auto; }
 }
 
 .champ {
