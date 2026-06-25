@@ -287,6 +287,7 @@ function getWinCount(champKey) {
 let state = loadState();
 let championList = []; // [{id, name, key}] aus Data Dragon
 let championByApiName = {}; // { "Ahri": {icon, name}, "MonkeyKing": {...}, ... } - id ist Riots interner Name
+let championByKey = {}; // { "112": {icon, name}, ... } - numerischer Riot-Key, wie winCounts/wins indiziert sind
 let championByNormName = {}; // wie championByApiName, aber Key normalisiert (kein Apostroph/Leerzeichen, lowercase)
 let lastFriendsList = null; // zuletzt geladene Freundesliste, fuer Re-Render bei Sprachwechsel
 let metaData = null; // zuletzt vom Server geladene /meta-Antwort, fuer die Champion-Detailansicht
@@ -428,6 +429,15 @@ async function loadChampionList() {
   championByApiName = {};
   for (const c of championList) {
     championByApiName[c.id] = c;
+  }
+
+  // Lookup nach dem NUMERISCHEN Riot-Key (z.B. "112" fuer Viktor) - so
+  // sind winCounts/wins/matchHistory indiziert (siehe champ.key in
+  // renderGrid). Wird fuer die "Bester Champion"-Ranking-Kategorie
+  // gebraucht, um aus dem gespeicherten Key wieder Icon/Name aufzuloesen.
+  championByKey = {};
+  for (const c of championList) {
+    championByKey[c.key] = c;
   }
 
   // Normalisierter Index (z.B. "Cho'Gath" / "ChoGath" / "cho gath" -> "chogath"),
@@ -1177,7 +1187,7 @@ function renderRanking(ranking) {
 
     const opggUrl = buildOpggUrl(entry.riotId, entry.region);
     const opggLink = opggUrl
-      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}">op.gg</a>`
+      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}"><img src="https://www.op.gg/favicon.ico" alt="op.gg" /></a>`
       : "";
 
     // Je nach gewaehlter Kategorie wird ein anderer Wert angezeigt:
@@ -1188,7 +1198,7 @@ function renderRanking(ranking) {
     if (currentRankingCategory === "totalWins") {
       valueHtml = `<span class="rankWins">${entry.totalWins}</span>`;
     } else if (currentRankingCategory === "bestChampion") {
-      const champ = entry.bestChampionKey ? championByApiName[entry.bestChampionKey] : null;
+      const champ = entry.bestChampionKey ? championByKey[entry.bestChampionKey] : null;
       const champIcon = champ
         ? `<img src="${champ.icon}" alt="${champ.name}" title="${champ.name}" class="rankBestChampIcon" />`
         : "";
