@@ -837,12 +837,32 @@ function renderTop30TrioSection() {
 }
 
 // ---- Mittlere Spalte: beste Items fuer den Champion (klickbar) ----
+// Liefert die Icon-URL fuer einen Item-Namen, falls der Server eine
+// itemIconMap mitliefert (normalisierter Name -> URL). Kein Icon
+// vorhanden -> null, dann faellt die Darstellung auf reinen Text zurueck.
+function getItemIcon(name) {
+  if (!metaData || !metaData.itemIconMap) return null;
+  return metaData.itemIconMap[normName(name)] || null;
+}
+
+// Rendert ein einzelnes Item/Augment-Tag - mit Icon, falls vorhanden
+// (kompakt), sonst als Text-Pille wie bisher.
+function renderItemTag(name, clickable, type) {
+  const icon = getItemIcon(name);
+  const cls = clickable ? "detailTagList-item clickableTag" : "detailTagList-item";
+  const dataAttrs = clickable ? ` data-name="${name}" data-type="${type}"` : "";
+  if (icon) {
+    return `<li class="${cls}"${dataAttrs} title="${name}"><img src="${icon}" alt="${name}" /></li>`;
+  }
+  return `<li class="${cls}"${dataAttrs}>${name}</li>`;
+}
+
 function renderBestItemsColumn(champ) {
   const build = getChampBuild(champ);
   let html = `<div class="detailSection"><h3>${t("champDetailBestItems")}</h3>`;
   if (build && build.bestItems && build.bestItems.length) {
     html += `<ul class="detailTagList">` +
-      build.bestItems.map((i) => `<li class="clickableTag" data-name="${i}" data-type="item">${i}</li>`).join("") +
+      build.bestItems.map((i) => renderItemTag(i, true, "item")).join("") +
       `</ul>`;
   } else {
     html += `<p class="detailEmpty">${t("champDetailNoBuild")}</p>`;
@@ -951,7 +971,9 @@ function openItemOrAugmentDetail(name, type) {
     <div class="detailSection"><h3>${heading} · ${t("detailSynergyHeading")}</h3>`;
 
   if (synergy && synergy.with && synergy.with.length) {
-    html += `<ul class="detailTagList">` + synergy.with.map((n) => `<li>${n}</li>`).join("") + `</ul>`;
+    html += `<ul class="detailTagList">` +
+      synergy.with.map((n) => renderItemTag(n, false)).join("") +
+      `</ul>`;
     if (synergy.note) {
       html += `<p class="detailEmpty" style="margin-top:6px;">${synergy.note}</p>`;
     }
