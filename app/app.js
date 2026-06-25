@@ -68,10 +68,9 @@ const I18N = {
     summaryWon: "{won} / {total} Champions gewonnen",
     overallStats: "{games} Spiel(e) insgesamt ({wins} Siege / {losses} Niederlagen)",
     tooltipNoGames: "Keine Arena-Spiele seit Season-Start.",
-    tooltipGamesCount: "{count} Spiel(e) seit {date}",
+    tooltipGamesCount: "{count} Spiel(e)",
     tooltipWin: "Sieg",
     tooltipLose: "Niederlage",
-    placementSuffix: "(Platz {n})",
     withLabel: "mit",
     metaUpdatedAt: "Stand: {time}",
     friendEmpty: "Noch keine Freunde hinzugefügt.",
@@ -141,10 +140,9 @@ const I18N = {
     summaryWon: "{won} / {total} champions won",
     overallStats: "{games} game(s) total ({wins} wins / {losses} losses)",
     tooltipNoGames: "No Arena games since season start.",
-    tooltipGamesCount: "{count} game(s) since {date}",
+    tooltipGamesCount: "{count} game(s)",
     tooltipWin: "Win",
     tooltipLose: "Loss",
-    placementSuffix: "(rank {n})",
     withLabel: "with",
     metaUpdatedAt: "Updated: {time}",
     friendEmpty: "No friends added yet.",
@@ -554,13 +552,14 @@ function showChampTooltip(e, champ) {
   if (history.length === 0) {
     html += `<div class="tooltipEmpty">${t("tooltipNoGames")}</div>`;
   } else {
-    html += `<div class="tooltipCount">${t("tooltipGamesCount", { count: history.length, date: formatSeasonStart() })}</div>`;
+    html += `<div class="tooltipCount">${t("tooltipGamesCount", { count: history.length })}</div>`;
     html += `<ul class="tooltipList">`;
     const dateLocale = currentLang === "de" ? "de-DE" : "en-US";
     for (const g of history) {
       const isWin = g.placement === 1;
       const dateStr = new Date(g.date).toLocaleDateString(dateLocale, { day: "2-digit", month: "2-digit" });
-      const placementBadge = `<span class="placementBadge ${isWin ? "placementWin" : "placementLose"}">${g.placement}</span>`;
+      const placementText = currentLang === "de" ? `${g.placement}. Platz` : `${ordinal(g.placement)} place`;
+      const placementBadge = `<span class="placementBadge ${isWin ? "placementWin" : "placementLose"}">${placementText}</span>`;
       const mates = g.teammates && g.teammates.length
         ? g.teammates.map((m) => {
             const champData = championByApiName[m.champion];
@@ -605,6 +604,14 @@ function formatSeasonStart() {
   return state.seasonStart
     ? new Date(state.seasonStart).toLocaleDateString("de-DE")
     : "Season-Start";
+}
+
+// Englische Ordinalzahl fuer die Platzierungsanzeige im Tooltip
+// (1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4/5/6/... -> "4th" usw.).
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
 // ---------- Tages-Meta: Trio-Combos & Augment/Item-Synergien ----------
