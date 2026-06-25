@@ -310,6 +310,22 @@ button.danger:hover { background: #c43b4a; }
 }
 #grid.hidden { display: none; }
 
+/* ---------- Top-30-Trio-Section (immer sichtbar, ausser bei offener Champion-Detailansicht) ---------- */
+#top30Trio {
+  -webkit-app-region: no-drag;
+  background: linear-gradient(180deg, #1a1212, #150f0d);
+  border: 1px solid #3a2620; border-radius: 6px;
+  padding: 8px 10px; margin-bottom: 8px;
+  max-height: 220px; overflow-y: auto;
+}
+#top30Trio.hidden { display: none; }
+#top30Trio h3 {
+  font-size: 11px; color: #ff7a3c; margin: 0 0 6px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+#top30Trio::-webkit-scrollbar { width: 4px; }
+#top30Trio::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
+
 .champ {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 4px; border-radius: 6px; background: rgba(255,122,60,0.035);
@@ -465,20 +481,14 @@ button.danger:hover { background: #c43b4a; }
 
 .detailGrid3 {
   display: grid;
-  grid-template-columns: 200px 1fr 240px;
-  gap: 12px;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
   align-items: start;
 }
 .detailColMiddle { display: flex; flex-direction: column; gap: 10px; }
-.detailColLeft, .detailColRight {
-  max-height: 75vh; overflow-y: auto;
-}
-.detailColLeft::-webkit-scrollbar, .detailColRight::-webkit-scrollbar { width: 4px; }
-.detailColLeft::-webkit-scrollbar-thumb, .detailColRight::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
 
-@media (max-width: 760px) {
+@media (max-width: 640px) {
   .detailGrid3 { grid-template-columns: 1fr; }
-  .detailColLeft, .detailColRight { max-height: none; }
 }
 
 .detailHeader {
@@ -542,4 +552,26 @@ button.danger:hover { background: #c43b4a; }
 .detailStatCheck {
   background: rgba(34,197,94,0.10); border: 1px solid #22c55e;
   border-radius: 6px; padding: 7px 10px; font-size: 11px; color: #4ade80;
+}
+
+.detailSkillOrder {
+  background: linear-gradient(180deg, #1a1212, #150f0d);
+  border: 1px solid #3a2620; border-radius: 6px;
+  padding: 7px 10px; font-size: 12px; color: #f5ece6;
+}
+.detailSkillOrderLabel {
+  color: #ff7a3c; font-weight: 700; text-transform: uppercase;
+  font-size: 10.5px; letter-spacing: 0.04em; margin-right: 6px;
+}
+.detailEmptyInline { color: #9c8882; font-weight: 400; text-transform: none; }
+
+.detailTactics { }
+.detailTacticsList {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px;
+}
+.detailTacticsList li {
+  position: relative; padding-left: 14px; font-size: 11.5px; color: #f5ece6; line-height: 1.4;
+}
+.detailTacticsList li::before {
+  content: "•"; position: absolute; left: 0; color: #ff7a3c; font-weight: 700;
 }
