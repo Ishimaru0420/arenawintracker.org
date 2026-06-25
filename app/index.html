@@ -9,7 +9,7 @@
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
        nicht noetig sind (dort ist die Fenstergroesse fix). */
     html, body { height: auto; min-height: 100vh; }
-    #app { height: auto; min-height: 100vh; max-width: 480px; margin: 0 auto; }
+    #app { height: auto; min-height: 100vh; max-width: 1320px; margin: 0 auto; }
     #grid { max-height: 70vh; }
     .webNotice {
       background: rgba(255,122,60,0.10); border: 1px solid #ff7a3c;
@@ -21,18 +21,6 @@
 <body>
   <div id="langPanel">
     <button id="langToggle" title="Language / Sprache">DE</button>
-  </div>
-
-  <div id="rankingPanel">
-    <button id="rankingToggle" title="Ranking anzeigen" data-i18n-title="rankingToggleTitle">🏆</button>
-    <div id="rankingBox" class="hidden">
-      <div class="rankingTabs">
-        <button id="rankingTabGlobal" class="rankingTab active" data-i18n="tabGlobal">Global</button>
-        <button id="rankingTabFriends" class="rankingTab" data-i18n="tabFriends">Freunde</button>
-      </div>
-      <ol id="rankingList"></ol>
-      <p class="rankingUpdateNote" data-i18n="rankingUpdateNote">🕕 Update alle 6 Std.</p>
-    </div>
   </div>
 
   <div id="app">
@@ -109,6 +97,15 @@
     </section>
 
     <div id="mainRow">
+      <section id="rankingPanel">
+        <div class="rankingTabs">
+          <button id="rankingTabGlobal" class="rankingTab active" data-i18n="tabGlobal">Global</button>
+          <button id="rankingTabFriends" class="rankingTab" data-i18n="tabFriends">Freunde</button>
+        </div>
+        <ol id="rankingList"></ol>
+        <p class="rankingUpdateNote" data-i18n="rankingUpdateNote">🕕 Update alle 6 Std.</p>
+      </section>
+
       <section id="grid"></section>
 
       <section id="champDetail" class="hidden"></section>
