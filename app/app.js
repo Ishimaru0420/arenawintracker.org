@@ -594,15 +594,105 @@ function renderRanking(ranking) {
   }
   ranking.forEach((entry, i) => {
     const li = document.createElement("li");
+    li.classList.add("clickable");
     if (entry.riotId === state.riotId) li.classList.add("me");
     li.innerHTML = `
       <span class="rankNum">${i + 1}.</span>
       <span class="rankName">${entry.riotId}</span>
-      <span class="rankWins">${entry.totalWins}</span>
+      <span class="rankWins">${entry.championsWon}</span>
     `;
+    li.title = "Fortschritt anzeigen";
+    li.addEventListener("click", () => openPlayerView(entry.riotId));
     list.appendChild(li);
   });
 }
+
+// ---------- Spieler-Fortschrittsansicht (Klick auf Ranking-Eintrag) ----------
+// Holt die OEFFENTLICHEN Stats eines beliebigen registrierten Nutzers
+// ueber denselben /stats/:riotId-Endpunkt, den die App auch fuer den
+// eigenen Account nutzt - kein Login noetig, identisch zur bestehenden
+// Datenschutz-Logik (jeder kann gezielt eine Riot-ID abrufen).
+let viewedPlayerStats = null;
+
+async function openPlayerView(riotId) {
+  const overlay = document.getElementById("playerViewOverlay");
+  const nameEl = document.getElementById("playerViewName");
+  const summaryEl = document.getElementById("playerViewSummary");
+  const gridEl = document.getElementById("playerViewGrid");
+
+  nameEl.textContent = riotId;
+  summaryEl.textContent = "Lade...";
+  gridEl.innerHTML = "";
+  overlay.classList.remove("hidden");
+
+  try {
+    const res = await fetch(serverUrl(`/stats/${encodeURIComponent(riotId)}`));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Stats konnten nicht geladen werden.");
+    viewedPlayerStats = data;
+    renderPlayerViewGrid();
+  } catch (err) {
+    console.error(err);
+    summaryEl.textContent = "Fehler: " + err.message;
+  }
+}
+
+function renderPlayerViewGrid() {
+  if (!viewedPlayerStats) return;
+  const gridEl = document.getElementById("playerViewGrid");
+  const summaryEl = document.getElementById("playerViewSummary");
+  const filterText = document.getElementById("playerViewFilter").value.toLowerCase();
+
+  const winCounts = viewedPlayerStats.winCounts || {};
+  const matchHistory = viewedPlayerStats.matchHistory || {};
+
+  gridEl.innerHTML = "";
+  let wonCount = 0;
+
+  const visible = championList.filter((c) => c.name.toLowerCase().includes(filterText));
+
+  for (const champ of visible) {
+    const winCount = winCounts[champ.key] || 0;
+    const hasWin = winCount > 0;
+    const hasGames = !!(matchHistory[champ.key] && matchHistory[champ.key].length > 0);
+    if (hasWin) wonCount++;
+
+    let status;
+    if (hasWin) status = "won";
+    else if (hasGames) status = "lost";
+    else status = "missing";
+
+    const tierClass = getTierClass(winCount);
+
+    const div = document.createElement("div");
+    div.className = "champ " + status + (tierClass ? " " + tierClass : "");
+    div.innerHTML = `
+      <img src="${champ.icon}" alt="${champ.name}" />
+      ${hasWin ? `<span class="winBadge">${winCount}</span>` : ""}
+      <span>${champ.name}</span>
+    `;
+    gridEl.appendChild(div);
+  }
+
+  let totalGames = 0;
+  let totalWins = 0;
+  for (const champKey in matchHistory) {
+    const games = matchHistory[champKey] || [];
+    totalGames += games.length;
+    totalWins += games.filter((g) => g.placement === 1).length;
+  }
+
+  summaryEl.textContent =
+    `${wonCount} / ${championList.length} Champions gewonnen · ${totalGames} Spiel(e) (${totalWins} Siege)` +
+    (viewedPlayerStats.lastSync ? ` · letzter Sync: ${formatLastSync(viewedPlayerStats.lastSync)}` : "");
+}
+
+document.getElementById("playerViewClose").onclick = () => {
+  document.getElementById("playerViewOverlay").classList.add("hidden");
+  viewedPlayerStats = null;
+};
+
+document.getElementById("playerViewFilter").oninput = renderPlayerViewGrid;
 
 // ---------- Start ----------
 
