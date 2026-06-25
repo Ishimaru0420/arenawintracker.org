@@ -320,7 +320,7 @@ button.danger:hover { background: #c43b4a; }
 #mainRow {
   flex: 1; min-height: 0; display: flex; gap: 10px;
 }
-#rankingPanel { flex: 0 0 21%; }
+#rankingPanel { flex: 0 0 17.85%; }
 #mainRow #grid, #mainRow #champDetail { flex: 1 1 auto; min-width: 0; }
 #top30Trio { flex: 0 0 8%; }
 
