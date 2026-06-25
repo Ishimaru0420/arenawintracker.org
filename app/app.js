@@ -40,7 +40,6 @@ function getWinCount(champKey) {
 let state = loadState();
 let championList = []; // [{id, name, key}] aus Data Dragon
 let championByApiName = {}; // { "Ahri": {icon, name}, "MonkeyKing": {...}, ... } - id ist Riots interner Name
-let isSyncing = false;
 
 // ---------- Persistenz ----------
 
@@ -59,7 +58,6 @@ function defaultState() {
     riotId: "",
     region: "europe",
     serverUrl: DEFAULT_SERVER_URL,
-    syncSecret: "",
     seasonStart: "2026-04-29",
     wins: {},          // { championKey: true } - kommt vom Server
     winCounts: {},     // { championKey: Anzahl Erster-Plaetze } - kommt vom Server
@@ -76,9 +74,12 @@ function saveState() {
 
 document.getElementById("riotId").value = state.riotId;
 document.getElementById("region").value = state.region;
-document.getElementById("serverUrl").value = state.serverUrl;
-document.getElementById("syncSecret").value = state.syncSecret;
 document.getElementById("seasonStart").value = state.seasonStart;
+
+const DEFAULT_SEASON_START = "2026-04-29";
+document.getElementById("resetSeasonStart").onclick = () => {
+  document.getElementById("seasonStart").value = DEFAULT_SEASON_START;
+};
 
 document.getElementById("settingsToggle").onclick = () => {
   document.getElementById("settingsPanel").classList.toggle("hidden");
@@ -91,12 +92,13 @@ document.getElementById("friendsToggle").onclick = () => {
 document.getElementById("saveSettings").onclick = async () => {
   state.riotId = document.getElementById("riotId").value.trim();
   state.region = document.getElementById("region").value;
-  state.serverUrl = document.getElementById("serverUrl").value.trim().replace(/\/$/, "");
-  state.syncSecret = document.getElementById("syncSecret").value.trim();
-  state.seasonStart = document.getElementById("seasonStart").value;
+  const newSeasonStart = document.getElementById("seasonStart").value;
+  const seasonStartChanged = newSeasonStart !== state.seasonStart;
+  state.seasonStart = newSeasonStart;
   saveState();
   document.getElementById("settingsPanel").classList.add("hidden");
   await registerAndLoad();
+  if (seasonStartChanged) await updateSeasonOnServer();
   loadMetaData();
   loadFriends();
 };
@@ -109,10 +111,9 @@ document.getElementById("resetData").onclick = () => {
   state.lastSync = null;
   saveState();
   renderGrid();
-  setStatus("Lokale Anzeige zurückgesetzt. Mit 'Jetzt syncen' neu laden.");
+  setStatus("Lokale Anzeige zurückgesetzt. Lädt automatisch beim nächsten Server-Sync neu.");
 };
 
-document.getElementById("syncBtn").onclick = () => triggerSync();
 document.getElementById("filterInput").oninput = renderGrid;
 document.getElementById("onlyMissing").onchange = renderGrid;
 
@@ -192,22 +193,25 @@ async function fetchStatsFromServer() {
   return res.json();
 }
 
-// Stoesst einen sofortigen Sync fuer die eigene Riot-ID an, statt auf
-// den naechsten taeglichen Cron-Lauf zu warten.
-async function triggerSyncOnServer() {
-  const encodedId = encodeURIComponent(state.riotId);
-  const res = await fetch(serverUrl(`/sync/${encodedId}`), {
-    method: "POST",
-    headers: { "x-cron-secret": state.syncSecret }
-  });
-  if (res.status === 401) {
-    throw new Error("Sync-Secret falsch oder fehlt. Bitte in den Einstellungen prüfen.");
+// Aktualisiert NUR das Season-Start-Datum auf dem Server. Eigener
+// Endpunkt, weil POST /register idempotent ist und das Datum bei
+// einem bereits registrierten Nutzer sonst nie aktualisieren wuerde.
+async function updateSeasonOnServer() {
+  try {
+    const encodedId = encodeURIComponent(state.riotId);
+    const res = await fetch(serverUrl(`/season/${encodedId}`), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seasonStart: state.seasonStart })
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || `Season-Start-Update fehlgeschlagen (${res.status})`);
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus("Fehler beim Aktualisieren des Season-Start: " + err.message);
   }
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Sync fehlgeschlagen (${res.status})`);
-  }
-  return res.json();
 }
 
 // ---------- Ablauf: Registrieren + Laden ----------
@@ -242,40 +246,6 @@ function applyStats(stats) {
 
 function formatLastSync(lastSync) {
   return lastSync ? new Date(lastSync).toLocaleString("de-DE") : "noch nie";
-}
-
-// ---------- Sync-Button ----------
-
-async function triggerSync() {
-  if (isSyncing) return;
-  if (!state.riotId || !state.syncSecret) {
-    setStatus("Bitte Riot-ID und Sync-Secret in den Einstellungen eintragen.");
-    document.getElementById("settingsPanel").classList.remove("hidden");
-    return;
-  }
-
-  isSyncing = true;
-  document.getElementById("syncBtn").disabled = true;
-
-  try {
-    setStatus("Sync läuft auf dem Server (kann etwas dauern, je nach Anzahl neuer Matches)...");
-    await triggerSyncOnServer();
-    setStatus("Sync fertig, lade aktualisierte Stats...");
-    const stats = await fetchStatsFromServer();
-    applyStats(stats);
-    setStatus(`Sync abgeschlossen: ${formatLastSync(stats.lastSync)}`);
-    // Falls das Ranking-Panel offen ist, gleich mit den frischen Werten
-    // neu laden - sonst zeigt es noch den Stand von vor dem Sync.
-    if (rankingLoadedOnce && !document.getElementById("rankingBox").classList.contains("hidden")) {
-      loadRanking(currentRankingMode);
-    }
-  } catch (err) {
-    console.error(err);
-    setStatus("Fehler: " + err.message);
-  } finally {
-    isSyncing = false;
-    document.getElementById("syncBtn").disabled = false;
-  }
 }
 
 // ---------- Rendering ----------
@@ -586,6 +556,19 @@ async function loadRanking(mode) {
   }
 }
 
+// Riot speichert nur die grobe Routing-Region (europe/americas/asia/sea),
+// op.gg braucht aber den genauen Plattform-Code. Bestmögliche Annahme
+// pro Kontinent - bei Nutzern auf einem anderen Server innerhalb dieser
+// Gruppe (z.B. EUNE statt EUW) zeigt der Link auf den naheliegendsten.
+const OPGG_REGION_MAP = { europe: "euw", americas: "na", asia: "kr", sea: "oce" };
+
+function buildOpggUrl(riotId, region) {
+  const platform = OPGG_REGION_MAP[region] || "euw";
+  const [name, tag] = riotId.split("#");
+  if (!name || !tag) return null;
+  return `https://www.op.gg/summoners/${platform}/${encodeURIComponent(name)}-${encodeURIComponent(tag)}`;
+}
+
 function renderRanking(ranking) {
   const list = document.getElementById("rankingList");
   list.innerHTML = "";
@@ -597,13 +580,22 @@ function renderRanking(ranking) {
     const li = document.createElement("li");
     li.classList.add("clickable");
     if (entry.riotId === state.riotId) li.classList.add("me");
+
+    const opggUrl = buildOpggUrl(entry.riotId, entry.region);
+    const opggLink = opggUrl
+      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="op.gg öffnen">op.gg</a>`
+      : "";
+
     li.innerHTML = `
       <span class="rankNum">${i + 1}.</span>
       <span class="rankName">${entry.riotId}</span>
+      ${opggLink}
       <span class="rankWins">${entry.championsWon}</span>
     `;
     li.title = "Fortschritt anzeigen";
     li.addEventListener("click", () => openPlayerView(entry.riotId));
+    const linkEl = li.querySelector(".opggLink");
+    if (linkEl) linkEl.addEventListener("click", (e) => e.stopPropagation());
     list.appendChild(li);
   });
 }
