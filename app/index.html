@@ -27,6 +27,7 @@
         <button id="rankingTabFriends" class="rankingTab">Freunde</button>
       </div>
       <ol id="rankingList"></ol>
+      <p class="rankingUpdateNote">🕕 Aktualisiert täglich automatisch um 6:00 Uhr · manuell per "Jetzt syncen"</p>
     </div>
   </div>
 
@@ -129,7 +130,10 @@
     <div id="playerViewBox">
       <div id="playerViewHeader">
         <h2 id="playerViewName">Spieler</h2>
-        <button id="playerViewClose" title="Schließen">✕</button>
+        <div class="playerViewHeaderBtns">
+          <button id="playerViewAddFriend">+ Freund</button>
+          <button id="playerViewClose" title="Schließen">✕</button>
+        </div>
       </div>
       <p id="playerViewSummary"></p>
       <input id="playerViewFilter" type="text" placeholder="Champion suchen..." />

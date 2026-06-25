@@ -183,7 +183,16 @@ button.danger:hover { background: #dc2626; }
   padding: 14px; display: flex; flex-direction: column; gap: 8px;
   box-shadow: 0 8px 28px rgba(0,0,0,0.5);
 }
-#playerViewHeader { display: flex; justify-content: space-between; align-items: center; }
+#playerViewHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.playerViewHeaderBtns { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+#playerViewAddFriend {
+  font-size: 11px; padding: 5px 9px;
+}
+#playerViewAddFriend.hidden { display: none; }
+#playerViewAddFriend.already {
+  background: #2a2a38; color: #888; cursor: default;
+}
+#playerViewAddFriend.already:hover { background: #2a2a38; }
 #playerViewName { font-size: 16px; margin: 0; color: #c084fc; }
 #playerViewClose {
   background: none; border: none; color: #aaa; font-size: 16px; cursor: pointer;

@@ -368,8 +368,7 @@ function showChampTooltip(e, champ) {
             const icon = champData
               ? `<img src="${champData.icon}" alt="${champData.name}" />`
               : "";
-            const displayName = champData ? champData.name : m.champion;
-            return `<span class="tooltipMate">${icon}${displayName} (${m.summoner})</span>`;
+            return `<span class="tooltipMate">${icon}${m.summoner}</span>`;
           }).join("")
         : "?";
       html += `<li class="${isWin ? "tooltipWin" : "tooltipLose"}">
@@ -495,9 +494,9 @@ function renderFriendsList(friends) {
   }
 }
 
-async function addFriend() {
+async function addFriend(friendRiotIdParam) {
   const input = document.getElementById("friendIdInput");
-  const friendRiotId = input.value.trim();
+  const friendRiotId = friendRiotIdParam || input.value.trim();
   if (!friendRiotId) return;
   if (!state.riotId) {
     setStatus("Bitte zuerst deine eigene Riot-ID in den Einstellungen eintragen.");
@@ -511,12 +510,14 @@ async function addFriend() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Freund konnte nicht hinzugefügt werden.");
-    input.value = "";
+    if (!friendRiotIdParam) input.value = "";
     renderFriendsList(data.friends || []);
     if (currentRankingMode === "friends") loadRanking("friends");
+    return data.friends || [];
   } catch (err) {
     console.error(err);
     setStatus("Fehler: " + err.message);
+    return null;
   }
 }
 
@@ -619,11 +620,20 @@ async function openPlayerView(riotId) {
   const nameEl = document.getElementById("playerViewName");
   const summaryEl = document.getElementById("playerViewSummary");
   const gridEl = document.getElementById("playerViewGrid");
+  const addFriendBtnEl = document.getElementById("playerViewAddFriend");
 
   nameEl.textContent = riotId;
   summaryEl.textContent = "Lade...";
   gridEl.innerHTML = "";
   overlay.classList.remove("hidden");
+
+  // Bei sich selbst macht ein Freund-Button keinen Sinn - ausblenden.
+  if (riotId === state.riotId) {
+    addFriendBtnEl.classList.add("hidden");
+  } else {
+    addFriendBtnEl.classList.remove("hidden");
+    await updatePlayerViewFriendButton(riotId);
+  }
 
   try {
     const res = await fetch(serverUrl(`/stats/${encodeURIComponent(riotId)}`));
@@ -636,6 +646,43 @@ async function openPlayerView(riotId) {
     summaryEl.textContent = "Fehler: " + err.message;
   }
 }
+
+async function updatePlayerViewFriendButton(riotId) {
+  const btn = document.getElementById("playerViewAddFriend");
+  btn.classList.remove("already");
+  btn.textContent = "+ Freund";
+  btn.disabled = false;
+  try {
+    const res = await fetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
+    if (!res.ok) return;
+    const data = await res.json();
+    const alreadyFriend = (data.friends || []).some(
+      (f) => f.toLowerCase() === riotId.toLowerCase()
+    );
+    if (alreadyFriend) {
+      btn.classList.add("already");
+      btn.textContent = "✓ Freund";
+      btn.disabled = true;
+    }
+  } catch (err) {
+    console.error("Freund-Status konnte nicht geprüft werden:", err);
+  }
+}
+
+document.getElementById("playerViewAddFriend").onclick = async () => {
+  const riotId = document.getElementById("playerViewName").textContent;
+  const btn = document.getElementById("playerViewAddFriend");
+  btn.disabled = true;
+  btn.textContent = "...";
+  const friends = await addFriend(riotId);
+  if (friends) {
+    btn.classList.add("already");
+    btn.textContent = "✓ Freund";
+  } else {
+    btn.disabled = false;
+    btn.textContent = "+ Freund";
+  }
+};
 
 function renderPlayerViewGrid() {
   if (!viewedPlayerStats) return;
