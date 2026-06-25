@@ -106,7 +106,9 @@ const I18N = {
     itemDetailHeading: "Item-Synergien",
     augmentDetailHeading: "Augment-Synergien",
     detailSynergyHeading: "Funktioniert gut mit",
-    detailNoSynergyData: "Noch keine Synergie-Daten dafür."
+    detailNoSynergyData: "Noch keine Synergie-Daten dafür.",
+    top30TrioHeading: "Top 30 Trio-Winrates",
+    topTrioHeading: "Top 30 Trios (Winrate)"
   },
   en: {
     rankingToggleTitle: "Show ranking",
@@ -193,7 +195,9 @@ const I18N = {
     itemDetailHeading: "Item synergies",
     augmentDetailHeading: "Augment synergies",
     detailSynergyHeading: "Works well with",
-    detailNoSynergyData: "No synergy data for this yet."
+    detailNoSynergyData: "No synergy data for this yet.",
+    top30TrioHeading: "Top 30 trio win rates",
+    topTrioHeading: "Top 30 trios (win rate)"
   }
 };
 
@@ -758,26 +762,10 @@ function getChampBuild(champ) {
 
 let currentDetailChamp = null; // zuletzt geoeffneter Champion, fuer den Rueckweg von der Item-/Augment-Ansicht
 
-function openChampDetail(champ) {
-  currentDetailChamp = champ;
-  hideChampTooltip();
-  document.getElementById("grid").classList.add("hidden");
-  const detail = document.getElementById("champDetail");
-  detail.classList.remove("hidden");
-
-  const build = getChampBuild(champ);
+// ---- Linke Spalte: beste Trio-Partner fuer den aktuellen Champion ----
+function renderBestPartnersColumn(champ) {
   const partners = getBestPartners(champ);
-
-  let html = `
-    <div class="detailHeader">
-      <button class="backArrowBtn" id="champDetailBackBtn" title="${t("backToGridTitle")}">${t("backArrow")}</button>
-      <img src="${champ.icon}" alt="${champ.name}" />
-      <h2>${champ.name}</h2>
-    </div>
-  `;
-
-  // ---- Beste Partner (Trio) ----
-  html += `<div class="detailSection"><h3>${t("champDetailBestPartners")}</h3>`;
+  let html = `<div class="detailSection detailColLeft"><h3>${t("champDetailBestPartners")}</h3>`;
   if (partners.length === 0) {
     html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
   } else {
@@ -800,6 +788,65 @@ function openChampDetail(champ) {
     html += `</ul>`;
   }
   html += `</div>`;
+  return html;
+}
+
+// ---- Rechte Spalte: globale Top-30-Trio-Compositions nach Winrate ----
+function renderTopTrioColumn() {
+  let html = `<div class="detailSection detailColRight"><h3>${t("topTrioHeading")}</h3>`;
+  const combos = (metaData && metaData.trioCombos) ? metaData.trioCombos.slice() : [];
+  if (combos.length === 0) {
+    html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
+  } else {
+    combos.sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
+    html += `<ul class="detailTrioList">`;
+    combos.slice(0, 30).forEach((c, i) => {
+      const names = [c.champion, ...(c.partners || [])].join(" + ");
+      const winRateText = typeof c.winRate === "number" ? `${c.winRate.toFixed(1)}%` : "";
+      html += `
+        <li>
+          <span class="detailTrioRank">${i + 1}.</span>
+          <span class="metaTier">${c.tier || ""}</span>
+          <span class="detailTrioNames">${names}</span>
+          <span class="detailWinRate">${winRateText}</span>
+        </li>
+      `;
+    });
+    html += `</ul>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+// Setzt den 3-Spalten-Rahmen (links/rechts bleiben bei Navigation innerhalb
+// der Detailansicht IMMER gleich - nur die mittlere Spalte wechselt zwischen
+// Champion-Uebersicht und Item-/Augment-Synergie-Ansicht).
+function renderDetailFrame(middleHtml) {
+  const detail = document.getElementById("champDetail");
+  detail.innerHTML = `
+    <div class="detailGrid3">
+      ${renderBestPartnersColumn(currentDetailChamp)}
+      <div class="detailColMiddle">${middleHtml}</div>
+      ${renderTopTrioColumn()}
+    </div>
+  `;
+}
+
+function openChampDetail(champ) {
+  currentDetailChamp = champ;
+  hideChampTooltip();
+  document.getElementById("grid").classList.add("hidden");
+  document.getElementById("champDetail").classList.remove("hidden");
+
+  const build = getChampBuild(champ);
+
+  let html = `
+    <div class="detailHeader">
+      <button class="backArrowBtn" id="champDetailBackBtn" title="${t("backToGridTitle")}">${t("backArrow")}</button>
+      <img src="${champ.icon}" alt="${champ.name}" />
+      <h2>${champ.name}</h2>
+    </div>
+  `;
 
   // ---- Beste Items & Augments (klickbar -> zeigt Synergien) ----
   html += `<div class="detailSection"><h3>${t("champDetailBestItems")}</h3>`;
@@ -827,17 +874,17 @@ function openChampDetail(champ) {
     html += `<div class="detailStatCheck">${t("champDetailStatCheck")}: ${build.statCheckNote}</div>`;
   }
 
-  detail.innerHTML = html;
+  renderDetailFrame(html);
   document.getElementById("champDetailBackBtn").addEventListener("click", closeChampDetail);
-  detail.querySelectorAll(".clickableTag").forEach((li) => {
+  document.getElementById("champDetail").querySelectorAll(".clickableTag").forEach((li) => {
     li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
   });
 }
 
 // ---------- Item-/Augment-Detailansicht (Klick auf ein Item- oder Augment-Tag) ----------
-// Zweite Ebene unterhalb der Champion-Ansicht: zeigt, mit welchen anderen
-// Items/Augments eine gute Synergie besteht. Rueckweg fuehrt zurueck zur
-// zuletzt geoeffneten Champion-Ansicht (nicht direkt zum Grid).
+// Dritte Ebene: ersetzt nur die MITTLERE Spalte, links (Partner) und
+// rechts (Top-30-Trios) bleiben unveraendert sichtbar. Rueckweg fuehrt
+// zurueck zur zuletzt geoeffneten Champion-Ansicht (nicht zum Grid).
 
 function getSynergyMap(type) {
   if (!metaData) return {};
@@ -854,7 +901,6 @@ function getSynergiesFor(name, type) {
 }
 
 function openItemOrAugmentDetail(name, type) {
-  const detail = document.getElementById("champDetail");
   const synergy = getSynergiesFor(name, type);
   const heading = type === "item" ? t("itemDetailHeading") : t("augmentDetailHeading");
 
@@ -875,7 +921,7 @@ function openItemOrAugmentDetail(name, type) {
   }
   html += `</div>`;
 
-  detail.innerHTML = html;
+  renderDetailFrame(html);
   document.getElementById("itemDetailBackBtn").addEventListener("click", () => openChampDetail(currentDetailChamp));
 }
 
