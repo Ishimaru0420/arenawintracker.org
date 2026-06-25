@@ -962,17 +962,33 @@ function confidenceLabel(confidence) {
 
 // Rendert ein einzelnes Tag der KI-Empfehlung: NUR Icon, kein Text -
 // Hover-Tooltip zeigt die offizielle Spielbeschreibung in der gerade
-// aktiven Sprache (currentLang). Laedt das Icon nicht (kaputter Pfad o.ä.),
-// faellt automatisch auf den Namen als Text zurueck statt leer zu bleiben.
+// aktiven Sprache (currentLang). Name/Tooltip kommen als data-Attribute
+// mit (nicht als Inline-JS-String) - vermeidet Bugs bei Namen mit
+// Apostroph (z.B. "Jak'Sho"), die einen Inline-onerror-String brechen
+// wuerden. Fallback auf Text passiert per echtem addEventListener danach.
 function renderAiTag(entry) {
   const tooltipText = entry.tooltip ? (entry.tooltip[currentLang] || entry.tooltip.en || "") : "";
   const title = tooltipText ? `${entry.name}: ${tooltipText}` : entry.name;
+  const safeTitle = title.replace(/"/g, "&quot;");
+  const safeName = entry.name.replace(/"/g, "&quot;");
   if (entry.icon) {
-    return `<li class="detailTagList-item" title="${title.replace(/"/g, "&quot;")}">` +
-      `<img src="${entry.icon}" alt="${entry.name}" onerror="this.parentElement.textContent='${entry.name}';" />` +
+    return `<li class="detailTagList-item aiTagItem" data-fallback-name="${safeName}" title="${safeTitle}">` +
+      `<img src="${entry.icon}" alt="${safeName}" />` +
       `</li>`;
   }
-  return `<li class="detailTagList-item" title="${title.replace(/"/g, "&quot;")}">${entry.name}</li>`;
+  return `<li class="detailTagList-item" title="${safeTitle}">${entry.name}</li>`;
+}
+
+// Nach dem Einfuegen ins DOM aufrufen: bindet echte (nicht-inline)
+// Fehler-Handler an alle Icons der KI-Sektion, die auf Text zurueckfallen,
+// falls ein Icon-Pfad mal nicht laedt.
+function bindAiTagFallbacks(container) {
+  container.querySelectorAll(".aiTagItem img").forEach((img) => {
+    img.addEventListener("error", () => {
+      const li = img.parentElement;
+      li.textContent = li.dataset.fallbackName || img.alt || "";
+    });
+  });
 }
 
 function renderAiMetaContent(aiMeta) {
@@ -1020,6 +1036,7 @@ async function loadAiMetaSection(champ) {
     }
     const aiMeta = await res.json();
     section.innerHTML = renderAiMetaContent(aiMeta);
+    bindAiTagFallbacks(section);
   } catch {
     section.innerHTML = renderAiMetaContent(null);
   }
