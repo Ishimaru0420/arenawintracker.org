@@ -1196,7 +1196,7 @@ function renderRanking(ranking) {
 
     const opggUrl = buildOpggUrl(entry.riotId, entry.region);
     const opggLink = opggUrl
-      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}">${OPGG_ICON_SVG}</a>`
+      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}"><img src="https://meta-static.op.gg/logo/image/fe6c3da400b7249ea97b06699f48f133.png?image=q_auto:good,f_png,w_64,h_64" alt="op.gg" /></a>`
       : "";
 
     // Je nach gewaehlter Kategorie wird ein anderer Wert angezeigt:
