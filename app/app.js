@@ -108,6 +108,10 @@ const I18N = {
     detailSynergyHeading: "Funktioniert gut mit",
     detailNoSynergyData: "Noch keine Synergie-Daten dafür.",
     top30TrioHeading: "Top 30 Trio-Winrates",
+    champDetailSkillOrder: "Skill-Reihenfolge",
+    champDetailNoSkillOrder: "Noch keine Skill-Reihenfolge für diesen Champion.",
+    champDetailTactics: "Taktiken",
+    champDetailNoTactics: "Noch keine Taktik-Tipps für diesen Champion.",
     topTrioHeading: "Top 30 Trios (Winrate)"
   },
   en: {
@@ -197,6 +201,10 @@ const I18N = {
     detailSynergyHeading: "Works well with",
     detailNoSynergyData: "No synergy data for this yet.",
     top30TrioHeading: "Top 30 trio win rates",
+    champDetailSkillOrder: "Skill order",
+    champDetailNoSkillOrder: "No skill order for this champion yet.",
+    champDetailTactics: "Tactics",
+    champDetailNoTactics: "No tactic tips for this champion yet.",
     topTrioHeading: "Top 30 trios (win rate)"
   }
 };
@@ -327,6 +335,11 @@ safeBind("langToggle", "onclick", () => {
   // Dynamisch erzeugte Inhalte muessen separat neu gerendert werden,
   // da sie nicht ueber data-i18n-Attribute laufen.
   renderGrid();
+  if (metaData) renderMeta(metaData);
+  renderTop30TrioSection();
+  if (currentDetailChamp && !document.getElementById("champDetail").classList.contains("hidden")) {
+    openChampDetail(currentDetailChamp);
+  }
   if (lastFriendsList) renderFriendsList(lastFriendsList);
   if (rankingLoadedOnce && !document.getElementById("rankingBox").classList.contains("hidden")) {
     loadRanking(currentRankingMode);
@@ -676,6 +689,7 @@ async function loadMetaData() {
     const data = await res.json();
     metaData = data;
     renderMeta(data);
+    renderTop30TrioSection();
   } catch (err) {
     console.error("Meta-Daten konnten nicht geladen werden:", err);
   }
@@ -765,7 +779,7 @@ let currentDetailChamp = null; // zuletzt geoeffneter Champion, fuer den Rueckwe
 // ---- Linke Spalte: beste Trio-Partner fuer den aktuellen Champion ----
 function renderBestPartnersColumn(champ) {
   const partners = getBestPartners(champ);
-  let html = `<div class="detailSection detailColLeft"><h3>${t("champDetailBestPartners")}</h3>`;
+  let html = `<div class="detailSection"><h3>${t("champDetailBestPartners")}</h3>`;
   if (partners.length === 0) {
     html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
   } else {
@@ -791,10 +805,15 @@ function renderBestPartnersColumn(champ) {
   return html;
 }
 
-// ---- Rechte Spalte: globale Top-30-Trio-Compositions nach Winrate ----
-function renderTopTrioColumn() {
-  let html = `<div class="detailSection detailColRight"><h3>${t("topTrioHeading")}</h3>`;
+// ---- Eigene, IMMER sichtbare Section: globale Top-30-Trio-Compositions
+// nach Winrate (oberhalb des Grids, NICHT Teil der Champion-Detailansicht).
+// Wird einmal nach jedem /meta-Laden sowie bei Sprachwechsel neu gerendert.
+function renderTop30TrioSection() {
+  const section = document.getElementById("top30Trio");
+  if (!section) return;
   const combos = (metaData && metaData.trioCombos) ? metaData.trioCombos.slice() : [];
+
+  let html = `<h3>${t("topTrioHeading")}</h3>`;
   if (combos.length === 0) {
     html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
   } else {
@@ -814,42 +833,13 @@ function renderTopTrioColumn() {
     });
     html += `</ul>`;
   }
-  html += `</div>`;
-  return html;
+  section.innerHTML = html;
 }
 
-// Setzt den 3-Spalten-Rahmen (links/rechts bleiben bei Navigation innerhalb
-// der Detailansicht IMMER gleich - nur die mittlere Spalte wechselt zwischen
-// Champion-Uebersicht und Item-/Augment-Synergie-Ansicht).
-function renderDetailFrame(middleHtml) {
-  const detail = document.getElementById("champDetail");
-  detail.innerHTML = `
-    <div class="detailGrid3">
-      ${renderBestPartnersColumn(currentDetailChamp)}
-      <div class="detailColMiddle">${middleHtml}</div>
-      ${renderTopTrioColumn()}
-    </div>
-  `;
-}
-
-function openChampDetail(champ) {
-  currentDetailChamp = champ;
-  hideChampTooltip();
-  document.getElementById("grid").classList.add("hidden");
-  document.getElementById("champDetail").classList.remove("hidden");
-
+// ---- Mittlere Spalte: beste Items fuer den Champion (klickbar) ----
+function renderBestItemsColumn(champ) {
   const build = getChampBuild(champ);
-
-  let html = `
-    <div class="detailHeader">
-      <button class="backArrowBtn" id="champDetailBackBtn" title="${t("backToGridTitle")}">${t("backArrow")}</button>
-      <img src="${champ.icon}" alt="${champ.name}" />
-      <h2>${champ.name}</h2>
-    </div>
-  `;
-
-  // ---- Beste Items & Augments (klickbar -> zeigt Synergien) ----
-  html += `<div class="detailSection"><h3>${t("champDetailBestItems")}</h3>`;
+  let html = `<div class="detailSection"><h3>${t("champDetailBestItems")}</h3>`;
   if (build && build.bestItems && build.bestItems.length) {
     html += `<ul class="detailTagList">` +
       build.bestItems.map((i) => `<li class="clickableTag" data-name="${i}" data-type="item">${i}</li>`).join("") +
@@ -858,8 +848,13 @@ function openChampDetail(champ) {
     html += `<p class="detailEmpty">${t("champDetailNoBuild")}</p>`;
   }
   html += `</div>`;
+  return html;
+}
 
-  html += `<div class="detailSection"><h3>${t("champDetailBestAugments")}</h3>`;
+// ---- Rechte Spalte: beste Augments fuer den Champion (klickbar) ----
+function renderBestAugmentsColumn(champ) {
+  const build = getChampBuild(champ);
+  let html = `<div class="detailSection"><h3>${t("champDetailBestAugments")}</h3>`;
   if (build && build.bestAugments && build.bestAugments.length) {
     html += `<ul class="detailTagList">` +
       build.bestAugments.map((a) => `<li class="clickableTag" data-name="${a}" data-type="augment">${a}</li>`).join("") +
@@ -867,24 +862,67 @@ function openChampDetail(champ) {
   } else {
     html += `<p class="detailEmpty">${t("champDetailNoBuild")}</p>`;
   }
-  html += `</div>`;
-
-  // ---- Hinweis: lohnt sich der Champion auf reine Stats? ----
   if (build && build.statCheckNote) {
     html += `<div class="detailStatCheck">${t("champDetailStatCheck")}: ${build.statCheckNote}</div>`;
   }
+  return html;
+}
 
-  renderDetailFrame(html);
+// ---- Skill-Reihenfolge: direkt unter Champion-Icon/Name, volle Breite ----
+function renderSkillOrderBlock(champ) {
+  const build = getChampBuild(champ);
+  if (build && build.skillOrder && build.skillOrder.length) {
+    return `<div class="detailSkillOrder"><span class="detailSkillOrderLabel">${t("champDetailSkillOrder")}</span> ${build.skillOrder.join(" → ")}</div>`;
+  }
+  return `<div class="detailSkillOrder"><span class="detailSkillOrderLabel">${t("champDetailSkillOrder")}</span> <span class="detailEmptyInline">${t("champDetailNoSkillOrder")}</span></div>`;
+}
+
+// ---- Taktiken: ein paar Spieltipps fuer den Champion in Arena, volle Breite ----
+function renderTacticsBlock(champ) {
+  const build = getChampBuild(champ);
+  let html = `<div class="detailSection detailTactics"><h3>${t("champDetailTactics")}</h3>`;
+  if (build && build.tacticsNotes && build.tacticsNotes.length) {
+    html += `<ul class="detailTacticsList">` + build.tacticsNotes.map((tip) => `<li>${tip}</li>`).join("") + `</ul>`;
+  } else {
+    html += `<p class="detailEmpty">${t("champDetailNoTactics")}</p>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+function openChampDetail(champ) {
+  currentDetailChamp = champ;
+  hideChampTooltip();
+  document.getElementById("grid").classList.add("hidden");
+  document.getElementById("top30Trio").classList.add("hidden");
+  const detail = document.getElementById("champDetail");
+  detail.classList.remove("hidden");
+
+  detail.innerHTML = `
+    <div class="detailHeader">
+      <button class="backArrowBtn" id="champDetailBackBtn" title="${t("backToGridTitle")}">${t("backArrow")}</button>
+      <img src="${champ.icon}" alt="${champ.name}" />
+      <h2>${champ.name}</h2>
+    </div>
+    ${renderSkillOrderBlock(champ)}
+    ${renderTacticsBlock(champ)}
+    <div class="detailGrid3">
+      ${renderBestPartnersColumn(champ)}
+      ${renderBestItemsColumn(champ)}
+      ${renderBestAugmentsColumn(champ)}
+    </div>
+  `;
+
   document.getElementById("champDetailBackBtn").addEventListener("click", closeChampDetail);
-  document.getElementById("champDetail").querySelectorAll(".clickableTag").forEach((li) => {
+  detail.querySelectorAll(".clickableTag").forEach((li) => {
     li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
   });
 }
 
 // ---------- Item-/Augment-Detailansicht (Klick auf ein Item- oder Augment-Tag) ----------
-// Dritte Ebene: ersetzt nur die MITTLERE Spalte, links (Partner) und
-// rechts (Top-30-Trios) bleiben unveraendert sichtbar. Rueckweg fuehrt
-// zurueck zur zuletzt geoeffneten Champion-Ansicht (nicht zum Grid).
+// Vierte Ebene: ersetzt die komplette Detailansicht durch eine einzelne,
+// volle Breite nutzende Synergie-Ansicht. Rueckweg fuehrt zurueck zur
+// zuletzt geoeffneten Champion-Ansicht (nicht zum Grid).
 
 function getSynergyMap(type) {
   if (!metaData) return {};
@@ -903,6 +941,7 @@ function getSynergiesFor(name, type) {
 function openItemOrAugmentDetail(name, type) {
   const synergy = getSynergiesFor(name, type);
   const heading = type === "item" ? t("itemDetailHeading") : t("augmentDetailHeading");
+  const detail = document.getElementById("champDetail");
 
   let html = `
     <div class="detailHeader">
@@ -921,13 +960,14 @@ function openItemOrAugmentDetail(name, type) {
   }
   html += `</div>`;
 
-  renderDetailFrame(html);
+  detail.innerHTML = html;
   document.getElementById("itemDetailBackBtn").addEventListener("click", () => openChampDetail(currentDetailChamp));
 }
 
 function closeChampDetail() {
   document.getElementById("champDetail").classList.add("hidden");
   document.getElementById("grid").classList.remove("hidden");
+  document.getElementById("top30Trio").classList.remove("hidden");
 }
 
 // ---------- Freunde ----------
