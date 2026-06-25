@@ -960,34 +960,73 @@ function confidenceLabel(confidence) {
   return t("champDetailAiConfidenceLow");
 }
 
-// Rendert ein einzelnes Tag der KI-Empfehlung: NUR Icon, kein Text -
-// Hover-Tooltip zeigt die offizielle Spielbeschreibung in der gerade
-// aktiven Sprache (currentLang). Name/Tooltip kommen als data-Attribute
-// mit (nicht als Inline-JS-String) - vermeidet Bugs bei Namen mit
-// Apostroph (z.B. "Jak'Sho"), die einen Inline-onerror-String brechen
-// wuerden. Fallback auf Text passiert per echtem addEventListener danach.
+// Rendert ein einzelnes Tag der KI-Empfehlung: NUR Icon, kein Text.
+// "icon" kann entweder ein einzelner String sein (Augments, 1 URL-
+// Konvention reicht) oder ein Array von Kandidaten-URLs (Items/Spells,
+// 2 verschiedene CDragon-Pfad-Konventionen werden nacheinander probiert,
+// bevor auf Text zurueckgefallen wird). Tooltip-Inhalt (Name + offizielle
+// Spielbeschreibung) wird NICHT mehr ueber das native title-Attribut
+// gezeigt, sondern ueber das bestehende #champTooltip-System der App -
+// deutlich sichtbarer als der unauffaellige Browser-Standard-Tooltip.
 function renderAiTag(entry) {
-  const tooltipText = entry.tooltip ? (entry.tooltip[currentLang] || entry.tooltip.en || "") : "";
-  const title = tooltipText ? `${entry.name}: ${tooltipText}` : entry.name;
-  const safeTitle = title.replace(/"/g, "&quot;");
+  const candidates = Array.isArray(entry.icon) ? entry.icon.filter(Boolean) : entry.icon ? [entry.icon] : [];
   const safeName = entry.name.replace(/"/g, "&quot;");
-  if (entry.icon) {
-    return `<li class="detailTagList-item aiTagItem" data-fallback-name="${safeName}" title="${safeTitle}">` +
-      `<img src="${entry.icon}" alt="${safeName}" />` +
+
+  if (candidates.length > 0) {
+    return `<li class="detailTagList-item aiTagItem" data-fallback-name="${safeName}" data-icon-index="0">` +
+      `<img src="${candidates[0]}" alt="${safeName}" data-candidates='${JSON.stringify(candidates).replace(/'/g, "&#39;")}' />` +
       `</li>`;
   }
-  return `<li class="detailTagList-item" title="${safeTitle}">${entry.name}</li>`;
+  return `<li class="detailTagList-item aiTagItem">${entry.name}</li>`;
 }
 
-// Nach dem Einfuegen ins DOM aufrufen: bindet echte (nicht-inline)
-// Fehler-Handler an alle Icons der KI-Sektion, die auf Text zurueckfallen,
-// falls ein Icon-Pfad mal nicht laedt.
+// Bindet pro KI-Tag: (1) Icon-Fallback-Kette - bei Ladefehler wird die
+// naechste Kandidaten-URL probiert, erst nach allen Versuchen Text-
+// Fallback; (2) Hover -> zeigt Name + offizielle Beschreibung im
+// bestehenden #champTooltip-Element der App, in der aktuell aktiven
+// Sprache (currentLang).
 function bindAiTagFallbacks(container) {
-  container.querySelectorAll(".aiTagItem img").forEach((img) => {
-    img.addEventListener("error", () => {
-      const li = img.parentElement;
-      li.textContent = li.dataset.fallbackName || img.alt || "";
-    });
+  container.querySelectorAll(".aiTagItem").forEach((li) => {
+    const img = li.querySelector("img");
+    if (img) {
+      img.addEventListener("error", () => {
+        const candidates = JSON.parse(img.dataset.candidates || "[]");
+        const nextIndex = Number(li.dataset.iconIndex || "0") + 1;
+        if (nextIndex < candidates.length) {
+          li.dataset.iconIndex = String(nextIndex);
+          img.src = candidates[nextIndex];
+        } else {
+          li.textContent = li.dataset.fallbackName || img.alt || "";
+        }
+      });
+    }
+  });
+}
+
+// Generischer Tooltip-Trigger fuer KI-Tags, nutzt dasselbe #champTooltip-
+// Element wie die Champion-Grid-Hovers. "entry" ist das Original-Objekt
+// (mit .name und .tooltip = {en, de}), wird per Closure mitgegeben statt
+// aus dem DOM gelesen - umgeht jegliche HTML-Escaping-Probleme.
+function showAiTagTooltip(e, entry) {
+  const tooltip = document.getElementById("champTooltip");
+  const bodyText = entry.tooltip ? (entry.tooltip[currentLang] || entry.tooltip.en || "") : "";
+  tooltip.innerHTML = `<div class="tooltipTitle">${entry.name}</div>` +
+    (bodyText ? `<div class="tooltipCount">${bodyText}</div>` : "");
+  tooltip.classList.remove("hidden");
+  positionTooltip(e);
+}
+
+// Bindet die Hover-Tooltips fuer eine Liste von KI-Tag-Elementen + ihre
+// Original-Datenobjekte (Reihenfolge MUSS der Render-Reihenfolge
+// entsprechen - wird direkt nach dem jeweiligen renderAiTag-Aufruf genutzt).
+function bindAiTagTooltips(container, selector, entries) {
+  const items = container.querySelectorAll(selector);
+  items.forEach((li, i) => {
+    const entry = entries[i];
+    if (!entry) return;
+    li.addEventListener("mouseenter", (e) => showAiTagTooltip(e, entry));
+    li.addEventListener("mousemove", positionTooltip);
+    li.addEventListener("mouseleave", hideChampTooltip);
   });
 }
 
@@ -1000,25 +1039,43 @@ function renderAiMetaContent(aiMeta) {
   html += `<p class="detailEmpty" style="margin-bottom:8px;">${confidenceLabel(aiMeta.confidence)} (${aiMeta.sampleSize || 0} Spiele)</p>`;
 
   if (aiMeta.coreItems && aiMeta.coreItems.length) {
-    html += `<p class="detailSkillOrderLabel">${t("champDetailAiCore")}</p><ul class="detailTagList">` +
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiCore")}</p><ul class="detailTagList" data-ai-group="coreItems">` +
       aiMeta.coreItems.map(renderAiTag).join("") + `</ul>`;
   }
   if (aiMeta.situationalItems && aiMeta.situationalItems.length) {
-    html += `<p class="detailSkillOrderLabel">${t("champDetailAiSituational")}</p><ul class="detailTagList">` +
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiSituational")}</p><ul class="detailTagList" data-ai-group="situationalItems">` +
       aiMeta.situationalItems.map(renderAiTag).join("") + `</ul>`;
   }
   if (aiMeta.recommendedAugments && aiMeta.recommendedAugments.length) {
-    html += `<p class="detailSkillOrderLabel">${t("champDetailAiAugments")}</p><ul class="detailTagList">` +
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiAugments")}</p><ul class="detailTagList" data-ai-group="recommendedAugments">` +
       aiMeta.recommendedAugments.map(renderAiTag).join("") + `</ul>`;
   }
   if (aiMeta.recommendedSummonerSpells && aiMeta.recommendedSummonerSpells.length) {
-    html += `<p class="detailSkillOrderLabel">${t("champDetailAiSpells")}</p><ul class="detailTagList">` +
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiSpells")}</p><ul class="detailTagList" data-ai-group="recommendedSummonerSpells">` +
       aiMeta.recommendedSummonerSpells.map(renderAiTag).join("") + `</ul>`;
   }
   if (aiMeta.buildPathSummary) {
     html += `<p class="detailEmpty" style="margin-top:8px;">${aiMeta.buildPathSummary}</p>`;
   }
   return html;
+}
+
+// Bindet fuer jede der 4 Kategorien Icon-Fallback + Hover-Tooltip -
+// getrennt pro Gruppe (data-ai-group), damit die Reihenfolge der
+// Original-Datenobjekte garantiert zur Render-Reihenfolge passt.
+function bindAiMetaInteractions(container, aiMeta) {
+  bindAiTagFallbacks(container);
+  const groups = {
+    coreItems: aiMeta.coreItems,
+    situationalItems: aiMeta.situationalItems,
+    recommendedAugments: aiMeta.recommendedAugments,
+    recommendedSummonerSpells: aiMeta.recommendedSummonerSpells,
+  };
+  for (const [groupName, entries] of Object.entries(groups)) {
+    if (!entries || !entries.length) continue;
+    const list = container.querySelector(`[data-ai-group="${groupName}"]`);
+    if (list) bindAiTagTooltips(list, ".aiTagItem", entries);
+  }
 }
 
 // Laedt die KI-Empfehlung asynchron NACH dem ersten Rendern der
@@ -1036,7 +1093,7 @@ async function loadAiMetaSection(champ) {
     }
     const aiMeta = await res.json();
     section.innerHTML = renderAiMetaContent(aiMeta);
-    bindAiTagFallbacks(section);
+    bindAiMetaInteractions(section, aiMeta);
   } catch {
     section.innerHTML = renderAiMetaContent(null);
   }
