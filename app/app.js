@@ -17,6 +17,28 @@
 const STORAGE_KEY = "arenaWinTracker";
 const DEFAULT_SERVER_URL = "https://arena-win-tracker-server.onrender.com";
 
+// Rahmen-Stufen je nach Anzahl Erster-Plaetze mit einem Champion.
+const WIN_TIERS = [
+  { min: 50, class: "tier-gold" },
+  { min: 25, class: "tier-silver" },
+  { min: 10, class: "tier-bronze" }
+];
+
+function getTierClass(winCount) {
+  for (const tier of WIN_TIERS) {
+    if (winCount >= tier.min) return tier.class;
+  }
+  return "";
+}
+
+// Zaehlt echte 1.-Plaetze fuer einen Champion aus der vom Server
+// gelieferten Match-History (zuverlaessiger als der reine "wins"-
+// Boolean, der nur ja/nein liefert).
+function getWinCount(champKey) {
+  const games = state.matchHistory[champKey] || [];
+  return games.filter((g) => g.placement === 1).length;
+}
+
 let state = loadState();
 let championList = []; // [{id, name, key}] aus Data Dragon
 let isSyncing = false;
@@ -249,7 +271,8 @@ function renderGrid() {
   const visible = championList.filter((c) => c.name.toLowerCase().includes(filterText));
 
   for (const champ of visible) {
-    const hasWin = !!state.wins[champ.key];
+    const winCount = getWinCount(champ.key);
+    const hasWin = winCount > 0;
     const hasGames = !!(state.matchHistory[champ.key] && state.matchHistory[champ.key].length > 0);
     if (hasWin) wonCount++;
     if (onlyMissing && hasWin) continue;
@@ -261,10 +284,13 @@ function renderGrid() {
     else if (hasGames) status = "lost";
     else status = "missing";
 
+    const tierClass = getTierClass(winCount);
+
     const div = document.createElement("div");
-    div.className = "champ " + status;
+    div.className = "champ " + status + (tierClass ? " " + tierClass : "");
     div.innerHTML = `
       <img src="${champ.icon}" alt="${champ.name}" />
+      ${hasWin ? `<span class="winBadge">${winCount}</span>` : ""}
       <span>${champ.name}</span>
     `;
     div.addEventListener("mouseenter", (e) => showChampTooltip(e, champ));

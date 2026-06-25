@@ -95,6 +95,7 @@ button.danger:hover { background: #dc2626; }
 .champ {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 4px; border-radius: 6px; background: rgba(255,255,255,0.03);
+  position: relative;
 }
 .champ img {
   width: 48px; height: 48px; border-radius: 6px; border: 2px solid #444;
@@ -106,6 +107,36 @@ button.danger:hover { background: #dc2626; }
 .champ.won span { color: #4ade80; }
 .champ.lost span { color: #f87171; }
 .champ.missing span { color: #888; }
+
+/* Win-Counter-Badge oben rechts auf dem Champion-Icon */
+.winBadge {
+  position: absolute; top: 1px; right: 1px;
+  background: rgba(15, 15, 22, 0.9);
+  color: #fff; font-size: 9px; font-weight: 700;
+  min-width: 16px; height: 16px; line-height: 16px;
+  text-align: center; border-radius: 8px; padding: 0 3px;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+/* Rahmen-Stufen ab bestimmter Win-Anzahl - ueberschreiben die normale
+   gruene "won"-Farbe, je hoeher die Stufe, desto kraeftiger der Glow. */
+.champ.tier-bronze img {
+  border-color: #cd7f32;
+  box-shadow: 0 0 4px rgba(205, 127, 50, 0.6);
+}
+.champ.tier-bronze .winBadge { background: #cd7f32; border-color: #a9682a; }
+
+.champ.tier-silver img {
+  border-color: #c0c0c0;
+  box-shadow: 0 0 5px rgba(192, 192, 192, 0.75);
+}
+.champ.tier-silver .winBadge { background: #c0c0c0; color: #14141c; border-color: #9a9a9a; }
+
+.champ.tier-gold img {
+  border-color: #ffd700;
+  box-shadow: 0 0 7px rgba(255, 215, 0, 0.9);
+}
+.champ.tier-gold .winBadge { background: #ffd700; color: #14141c; border-color: #cca700; }
 
 #grid::-webkit-scrollbar { width: 6px; }
 #grid::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
