@@ -308,6 +308,7 @@ button.danger:hover { background: #c43b4a; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
   gap: 6px; padding-right: 2px;
 }
+#grid.hidden { display: none; }
 
 .champ {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -457,11 +458,28 @@ button.danger:hover { background: #c43b4a; }
 #champDetail {
   -webkit-app-region: no-drag;
   flex: 1; overflow-y: auto; padding-right: 2px;
-  display: flex; flex-direction: column; gap: 10px;
 }
 #champDetail.hidden { display: none; }
 #champDetail::-webkit-scrollbar { width: 6px; }
 #champDetail::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 3px; }
+
+.detailGrid3 {
+  display: grid;
+  grid-template-columns: 200px 1fr 240px;
+  gap: 12px;
+  align-items: start;
+}
+.detailColMiddle { display: flex; flex-direction: column; gap: 10px; }
+.detailColLeft, .detailColRight {
+  max-height: 75vh; overflow-y: auto;
+}
+.detailColLeft::-webkit-scrollbar, .detailColRight::-webkit-scrollbar { width: 4px; }
+.detailColLeft::-webkit-scrollbar-thumb, .detailColRight::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
+
+@media (max-width: 760px) {
+  .detailGrid3 { grid-template-columns: 1fr; }
+  .detailColLeft, .detailColRight { max-height: none; }
+}
 
 .detailHeader {
   display: flex; align-items: center; gap: 10px;
@@ -512,6 +530,14 @@ button.danger:hover { background: #c43b4a; }
 .detailTagList li.clickableTag:hover {
   background: rgba(255,122,60,0.18); border-color: #ff7a3c;
 }
+
+.detailTrioList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.detailTrioList li {
+  display: flex; align-items: center; gap: 5px;
+  background: rgba(255,122,60,0.04); border-radius: 5px; padding: 4px 6px; font-size: 10.5px;
+}
+.detailTrioRank { width: 16px; flex-shrink: 0; color: #9c8882; font-weight: 700; text-align: right; }
+.detailTrioNames { flex: 1; min-width: 0; color: #f5ece6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .detailStatCheck {
   background: rgba(34,197,94,0.10); border: 1px solid #22c55e;
