@@ -264,6 +264,11 @@ async function triggerSync() {
     const stats = await fetchStatsFromServer();
     applyStats(stats);
     setStatus(`Sync abgeschlossen: ${formatLastSync(stats.lastSync)}`);
+    // Falls das Ranking-Panel offen ist, gleich mit den frischen Werten
+    // neu laden - sonst zeigt es noch den Stand von vor dem Sync.
+    if (rankingLoadedOnce && !document.getElementById("rankingBox").classList.contains("hidden")) {
+      loadRanking(currentRankingMode);
+    }
   } catch (err) {
     console.error(err);
     setStatus("Fehler: " + err.message);

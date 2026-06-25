@@ -47,9 +47,13 @@
 
     <section id="friendsPanel" class="hidden">
       <label>Riot-ID des Freundes
-        <input id="friendIdInput" type="text" placeholder="z.B. Buddy#EUW" />
+        <input id="friendIdInput" type="text" placeholder="z.B. Buddy#EUW" list="registeredUsersList" />
+        <datalist id="registeredUsersList"></datalist>
       </label>
       <button id="addFriendBtn">+ Freund hinzufügen</button>
+      <p class="hint" style="margin:4px 0;">Bereits registrierte Nutzer (anklicken zum Hinzufügen):</p>
+      <ul id="registeredUsersBox" class="suggestList"></ul>
+      <p class="hint" style="margin:8px 0 2px;">Deine Freunde:</p>
       <ul id="friendsList"></ul>
     </section>
 
