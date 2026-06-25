@@ -15,7 +15,184 @@
 // ============================================================
 
 const STORAGE_KEY = "arenaWinTracker";
+const LANG_STORAGE_KEY = "arenaWinTrackerLang";
 const DEFAULT_SERVER_URL = "https://arena-win-tracker-server.onrender.com";
+
+// ---------- Uebersetzungen (DE/EN) ----------
+
+const I18N = {
+  de: {
+    rankingToggleTitle: "Ranking anzeigen",
+    tabGlobal: "Global",
+    tabFriends: "Freunde",
+    rankingUpdateNote: "🕕 Update alle 6 Std.",
+    friendsToggleTitle: "Freunde verwalten",
+    settingsToggleTitle: "Einstellungen",
+    webNotice: "Browser-Testversion. Funktioniert identisch zur Overwolf-App, läuft aber als normale Webseite - kein Overwolf nötig.",
+    friendIdLabel: "Riot-ID des Freundes",
+    friendIdPlaceholder: "z.B. Buddy#EUW",
+    addFriendBtn: "+ Freund hinzufügen",
+    registeredUsersHint: "Bereits registrierte Nutzer (anklicken zum Hinzufügen):",
+    yourFriendsHint: "Deine Freunde:",
+    riotIdLabel: "Riot ID (Name#Tag)",
+    riotIdPlaceholder: "z.B. Glitch#EUW",
+    regionLabel: "Region",
+    seasonStartLabel: "Season-Start (Arena-Reset Datum)",
+    resetSeasonStartBtn: "↺ Standard",
+    resetSeasonStartTitle: "Auf Standard zurücksetzen (29.04.2026)",
+    saveSettingsBtn: "Speichern",
+    resetDataBtn: "Lokale Anzeige zurücksetzen",
+    settingsHint: "Server synct deine Daten automatisch alle 6 Stunden - kein eigener Riot API-Key nötig.",
+    statusNotConnected: "Noch nicht verbunden",
+    champSearchPlaceholder: "Champion suchen...",
+    sortName: "Name (A-Z)",
+    sortWins: "Meiste Wins",
+    onlyMissingLabel: "nur offene zeigen",
+    metaTitle: "📊 Tages-Meta",
+    metaTrioHeading: "Beste Trio-Combos",
+    metaSynergyHeading: "Augment/Item-Synergien",
+    addFriendBtnShort: "+ Freund",
+    closeTitle: "Schließen",
+
+    statusEnterRiotIdServer: "Bitte Riot-ID und Server-URL eintragen.",
+    statusConnecting: "Verbinde mit Server (kann beim ersten Mal bis zu 60s dauern)...",
+    statusLoadingStats: "Lade Stats vom Server...",
+    statusConnected: "Verbunden. Letzter Server-Sync: {time}",
+    errorPrefix: "Fehler: ",
+    statusSeasonUpdateError: "Fehler beim Aktualisieren des Season-Start: {msg}",
+    statusResetDone: "Lokale Anzeige zurückgesetzt. Lädt automatisch beim nächsten Server-Sync neu.",
+    statusAddFriendNeedRiotId: "Bitte zuerst deine eigene Riot-ID in den Einstellungen eintragen.",
+    statusLoadingChampList: "Champion-Liste wird geladen...",
+    statusReadyFillSettings: "Bereit. Einstellungen ausfüllen (Riot-ID, Region).",
+    neverSynced: "noch nie",
+    summaryWon: "{won} / {total} Champions gewonnen",
+    overallStats: "{games} Spiel(e) insgesamt ({wins} Siege / {losses} Niederlagen)",
+    tooltipNoGames: "Keine Arena-Spiele seit Season-Start.",
+    tooltipGamesCount: "{count} Spiel(e) seit {date}",
+    tooltipWin: "Sieg",
+    tooltipLose: "Niederlage",
+    placementSuffix: "(Platz {n})",
+    withLabel: "mit",
+    metaUpdatedAt: "Stand: {time}",
+    friendEmpty: "Noch keine Freunde hinzugefügt.",
+    removeFriendTitle: "Entfernen",
+    friendAddFailed: "Freund konnte nicht hinzugefügt werden.",
+    friendRemoveFailed: "Entfernen fehlgeschlagen.",
+    rankNotRegistered404: "Noch nicht registriert. Erst Einstellungen speichern.",
+    rankLoading: "Lade...",
+    rankNeedOwnId: "Erst eigene Riot-ID in den Einstellungen eintragen.",
+    rankLoadFailed: "Ranking konnte nicht geladen werden.",
+    rankEmptyData: "Noch keine Daten.",
+    opggOpenTitle: "op.gg öffnen",
+    progressTitle: "Fortschritt anzeigen",
+    statsLoadFailed: "Stats konnten nicht geladen werden.",
+    friendAlready: "✓ Freund",
+    seasonUpdateFailed: "Season-Start-Update fehlgeschlagen ({status})",
+    registrationFailed: "Registrierung fehlgeschlagen ({status})",
+    statsFetchFailed: "Stats-Abruf fehlgeschlagen ({status})",
+    resetConfirm: "Lokal angezeigte Daten wirklich zurücksetzen? (Auf dem Server bleiben sie erhalten)",
+    playerViewSummary: "{won} / {total} Champions gewonnen · {games} Spiel(e) ({wins} Siege)",
+    playerViewLastSync: " · letzter Sync: {time}"
+  },
+  en: {
+    rankingToggleTitle: "Show ranking",
+    tabGlobal: "Global",
+    tabFriends: "Friends",
+    rankingUpdateNote: "🕕 Updates every 6h",
+    friendsToggleTitle: "Manage friends",
+    settingsToggleTitle: "Settings",
+    webNotice: "Browser test version. Works identically to the Overwolf app, but runs as a normal website - no Overwolf needed.",
+    friendIdLabel: "Friend's Riot ID",
+    friendIdPlaceholder: "e.g. Buddy#EUW",
+    addFriendBtn: "+ Add friend",
+    registeredUsersHint: "Already registered users (click to add):",
+    yourFriendsHint: "Your friends:",
+    riotIdLabel: "Riot ID (Name#Tag)",
+    riotIdPlaceholder: "e.g. Glitch#EUW",
+    regionLabel: "Region",
+    seasonStartLabel: "Season start (Arena reset date)",
+    resetSeasonStartBtn: "↺ Default",
+    resetSeasonStartTitle: "Reset to default (Apr 29, 2026)",
+    saveSettingsBtn: "Save",
+    resetDataBtn: "Reset local display",
+    settingsHint: "Server automatically syncs your data every 6 hours - no own Riot API key needed.",
+    statusNotConnected: "Not connected yet",
+    champSearchPlaceholder: "Search champion...",
+    sortName: "Name (A-Z)",
+    sortWins: "Most wins",
+    onlyMissingLabel: "show only missing",
+    metaTitle: "📊 Daily meta",
+    metaTrioHeading: "Best trio combos",
+    metaSynergyHeading: "Augment/item synergies",
+    addFriendBtnShort: "+ Friend",
+    closeTitle: "Close",
+
+    statusEnterRiotIdServer: "Please enter Riot ID and server URL.",
+    statusConnecting: "Connecting to server (can take up to 60s the first time)...",
+    statusLoadingStats: "Loading stats from server...",
+    statusConnected: "Connected. Last server sync: {time}",
+    errorPrefix: "Error: ",
+    statusSeasonUpdateError: "Error updating season start: {msg}",
+    statusResetDone: "Local display reset. Will reload automatically on the next server sync.",
+    statusAddFriendNeedRiotId: "Please enter your own Riot ID in the settings first.",
+    statusLoadingChampList: "Loading champion list...",
+    statusReadyFillSettings: "Ready. Fill in settings (Riot ID, region).",
+    neverSynced: "never",
+    summaryWon: "{won} / {total} champions won",
+    overallStats: "{games} game(s) total ({wins} wins / {losses} losses)",
+    tooltipNoGames: "No Arena games since season start.",
+    tooltipGamesCount: "{count} game(s) since {date}",
+    tooltipWin: "Win",
+    tooltipLose: "Loss",
+    placementSuffix: "(rank {n})",
+    withLabel: "with",
+    metaUpdatedAt: "Updated: {time}",
+    friendEmpty: "No friends added yet.",
+    removeFriendTitle: "Remove",
+    friendAddFailed: "Could not add friend.",
+    friendRemoveFailed: "Removal failed.",
+    rankNotRegistered404: "Not registered yet. Save settings first.",
+    rankLoading: "Loading...",
+    rankNeedOwnId: "Enter your own Riot ID in settings first.",
+    rankLoadFailed: "Could not load ranking.",
+    rankEmptyData: "No data yet.",
+    opggOpenTitle: "Open op.gg",
+    progressTitle: "Show progress",
+    statsLoadFailed: "Could not load stats.",
+    friendAlready: "✓ Friend",
+    seasonUpdateFailed: "Season start update failed ({status})",
+    registrationFailed: "Registration failed ({status})",
+    statsFetchFailed: "Stats fetch failed ({status})",
+    resetConfirm: "Really reset locally displayed data? (Stays intact on the server)",
+    playerViewSummary: "{won} / {total} champions won · {games} game(s) ({wins} wins)",
+    playerViewLastSync: " · last sync: {time}"
+  }
+};
+
+let currentLang = localStorage.getItem(LANG_STORAGE_KEY) || "de";
+
+// Holt einen uebersetzten String und ersetzt {platzhalter} mit Werten aus vars.
+function t(key, vars) {
+  const str = (I18N[currentLang] && I18N[currentLang][key]) || I18N.de[key] || key;
+  if (!vars) return str;
+  return str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : `{${k}}`));
+}
+
+// Wendet die Uebersetzung auf alle statisch markierten Elemente an
+// (data-i18n fuer Textinhalt, data-i18n-placeholder, data-i18n-title).
+function applyStaticTranslations() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(el.getAttribute("data-i18n"));
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    el.placeholder = t(el.getAttribute("data-i18n-placeholder"));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.title = t(el.getAttribute("data-i18n-title"));
+  });
+  document.getElementById("langToggle").textContent = currentLang === "de" ? "EN" : "DE";
+  document.documentElement.lang = currentLang;
+}
 
 // Rahmen-Stufen je nach Anzahl Erster-Plaetze mit einem Champion.
 const WIN_TIERS = [
@@ -40,6 +217,7 @@ function getWinCount(champKey) {
 let state = loadState();
 let championList = []; // [{id, name, key}] aus Data Dragon
 let championByApiName = {}; // { "Ahri": {icon, name}, "MonkeyKing": {...}, ... } - id ist Riots interner Name
+let lastFriendsList = null; // zuletzt geladene Freundesliste, fuer Re-Render bei Sprachwechsel
 
 // ---------- Persistenz ----------
 
@@ -76,6 +254,22 @@ document.getElementById("riotId").value = state.riotId;
 document.getElementById("region").value = state.region;
 document.getElementById("seasonStart").value = state.seasonStart;
 
+applyStaticTranslations();
+
+document.getElementById("langToggle").onclick = () => {
+  currentLang = currentLang === "de" ? "en" : "de";
+  localStorage.setItem(LANG_STORAGE_KEY, currentLang);
+  applyStaticTranslations();
+  // Dynamisch erzeugte Inhalte muessen separat neu gerendert werden,
+  // da sie nicht ueber data-i18n-Attribute laufen.
+  renderGrid();
+  if (lastFriendsList) renderFriendsList(lastFriendsList);
+  if (rankingLoadedOnce && !document.getElementById("rankingBox").classList.contains("hidden")) {
+    loadRanking(currentRankingMode);
+  }
+  if (viewedPlayerStats) renderPlayerViewGrid();
+};
+
 const DEFAULT_SEASON_START = "2026-04-29";
 document.getElementById("resetSeasonStart").onclick = () => {
   document.getElementById("seasonStart").value = DEFAULT_SEASON_START;
@@ -104,18 +298,19 @@ document.getElementById("saveSettings").onclick = async () => {
 };
 
 document.getElementById("resetData").onclick = () => {
-  if (!confirm("Lokal angezeigte Daten wirklich zurücksetzen? (Auf dem Server bleiben sie erhalten)")) return;
+  if (!confirm(t("resetConfirm"))) return;
   state.wins = {};
   state.winCounts = {};
   state.matchHistory = {};
   state.lastSync = null;
   saveState();
   renderGrid();
-  setStatus("Lokale Anzeige zurückgesetzt. Lädt automatisch beim nächsten Server-Sync neu.");
+  setStatus(t("statusResetDone"));
 };
 
 document.getElementById("filterInput").oninput = renderGrid;
 document.getElementById("onlyMissing").onchange = renderGrid;
+document.getElementById("sortMode").onchange = renderGrid;
 
 function setStatus(text) {
   document.getElementById("statusText").textContent = text;
@@ -173,7 +368,7 @@ async function registerWithServer() {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Registrierung fehlgeschlagen (${res.status})`);
+    throw new Error(data.error || t("registrationFailed", { status: res.status }));
   }
   return res.json();
 }
@@ -184,11 +379,11 @@ async function fetchStatsFromServer() {
   const encodedId = encodeURIComponent(state.riotId);
   const res = await fetch(serverUrl(`/stats/${encodedId}`));
   if (res.status === 404) {
-    throw new Error("Noch nicht registriert. Erst Einstellungen speichern.");
+    throw new Error(t("rankNotRegistered404"));
   }
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || `Stats-Abruf fehlgeschlagen (${res.status})`);
+    throw new Error(data.error || t("statsFetchFailed", { status: res.status }));
   }
   return res.json();
 }
@@ -206,11 +401,11 @@ async function updateSeasonOnServer() {
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error || `Season-Start-Update fehlgeschlagen (${res.status})`);
+      throw new Error(data.error || t("seasonUpdateFailed", { status: res.status }));
     }
   } catch (err) {
     console.error(err);
-    setStatus("Fehler beim Aktualisieren des Season-Start: " + err.message);
+    setStatus(t("statusSeasonUpdateError", { msg: err.message }));
   }
 }
 
@@ -218,20 +413,20 @@ async function updateSeasonOnServer() {
 
 async function registerAndLoad() {
   if (!state.riotId || !state.serverUrl) {
-    setStatus("Bitte Riot-ID und Server-URL eintragen.");
+    setStatus(t("statusEnterRiotIdServer"));
     document.getElementById("settingsPanel").classList.remove("hidden");
     return;
   }
   try {
-    setStatus("Verbinde mit Server (kann beim ersten Mal bis zu 60s dauern)...");
+    setStatus(t("statusConnecting"));
     await registerWithServer();
-    setStatus("Lade Stats vom Server...");
+    setStatus(t("statusLoadingStats"));
     const stats = await fetchStatsFromServer();
     applyStats(stats);
-    setStatus(`Verbunden. Letzter Server-Sync: ${formatLastSync(stats.lastSync)}`);
+    setStatus(t("statusConnected", { time: formatLastSync(stats.lastSync) }));
   } catch (err) {
     console.error(err);
-    setStatus("Fehler: " + err.message);
+    setStatus(t("errorPrefix") + err.message);
   }
 }
 
@@ -245,7 +440,7 @@ function applyStats(stats) {
 }
 
 function formatLastSync(lastSync) {
-  return lastSync ? new Date(lastSync).toLocaleString("de-DE") : "noch nie";
+  return lastSync ? new Date(lastSync).toLocaleString(currentLang === "de" ? "de-DE" : "en-US") : t("neverSynced");
 }
 
 // ---------- Rendering ----------
@@ -254,11 +449,20 @@ function renderGrid() {
   const grid = document.getElementById("grid");
   const filterText = document.getElementById("filterInput").value.toLowerCase();
   const onlyMissing = document.getElementById("onlyMissing").checked;
+  const sortMode = document.getElementById("sortMode").value;
 
   grid.innerHTML = "";
   let wonCount = 0;
 
-  const visible = championList.filter((c) => c.name.toLowerCase().includes(filterText));
+  let visible = championList.filter((c) => c.name.toLowerCase().includes(filterText));
+
+  if (sortMode === "wins") {
+    // Meiste Wins zuerst, bei Gleichstand alphabetisch (stabil/vorhersehbar).
+    visible = visible.slice().sort((a, b) => {
+      const diff = getWinCount(b.key) - getWinCount(a.key);
+      return diff !== 0 ? diff : a.name.localeCompare(b.name);
+    });
+  }
 
   for (const champ of visible) {
     const winCount = getWinCount(champ.key);
@@ -290,7 +494,7 @@ function renderGrid() {
   }
 
   document.getElementById("summaryText").textContent =
-    `${wonCount} / ${championList.length} Champions gewonnen`;
+    t("summaryWon", { won: wonCount, total: championList.length });
 
   updateOverallStats();
 }
@@ -310,7 +514,7 @@ function updateOverallStats() {
   const totalLosses = totalGames - totalWins;
 
   document.getElementById("overallStatsText").textContent =
-    `${totalGames} Spiel(e) insgesamt (${totalWins} Siege / ${totalLosses} Niederlagen)`;
+    t("overallStats", { games: totalGames, wins: totalWins, losses: totalLosses });
 }
 
 // ---------- Hover-Tooltip: Match-History pro Champion ----------
@@ -324,14 +528,15 @@ function showChampTooltip(e, champ) {
   let html = `<div class="tooltipTitle">${champ.name}</div>`;
 
   if (history.length === 0) {
-    html += `<div class="tooltipEmpty">Keine Arena-Spiele seit Season-Start.</div>`;
+    html += `<div class="tooltipEmpty">${t("tooltipNoGames")}</div>`;
   } else {
-    html += `<div class="tooltipCount">${history.length} Spiel(e) seit ${formatSeasonStart()}</div>`;
+    html += `<div class="tooltipCount">${t("tooltipGamesCount", { count: history.length, date: formatSeasonStart() })}</div>`;
     html += `<ul class="tooltipList">`;
+    const dateLocale = currentLang === "de" ? "de-DE" : "en-US";
     for (const g of history) {
       const isWin = g.placement === 1;
-      const resultText = isWin ? "Sieg" : "Niederlage";
-      const dateStr = new Date(g.date).toLocaleDateString("de-DE");
+      const dateStr = new Date(g.date).toLocaleDateString(dateLocale, { day: "2-digit", month: "2-digit" });
+      const placementBadge = `<span class="placementBadge ${isWin ? "placementWin" : "placementLose"}">${g.placement}</span>`;
       const mates = g.teammates && g.teammates.length
         ? g.teammates.map((m) => {
             const champData = championByApiName[m.champion];
@@ -342,8 +547,8 @@ function showChampTooltip(e, champ) {
           }).join("")
         : "?";
       html += `<li class="${isWin ? "tooltipWin" : "tooltipLose"}">
-        <div class="tooltipDate">${dateStr} – ${resultText} (Platz ${g.placement})</div>
-        <div class="tooltipMates">mit ${mates}</div>
+        <div class="tooltipDate">${dateStr} ${placementBadge}</div>
+        <div class="tooltipMates">${mates}</div>
       </li>`;
     }
     html += `</ul>`;
@@ -408,7 +613,7 @@ function renderMeta(data) {
     div.innerHTML = `
       <span class="metaTier">${combo.tier}</span>
       <span class="metaName">${combo.champion}</span>
-      <span class="metaPartners">mit ${partners}</span>
+      <span class="metaPartners">${t("withLabel")} ${partners}</span>
     `;
     comboList.appendChild(div);
   }
@@ -431,7 +636,7 @@ function renderMeta(data) {
   }
 
   document.getElementById("metaUpdatedText").textContent = data.updatedAt
-    ? `Stand: ${new Date(data.updatedAt).toLocaleString("de-DE")}`
+    ? t("metaUpdatedAt", { time: new Date(data.updatedAt).toLocaleString(currentLang === "de" ? "de-DE" : "en-US") })
     : "";
 }
 
@@ -443,22 +648,24 @@ async function loadFriends() {
     const res = await fetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
     if (!res.ok) return;
     const data = await res.json();
-    renderFriendsList(data.friends || []);
+    lastFriendsList = data.friends || [];
+    renderFriendsList(lastFriendsList);
   } catch (err) {
     console.error("Freunde konnten nicht geladen werden:", err);
   }
 }
 
 function renderFriendsList(friends) {
+  lastFriendsList = friends;
   const list = document.getElementById("friendsList");
   list.innerHTML = "";
   if (friends.length === 0) {
-    list.innerHTML = `<li class="friendEmpty">Noch keine Freunde hinzugefügt.</li>`;
+    list.innerHTML = `<li class="friendEmpty">${t("friendEmpty")}</li>`;
     return;
   }
   for (const friendId of friends) {
     const li = document.createElement("li");
-    li.innerHTML = `<span>${friendId}</span><button class="removeFriendBtn" title="Entfernen">✕</button>`;
+    li.innerHTML = `<span>${friendId}</span><button class="removeFriendBtn" title="${t("removeFriendTitle")}">✕</button>`;
     li.querySelector(".removeFriendBtn").onclick = () => removeFriend(friendId);
     list.appendChild(li);
   }
@@ -469,7 +676,7 @@ async function addFriend(friendRiotIdParam) {
   const friendRiotId = friendRiotIdParam || input.value.trim();
   if (!friendRiotId) return;
   if (!state.riotId) {
-    setStatus("Bitte zuerst deine eigene Riot-ID in den Einstellungen eintragen.");
+    setStatus(t("statusAddFriendNeedRiotId"));
     return;
   }
   try {
@@ -479,14 +686,14 @@ async function addFriend(friendRiotIdParam) {
       body: JSON.stringify({ friendRiotId })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Freund konnte nicht hinzugefügt werden.");
+    if (!res.ok) throw new Error(data.error || t("friendAddFailed"));
     if (!friendRiotIdParam) input.value = "";
     renderFriendsList(data.friends || []);
     if (currentRankingMode === "friends") loadRanking("friends");
     return data.friends || [];
   } catch (err) {
     console.error(err);
-    setStatus("Fehler: " + err.message);
+    setStatus(t("errorPrefix") + err.message);
     return null;
   }
 }
@@ -498,12 +705,12 @@ async function removeFriend(friendRiotId) {
       { method: "DELETE" }
     );
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Entfernen fehlgeschlagen.");
+    if (!res.ok) throw new Error(data.error || t("friendRemoveFailed"));
     renderFriendsList(data.friends || []);
     if (currentRankingMode === "friends") loadRanking("friends");
   } catch (err) {
     console.error(err);
-    setStatus("Fehler: " + err.message);
+    setStatus(t("errorPrefix") + err.message);
   }
 }
 
@@ -535,10 +742,10 @@ async function loadRanking(mode) {
   document.getElementById("rankingTabFriends").classList.toggle("active", mode === "friends");
 
   const list = document.getElementById("rankingList");
-  list.innerHTML = `<li class="rankEmpty">Lade...</li>`;
+  list.innerHTML = `<li class="rankEmpty">${t("rankLoading")}</li>`;
 
   if (mode === "friends" && !state.riotId) {
-    list.innerHTML = `<li class="rankEmpty">Erst eigene Riot-ID in den Einstellungen eintragen.</li>`;
+    list.innerHTML = `<li class="rankEmpty">${t("rankNeedOwnId")}</li>`;
     return;
   }
 
@@ -548,11 +755,11 @@ async function loadRanking(mode) {
       : `/ranking/friends/${encodeURIComponent(state.riotId)}`;
     const res = await fetch(serverUrl(path));
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Ranking konnte nicht geladen werden.");
+    if (!res.ok) throw new Error(data.error || t("rankLoadFailed"));
     renderRanking(data.ranking || []);
   } catch (err) {
     console.error(err);
-    list.innerHTML = `<li class="rankEmpty">Fehler: ${err.message}</li>`;
+    list.innerHTML = `<li class="rankEmpty">${t("errorPrefix")}${err.message}</li>`;
   }
 }
 
@@ -573,7 +780,7 @@ function renderRanking(ranking) {
   const list = document.getElementById("rankingList");
   list.innerHTML = "";
   if (ranking.length === 0) {
-    list.innerHTML = `<li class="rankEmpty">Noch keine Daten.</li>`;
+    list.innerHTML = `<li class="rankEmpty">${t("rankEmptyData")}</li>`;
     return;
   }
   ranking.forEach((entry, i) => {
@@ -583,7 +790,7 @@ function renderRanking(ranking) {
 
     const opggUrl = buildOpggUrl(entry.riotId, entry.region);
     const opggLink = opggUrl
-      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="op.gg öffnen">op.gg</a>`
+      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}">op.gg</a>`
       : "";
 
     li.innerHTML = `
@@ -592,7 +799,7 @@ function renderRanking(ranking) {
       ${opggLink}
       <span class="rankWins">${entry.championsWon}</span>
     `;
-    li.title = "Fortschritt anzeigen";
+    li.title = t("progressTitle");
     li.addEventListener("click", () => openPlayerView(entry.riotId));
     const linkEl = li.querySelector(".opggLink");
     if (linkEl) linkEl.addEventListener("click", (e) => e.stopPropagation());
@@ -615,7 +822,7 @@ async function openPlayerView(riotId) {
   const addFriendBtnEl = document.getElementById("playerViewAddFriend");
 
   nameEl.textContent = riotId;
-  summaryEl.textContent = "Lade...";
+  summaryEl.textContent = t("rankLoading");
   gridEl.innerHTML = "";
   overlay.classList.remove("hidden");
 
@@ -630,19 +837,19 @@ async function openPlayerView(riotId) {
   try {
     const res = await fetch(serverUrl(`/stats/${encodeURIComponent(riotId)}`));
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Stats konnten nicht geladen werden.");
+    if (!res.ok) throw new Error(data.error || t("statsLoadFailed"));
     viewedPlayerStats = data;
     renderPlayerViewGrid();
   } catch (err) {
     console.error(err);
-    summaryEl.textContent = "Fehler: " + err.message;
+    summaryEl.textContent = t("errorPrefix") + err.message;
   }
 }
 
 async function updatePlayerViewFriendButton(riotId) {
   const btn = document.getElementById("playerViewAddFriend");
   btn.classList.remove("already");
-  btn.textContent = "+ Freund";
+  btn.textContent = t("addFriendBtnShort");
   btn.disabled = false;
   try {
     const res = await fetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
@@ -653,7 +860,7 @@ async function updatePlayerViewFriendButton(riotId) {
     );
     if (alreadyFriend) {
       btn.classList.add("already");
-      btn.textContent = "✓ Freund";
+      btn.textContent = t("friendAlready");
       btn.disabled = true;
     }
   } catch (err) {
@@ -669,10 +876,10 @@ document.getElementById("playerViewAddFriend").onclick = async () => {
   const friends = await addFriend(riotId);
   if (friends) {
     btn.classList.add("already");
-    btn.textContent = "✓ Freund";
+    btn.textContent = t("friendAlready");
   } else {
     btn.disabled = false;
-    btn.textContent = "+ Freund";
+    btn.textContent = t("addFriendBtnShort");
   }
 };
 
@@ -722,8 +929,8 @@ function renderPlayerViewGrid() {
   }
 
   summaryEl.textContent =
-    `${wonCount} / ${championList.length} Champions gewonnen · ${totalGames} Spiel(e) (${totalWins} Siege)` +
-    (viewedPlayerStats.lastSync ? ` · letzter Sync: ${formatLastSync(viewedPlayerStats.lastSync)}` : "");
+    t("playerViewSummary", { won: wonCount, total: championList.length, games: totalGames, wins: totalWins }) +
+    (viewedPlayerStats.lastSync ? t("playerViewLastSync", { time: formatLastSync(viewedPlayerStats.lastSync) }) : "");
 }
 
 document.getElementById("playerViewClose").onclick = () => {
@@ -736,7 +943,7 @@ document.getElementById("playerViewFilter").oninput = renderPlayerViewGrid;
 // ---------- Start ----------
 
 (async function init() {
-  setStatus("Champion-Liste wird geladen...");
+  setStatus(t("statusLoadingChampList"));
   await loadChampionList();
   renderGrid();
   loadMetaData();
@@ -745,7 +952,7 @@ document.getElementById("playerViewFilter").oninput = renderPlayerViewGrid;
     await registerAndLoad();
     loadFriends();
   } else {
-    setStatus("Bereit. Einstellungen ausfüllen (Riot-ID, Server-URL, Sync-Secret).");
+    setStatus(t("statusReadyFillSettings"));
     document.getElementById("settingsPanel").classList.remove("hidden");
   }
 })();

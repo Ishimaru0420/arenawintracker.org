@@ -92,6 +92,10 @@ button.danger:hover { background: #dc2626; }
   padding: 4px 7px; border-radius: 5px; font-size: 12px;
 }
 .checkboxLabel { font-size: 11px; color: #aaa; display: flex; align-items: center; gap: 4px; }
+#sortMode {
+  background: #14141c; border: 1px solid #3a3a4a; color: #fff;
+  padding: 4px 6px; border-radius: 5px; font-size: 11px;
+}
 
 /* ---------- Header: mehrere Buttons rechts ---------- */
 .headerBtns { display: flex; gap: 4px; -webkit-app-region: no-drag; }
@@ -131,6 +135,18 @@ button.danger:hover { background: #dc2626; }
 .suggestList .suggestEmpty:hover { background: rgba(124,58,237,0.08); }
 .suggestList::-webkit-scrollbar { width: 4px; }
 .suggestList::-webkit-scrollbar-thumb { background: #444; border-radius: 2px; }
+
+/* ---------- Sprachumschalter: fest oben rechts ---------- */
+#langPanel {
+  position: fixed; top: 12px; right: 12px; z-index: 50;
+}
+#langToggle {
+  background: #1c1c29; color: #c084fc; border: 1px solid #3a3a4a;
+  border-radius: 16px; width: auto; min-width: 40px; height: 32px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.03em;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+#langToggle:hover { background: #2a2a38; }
 
 /* ---------- Ranking-Panel: fest oben links auf der Seite ---------- */
 #rankingPanel {
@@ -357,8 +373,13 @@ button.danger:hover { background: #dc2626; }
 .tooltipList li { padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.08); }
 .tooltipList li:last-child { border-bottom: none; padding-bottom: 0; }
 .tooltipDate { color: #e9e9f2; }
-.tooltipList li.tooltipWin .tooltipDate { color: #4ade80; font-weight: 600; }
-.tooltipList li.tooltipLose .tooltipDate { color: #f87171; }
+.tooltipList li.tooltipWin .tooltipDate { color: #e9e9f2; font-weight: 600; }
+.tooltipList li.tooltipLose .tooltipDate { color: #e9e9f2; }
+.placementBadge { font-weight: 700; margin-left: 4px; }
+.placementWin {
+  color: #4ade80; text-shadow: 0 0 6px rgba(74, 222, 128, 0.85);
+}
+.placementLose { color: #f87171; }
 .tooltipMates { color: #999; font-size: 10px; margin-top: 3px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
 .tooltipMate { display: inline-flex; align-items: center; gap: 3px; }
 .tooltipMate img {
