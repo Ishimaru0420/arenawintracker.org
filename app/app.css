@@ -310,21 +310,33 @@ button.danger:hover { background: #c43b4a; }
 }
 #grid.hidden { display: none; }
 
+/* ---------- Hauptzeile: Grid/Detailansicht links, Top-30-Trios fest rechts ---------- */
+#mainRow {
+  flex: 1; min-height: 0; display: flex; gap: 10px;
+}
+#mainRow #grid, #mainRow #champDetail { flex: 1; min-width: 0; }
+#top30Trio {
+  flex-shrink: 0; width: 230px;
+}
+
 /* ---------- Top-30-Trio-Section (immer sichtbar, ausser bei offener Champion-Detailansicht) ---------- */
 #top30Trio {
   -webkit-app-region: no-drag;
   background: linear-gradient(180deg, #1a1212, #150f0d);
   border: 1px solid #3a2620; border-radius: 6px;
-  padding: 8px 10px; margin-bottom: 8px;
-  max-height: 220px; overflow-y: auto;
+  padding: 8px 10px;
+  max-height: none; overflow: visible; /* komplett sichtbar, kein internes Scrollen */
 }
 #top30Trio.hidden { display: none; }
 #top30Trio h3 {
   font-size: 11px; color: #ff7a3c; margin: 0 0 6px;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
-#top30Trio::-webkit-scrollbar { width: 4px; }
-#top30Trio::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
+
+@media (max-width: 760px) {
+  #mainRow { flex-direction: column; }
+  #top30Trio { width: auto; }
+}
 
 .champ {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
@@ -540,11 +552,17 @@ button.danger:hover { background: #c43b4a; }
 .detailTagList li.clickableTag:hover {
   background: rgba(255,122,60,0.18); border-color: #ff7a3c;
 }
+.detailTagList li img {
+  width: 28px; height: 28px; border-radius: 4px; display: block;
+}
+.detailTagList li:has(img) {
+  padding: 3px; background: rgba(255,122,60,0.06);
+}
 
 .detailTrioList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .detailTrioList li {
   display: flex; align-items: center; gap: 5px;
-  background: rgba(255,122,60,0.04); border-radius: 5px; padding: 4px 6px; font-size: 10.5px;
+  background: rgba(255,122,60,0.04); border-radius: 4px; padding: 2px 5px; font-size: 9.5px;
 }
 .detailTrioRank { width: 16px; flex-shrink: 0; color: #9c8882; font-weight: 700; text-align: right; }
 .detailTrioNames { flex: 1; min-width: 0; color: #f5ece6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
