@@ -19,17 +19,39 @@
   </style>
 </head>
 <body>
+  <div id="rankingPanel">
+    <button id="rankingToggle" title="Ranking anzeigen">🏆</button>
+    <div id="rankingBox" class="hidden">
+      <div class="rankingTabs">
+        <button id="rankingTabGlobal" class="rankingTab active">Global</button>
+        <button id="rankingTabFriends" class="rankingTab">Freunde</button>
+      </div>
+      <ol id="rankingList"></ol>
+    </div>
+  </div>
+
   <div id="app">
 
     <header>
       <h1>Arena Win Tracker</h1>
-      <button id="settingsToggle" title="Einstellungen">⚙</button>
+      <div class="headerBtns">
+        <button id="friendsToggle" title="Freunde verwalten">👥</button>
+        <button id="settingsToggle" title="Einstellungen">⚙</button>
+      </div>
     </header>
 
     <p class="webNotice">
       Browser-Testversion. Funktioniert identisch zur Overwolf-App,
       läuft aber als normale Webseite - kein Overwolf nötig.
     </p>
+
+    <section id="friendsPanel" class="hidden">
+      <label>Riot-ID des Freundes
+        <input id="friendIdInput" type="text" placeholder="z.B. Buddy#EUW" />
+      </label>
+      <button id="addFriendBtn">+ Freund hinzufügen</button>
+      <ul id="friendsList"></ul>
+    </section>
 
     <section id="settingsPanel" class="hidden">
       <label>Riot ID (Name#Tag)

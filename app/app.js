@@ -31,16 +31,15 @@ function getTierClass(winCount) {
   return "";
 }
 
-// Zaehlt echte 1.-Plaetze fuer einen Champion aus der vom Server
-// gelieferten Match-History (zuverlaessiger als der reine "wins"-
-// Boolean, der nur ja/nein liefert).
+// Win-Count kommt jetzt direkt vom Server (dort beim Sync mitgezaehlt),
+// kein erneutes Durchsuchen der matchHistory im Client mehr noetig.
 function getWinCount(champKey) {
-  const games = state.matchHistory[champKey] || [];
-  return games.filter((g) => g.placement === 1).length;
+  return state.winCounts[champKey] || 0;
 }
 
 let state = loadState();
 let championList = []; // [{id, name, key}] aus Data Dragon
+let championByApiName = {}; // { "Ahri": {icon, name}, "MonkeyKing": {...}, ... } - id ist Riots interner Name
 let isSyncing = false;
 
 // ---------- Persistenz ----------
@@ -63,6 +62,7 @@ function defaultState() {
     syncSecret: "",
     seasonStart: "2026-04-29",
     wins: {},          // { championKey: true } - kommt vom Server
+    winCounts: {},     // { championKey: Anzahl Erster-Plaetze } - kommt vom Server
     matchHistory: {},  // { championKey: [...] } - kommt vom Server
     lastSync: null
   };
@@ -84,6 +84,10 @@ document.getElementById("settingsToggle").onclick = () => {
   document.getElementById("settingsPanel").classList.toggle("hidden");
 };
 
+document.getElementById("friendsToggle").onclick = () => {
+  document.getElementById("friendsPanel").classList.toggle("hidden");
+};
+
 document.getElementById("saveSettings").onclick = async () => {
   state.riotId = document.getElementById("riotId").value.trim();
   state.region = document.getElementById("region").value;
@@ -94,11 +98,13 @@ document.getElementById("saveSettings").onclick = async () => {
   document.getElementById("settingsPanel").classList.add("hidden");
   await registerAndLoad();
   loadMetaData();
+  loadFriends();
 };
 
 document.getElementById("resetData").onclick = () => {
   if (!confirm("Lokal angezeigte Daten wirklich zurücksetzen? (Auf dem Server bleiben sie erhalten)")) return;
   state.wins = {};
+  state.winCounts = {};
   state.matchHistory = {};
   state.lastSync = null;
   saveState();
@@ -136,6 +142,14 @@ async function loadChampionList() {
       icon: `https://ddragon.leagueoflegends.com/cdn/${latest}/img/champion/${c.image.full}`
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
+
+  // Lookup nach Riots internem API-Namen (z.B. "MonkeyKing" fuer Wukong) -
+  // genau das liefert match.info.participants[].championName, mit dem
+  // die Teammates in der matchHistory gespeichert sind.
+  championByApiName = {};
+  for (const c of championList) {
+    championByApiName[c.id] = c;
+  }
 }
 
 // ---------- Server-Kommunikation ----------
@@ -219,6 +233,7 @@ async function registerAndLoad() {
 
 function applyStats(stats) {
   state.wins = stats.wins || {};
+  state.winCounts = stats.winCounts || {};
   state.matchHistory = stats.matchHistory || {};
   state.lastSync = stats.lastSync || null;
   saveState();
@@ -343,7 +358,14 @@ function showChampTooltip(e, champ) {
       const resultText = isWin ? "Sieg" : "Niederlage";
       const dateStr = new Date(g.date).toLocaleDateString("de-DE");
       const mates = g.teammates && g.teammates.length
-        ? g.teammates.map((m) => `${m.champion} (${m.summoner})`).join(", ")
+        ? g.teammates.map((m) => {
+            const champData = championByApiName[m.champion];
+            const icon = champData
+              ? `<img src="${champData.icon}" alt="${champData.name}" />`
+              : "";
+            const displayName = champData ? champData.name : m.champion;
+            return `<span class="tooltipMate">${icon}${displayName} (${m.summoner})</span>`;
+          }).join("")
         : "?";
       html += `<li class="${isWin ? "tooltipWin" : "tooltipLose"}">
         <div class="tooltipDate">${dateStr} – ${resultText} (Platz ${g.placement})</div>
@@ -439,6 +461,144 @@ function renderMeta(data) {
     : "";
 }
 
+// ---------- Freunde ----------
+
+async function loadFriends() {
+  if (!state.riotId || !state.serverUrl) return;
+  try {
+    const res = await fetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
+    if (!res.ok) return;
+    const data = await res.json();
+    renderFriendsList(data.friends || []);
+  } catch (err) {
+    console.error("Freunde konnten nicht geladen werden:", err);
+  }
+}
+
+function renderFriendsList(friends) {
+  const list = document.getElementById("friendsList");
+  list.innerHTML = "";
+  if (friends.length === 0) {
+    list.innerHTML = `<li class="friendEmpty">Noch keine Freunde hinzugefügt.</li>`;
+    return;
+  }
+  for (const friendId of friends) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${friendId}</span><button class="removeFriendBtn" title="Entfernen">✕</button>`;
+    li.querySelector(".removeFriendBtn").onclick = () => removeFriend(friendId);
+    list.appendChild(li);
+  }
+}
+
+async function addFriend() {
+  const input = document.getElementById("friendIdInput");
+  const friendRiotId = input.value.trim();
+  if (!friendRiotId) return;
+  if (!state.riotId) {
+    setStatus("Bitte zuerst deine eigene Riot-ID in den Einstellungen eintragen.");
+    return;
+  }
+  try {
+    const res = await fetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ friendRiotId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Freund konnte nicht hinzugefügt werden.");
+    input.value = "";
+    renderFriendsList(data.friends || []);
+    if (currentRankingMode === "friends") loadRanking("friends");
+  } catch (err) {
+    console.error(err);
+    setStatus("Fehler: " + err.message);
+  }
+}
+
+async function removeFriend(friendRiotId) {
+  try {
+    const res = await fetch(
+      serverUrl(`/friends/${encodeURIComponent(state.riotId)}/${encodeURIComponent(friendRiotId)}`),
+      { method: "DELETE" }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Entfernen fehlgeschlagen.");
+    renderFriendsList(data.friends || []);
+    if (currentRankingMode === "friends") loadRanking("friends");
+  } catch (err) {
+    console.error(err);
+    setStatus("Fehler: " + err.message);
+  }
+}
+
+document.getElementById("addFriendBtn").onclick = addFriend;
+document.getElementById("friendIdInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") addFriend();
+});
+
+// ---------- Ranking ----------
+
+let currentRankingMode = "global";
+let rankingLoadedOnce = false;
+
+document.getElementById("rankingToggle").onclick = () => {
+  const box = document.getElementById("rankingBox");
+  box.classList.toggle("hidden");
+  if (!box.classList.contains("hidden") && !rankingLoadedOnce) {
+    rankingLoadedOnce = true;
+    loadRanking("global");
+  }
+};
+
+document.getElementById("rankingTabGlobal").onclick = () => loadRanking("global");
+document.getElementById("rankingTabFriends").onclick = () => loadRanking("friends");
+
+async function loadRanking(mode) {
+  currentRankingMode = mode;
+  document.getElementById("rankingTabGlobal").classList.toggle("active", mode === "global");
+  document.getElementById("rankingTabFriends").classList.toggle("active", mode === "friends");
+
+  const list = document.getElementById("rankingList");
+  list.innerHTML = `<li class="rankEmpty">Lade...</li>`;
+
+  if (mode === "friends" && !state.riotId) {
+    list.innerHTML = `<li class="rankEmpty">Erst eigene Riot-ID in den Einstellungen eintragen.</li>`;
+    return;
+  }
+
+  try {
+    const path = mode === "global"
+      ? "/ranking/global"
+      : `/ranking/friends/${encodeURIComponent(state.riotId)}`;
+    const res = await fetch(serverUrl(path));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Ranking konnte nicht geladen werden.");
+    renderRanking(data.ranking || []);
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = `<li class="rankEmpty">Fehler: ${err.message}</li>`;
+  }
+}
+
+function renderRanking(ranking) {
+  const list = document.getElementById("rankingList");
+  list.innerHTML = "";
+  if (ranking.length === 0) {
+    list.innerHTML = `<li class="rankEmpty">Noch keine Daten.</li>`;
+    return;
+  }
+  ranking.forEach((entry, i) => {
+    const li = document.createElement("li");
+    if (entry.riotId === state.riotId) li.classList.add("me");
+    li.innerHTML = `
+      <span class="rankNum">${i + 1}.</span>
+      <span class="rankName">${entry.riotId}</span>
+      <span class="rankWins">${entry.totalWins}</span>
+    `;
+    list.appendChild(li);
+  });
+}
+
 // ---------- Start ----------
 
 (async function init() {
@@ -449,6 +609,7 @@ function renderMeta(data) {
 
   if (state.riotId && state.serverUrl) {
     await registerAndLoad();
+    loadFriends();
   } else {
     setStatus("Bereit. Einstellungen ausfüllen (Riot-ID, Server-URL, Sync-Secret).");
     document.getElementById("settingsPanel").classList.remove("hidden");
