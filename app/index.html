@@ -27,7 +27,7 @@
         <button id="rankingTabFriends" class="rankingTab">Freunde</button>
       </div>
       <ol id="rankingList"></ol>
-      <p class="rankingUpdateNote">🕕 Aktualisiert täglich automatisch um 6:00 Uhr · manuell per "Jetzt syncen"</p>
+      <p class="rankingUpdateNote">🕕 Update alle 6 Std.</p>
     </div>
   </div>
 
@@ -70,23 +70,25 @@
           <option value="sea">SEA (OCE/SG/PH/...)</option>
         </select>
       </label>
-      <label>Server-URL
-        <input id="serverUrl" type="text" placeholder="https://arena-win-tracker-server.onrender.com" />
-      </label>
-      <label>Sync-Secret
-        <input id="syncSecret" type="password" placeholder="gemeinsames Secret vom Server" />
-      </label>
-      <label>Season-Start (Arena-Reset Datum)
-        <input id="seasonStart" type="date" />
-      </label>
       <div class="settingsActions">
         <button id="saveSettings">Speichern</button>
         <button id="resetData" class="danger">Lokale Anzeige zurücksetzen</button>
       </div>
+      <details id="advancedSettings">
+        <summary>Erweitert</summary>
+        <label>Server-URL
+          <input id="serverUrl" type="text" placeholder="https://arena-win-tracker-server.onrender.com" />
+        </label>
+        <label>Sync-Secret
+          <input id="syncSecret" type="password" placeholder="gemeinsames Secret vom Server" />
+        </label>
+        <label>Season-Start (Arena-Reset Datum)
+          <input id="seasonStart" type="date" />
+        </label>
+      </details>
       <p class="hint">
-        Kein eigener Riot API-Key nötig - der zentrale Server synct deine
-        Daten automatisch täglich. Riot-ID, Server-URL und Sync-Secret
-        bekommst du von der Person, die den Server betreibt.
+        Server synct deine Daten automatisch alle 6 Stunden - kein eigener
+        Riot API-Key nötig.
       </p>
     </section>
 
