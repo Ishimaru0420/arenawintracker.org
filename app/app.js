@@ -115,7 +115,16 @@ const I18N = {
     champDetailNoSkillOrder: "Noch keine Skill-Reihenfolge für diesen Champion.",
     champDetailTactics: "Taktiken",
     champDetailNoTactics: "Noch keine Taktik-Tipps für diesen Champion.",
-    topTrioHeading: "Top 30 Trios (Winrate)"
+    topTrioHeading: "Top 30 Trios (Winrate)",
+    champDetailAiHeading: "KI-Empfehlung (experimentell)",
+    champDetailAiCore: "Core-Items",
+    champDetailAiSituational: "Situativ",
+    champDetailAiAugments: "Augments",
+    champDetailAiSpells: "Summoner Spells",
+    champDetailAiNone: "Noch keine KI-Empfehlung für diesen Champion.",
+    champDetailAiConfidenceLow: "Wenig Datenbasis - vorsichtig interpretieren",
+    champDetailAiConfidenceMedium: "Solide Datenbasis",
+    champDetailAiConfidenceHigh: "Starke Datenbasis"
   },
   en: {
     rankingToggleTitle: "Show ranking",
@@ -211,7 +220,16 @@ const I18N = {
     champDetailNoSkillOrder: "No skill order for this champion yet.",
     champDetailTactics: "Tactics",
     champDetailNoTactics: "No tactic tips for this champion yet.",
-    topTrioHeading: "Top 30 trios (win rate)"
+    topTrioHeading: "Top 30 trios (win rate)",
+    champDetailAiHeading: "AI recommendation (experimental)",
+    champDetailAiCore: "Core items",
+    champDetailAiSituational: "Situational",
+    champDetailAiAugments: "Augments",
+    champDetailAiSpells: "Summoner spells",
+    champDetailAiNone: "No AI recommendation for this champion yet.",
+    champDetailAiConfidenceLow: "Low sample size - interpret with caution",
+    champDetailAiConfidenceMedium: "Solid sample size",
+    champDetailAiConfidenceHigh: "Strong sample size"
   }
 };
 
@@ -926,6 +944,70 @@ function renderTacticsBlock(champ) {
   return html;
 }
 
+// ---- KI-Empfehlung (Standalone-Agent, "itemMeta"-Collection) ----
+// REIN LESEND: zeigt nur an, was der Agent lokal schon generiert hat.
+// Kein Eingabefeld, kein Button, der eine neue Generierung ausloest -
+// App-Nutzer koennen hierueber NICHTS anfragen oder Kosten verursachen.
+function renderAiMetaPlaceholder() {
+  return `<div class="detailSection" id="aiMetaSection"><h3>${t("champDetailAiHeading")}</h3><p class="detailEmpty">...</p></div>`;
+}
+
+function confidenceLabel(confidence) {
+  if (confidence === "high") return t("champDetailAiConfidenceHigh");
+  if (confidence === "medium") return t("champDetailAiConfidenceMedium");
+  return t("champDetailAiConfidenceLow");
+}
+
+function renderAiMetaContent(aiMeta) {
+  if (!aiMeta) {
+    return `<h3>${t("champDetailAiHeading")}</h3><p class="detailEmpty">${t("champDetailAiNone")}</p>`;
+  }
+
+  let html = `<h3>${t("champDetailAiHeading")}</h3>`;
+  html += `<p class="detailEmpty" style="margin-bottom:8px;">${confidenceLabel(aiMeta.confidence)} (${aiMeta.sampleSize || 0} Spiele)</p>`;
+
+  if (aiMeta.coreItems && aiMeta.coreItems.length) {
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiCore")}</p><ul class="detailTagList">` +
+      aiMeta.coreItems.map((i) => renderItemTag(i.name, false)).join("") + `</ul>`;
+  }
+  if (aiMeta.situationalItems && aiMeta.situationalItems.length) {
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiSituational")}</p><ul class="detailTagList">` +
+      aiMeta.situationalItems.map((i) => renderItemTag(i.name, false)).join("") + `</ul>`;
+  }
+  if (aiMeta.recommendedAugments && aiMeta.recommendedAugments.length) {
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiAugments")}</p><ul class="detailTagList">` +
+      aiMeta.recommendedAugments.map((a) => `<li class="detailTagList-item">${a.name}</li>`).join("") + `</ul>`;
+  }
+  if (aiMeta.recommendedSummonerSpells && aiMeta.recommendedSummonerSpells.length) {
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiSpells")}</p><ul class="detailTagList">` +
+      aiMeta.recommendedSummonerSpells.map((s) => `<li class="detailTagList-item">${s.name}</li>`).join("") + `</ul>`;
+  }
+  if (aiMeta.buildPathSummary) {
+    html += `<p class="detailEmpty" style="margin-top:8px;">${aiMeta.buildPathSummary}</p>`;
+  }
+  return html;
+}
+
+// Laedt die KI-Empfehlung asynchron NACH dem ersten Rendern der
+// Detailansicht (champ.key = numerische Champion-ID, passend zur
+// itemMeta-Collection). Schlaegt der Request fehl (z.B. Server down),
+// wird einfach "keine Daten" angezeigt statt eines Fehlers.
+async function loadAiMetaSection(champ) {
+  const section = document.getElementById("aiMetaSection");
+  if (!section) return;
+  try {
+    const res = await fetch(serverUrl(`/meta-ai/${champ.key}`));
+    if (!res.ok) {
+      section.innerHTML = renderAiMetaContent(null);
+      return;
+    }
+    const aiMeta = await res.json();
+    section.innerHTML = renderAiMetaContent(aiMeta);
+  } catch {
+    section.innerHTML = renderAiMetaContent(null);
+  }
+}
+
 function openChampDetail(champ) {
   currentDetailChamp = champ;
   hideChampTooltip();
@@ -948,12 +1030,14 @@ function openChampDetail(champ) {
       ${renderBestItemsColumn(champ)}
       ${renderBestAugmentsColumn(champ)}
     </div>
+    ${renderAiMetaPlaceholder()}
   `;
 
   document.getElementById("champDetailBackBtn").addEventListener("click", closeChampDetail);
   detail.querySelectorAll(".clickableTag").forEach((li) => {
     li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
   });
+  loadAiMetaSection(champ);
 }
 
 // ---------- Item-/Augment-Detailansicht (Klick auf ein Item- oder Augment-Tag) ----------
