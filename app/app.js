@@ -341,7 +341,7 @@ safeBind("langToggle", "onclick", () => {
     openChampDetail(currentDetailChamp);
   }
   if (lastFriendsList) renderFriendsList(lastFriendsList);
-  if (rankingLoadedOnce && !document.getElementById("rankingBox").classList.contains("hidden")) {
+  if (rankingLoadedOnce) {
     loadRanking(currentRankingMode);
   }
   if (viewedPlayerStats) renderPlayerViewGrid();
@@ -915,6 +915,7 @@ function openChampDetail(champ) {
   hideChampTooltip();
   document.getElementById("grid").classList.add("hidden");
   document.getElementById("top30Trio").classList.add("hidden");
+  document.getElementById("rankingPanel").classList.add("hidden");
   const detail = document.getElementById("champDetail");
   detail.classList.remove("hidden");
 
@@ -990,6 +991,7 @@ function closeChampDetail() {
   document.getElementById("champDetail").classList.add("hidden");
   document.getElementById("grid").classList.remove("hidden");
   document.getElementById("top30Trio").classList.remove("hidden");
+  document.getElementById("rankingPanel").classList.remove("hidden");
 }
 
 // ---------- Freunde ----------
@@ -1076,14 +1078,11 @@ safeBind("friendIdInput", "addEventListener", { event: "keydown", fn: (e) => {
 let currentRankingMode = "global";
 let rankingLoadedOnce = false;
 
-safeBind("rankingToggle", "onclick", () => {
-  const box = document.getElementById("rankingBox");
-  box.classList.toggle("hidden");
-  if (!box.classList.contains("hidden") && !rankingLoadedOnce) {
-    rankingLoadedOnce = true;
-    loadRanking("global");
-  }
-});
+function ensureRankingLoaded() {
+  if (rankingLoadedOnce) return;
+  rankingLoadedOnce = true;
+  loadRanking("global");
+}
 
 safeBind("rankingTabGlobal", "onclick", () => loadRanking("global"));
 safeBind("rankingTabFriends", "onclick", () => loadRanking("friends"));
@@ -1314,6 +1313,7 @@ safeBind("playerViewFilter", "oninput", renderPlayerViewGrid);
   await loadChampionList();
   renderGrid();
   loadMetaData();
+  ensureRankingLoaded();
 
   if (state.riotId && state.serverUrl) {
     await registerAndLoad();
