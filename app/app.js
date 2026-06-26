@@ -124,7 +124,27 @@ const I18N = {
     champDetailAiNone: "Noch keine KI-Empfehlung für diesen Champion.",
     champDetailAiConfidenceLow: "Wenig Datenbasis - vorsichtig interpretieren",
     champDetailAiConfidenceMedium: "Solide Datenbasis",
-    champDetailAiConfidenceHigh: "Starke Datenbasis"
+    champDetailAiConfidenceHigh: "Starke Datenbasis",
+    communityDbHeading: "Standard-Datenbank",
+    communityDbNone: "Noch keine Datenbank-Einträge für diesen Champion.",
+    communityDbTier: "Tier",
+    communityDbWinrate: "Winrate",
+    communityDbTop3: "Top-3",
+    communityDbPickRate: "Pickrate",
+    communityDbBanRate: "Banrate",
+    communityDbKda: "KDA",
+    communityDbAvgPlace: "Ø Platzierung",
+    communityDbGames: "Spiele",
+    communityDbAugmentsOverall: "Beste Augments (gesamt)",
+    communityDbSynergies: "Synergien",
+    communityDbSkillOrder: "Skill-Reihenfolge",
+    communityDbNoBuildDetails: "Nur Tier-Liste-Daten vorhanden, noch keine Build-Details.",
+    communityAiHeading: "KI-Analyse (Standard-Datenbank)",
+    communityAiNone: "Noch keine KI-Analyse für diesen Champion.",
+    communityAiStrengths: "Stärken",
+    communityAiAugments: "Augment-Empfehlung",
+    communityAiSynergy: "Synergie-Hinweis",
+    communityAiWeakness: "Schwäche-Hinweis"
   },
   en: {
     rankingToggleTitle: "Show ranking",
@@ -229,7 +249,27 @@ const I18N = {
     champDetailAiNone: "No AI recommendation for this champion yet.",
     champDetailAiConfidenceLow: "Low sample size - interpret with caution",
     champDetailAiConfidenceMedium: "Solid sample size",
-    champDetailAiConfidenceHigh: "Strong sample size"
+    champDetailAiConfidenceHigh: "Strong sample size",
+    communityDbHeading: "Standard database",
+    communityDbNone: "No database entry for this champion yet.",
+    communityDbTier: "Tier",
+    communityDbWinrate: "Win rate",
+    communityDbTop3: "Top 3",
+    communityDbPickRate: "Pick rate",
+    communityDbBanRate: "Ban rate",
+    communityDbKda: "KDA",
+    communityDbAvgPlace: "Avg. placement",
+    communityDbGames: "Games",
+    communityDbAugmentsOverall: "Best augments (overall)",
+    communityDbSynergies: "Synergies",
+    communityDbSkillOrder: "Skill order",
+    communityDbNoBuildDetails: "Only tier-list data available, no build details yet.",
+    communityAiHeading: "AI analysis (standard database)",
+    communityAiNone: "No AI analysis for this champion yet.",
+    communityAiStrengths: "Strengths",
+    communityAiAugments: "Augment recommendation",
+    communityAiSynergy: "Synergy note",
+    communityAiWeakness: "Weakness note"
   }
 };
 
@@ -960,6 +1000,128 @@ function confidenceLabel(confidence) {
   return t("champDetailAiConfidenceLow");
 }
 
+// ---- Standard-Datenbank (Collection "communityMeta", handgepflegte Stats) ----
+// REIN LESEND, genau wie die bestehende KI-Empfehlung - kein Eingabefeld.
+function renderCommunityDbPlaceholder() {
+  return `<div class="detailSection" id="communityDbSection"><h3>${t("communityDbHeading")}</h3><p class="detailEmpty">...</p></div>`;
+}
+
+function renderStatLine(label, value) {
+  if (value === undefined || value === null || value === "") return "";
+  return `<span class="detailSkillOrderLabel">${label}:</span> ${value}`;
+}
+
+function renderCommunityDbContent(data) {
+  if (!data) {
+    return `<h3>${t("communityDbHeading")}</h3><p class="detailEmpty">${t("communityDbNone")}</p>`;
+  }
+
+  let html = `<h3>${t("communityDbHeading")}</h3>`;
+  const statParts = [
+    renderStatLine(t("communityDbTier"), data.tier),
+    renderStatLine(t("communityDbWinrate"), data.winPct != null ? `${data.winPct}%` : null),
+    renderStatLine(t("communityDbTop3"), data.top3Pct != null ? `${data.top3Pct}%` : null),
+    renderStatLine(t("communityDbPickRate"), data.pickPct != null ? `${data.pickPct}%` : null),
+    renderStatLine(t("communityDbBanRate"), data.banPct != null ? `${data.banPct}%` : null),
+    renderStatLine(t("communityDbKda"), data.kda),
+    renderStatLine(t("communityDbAvgPlace"), data.avgPlace),
+    renderStatLine(t("communityDbGames"), data.games),
+  ].filter(Boolean);
+
+  if (statParts.length) {
+    html += `<p class="detailEmpty" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:8px;">` +
+      statParts.map((p) => `<span>${p}</span>`).join("") + `</p>`;
+  }
+
+  if (!data.hasBuildDetails || !data.build) {
+    html += `<p class="detailEmpty">${t("communityDbNoBuildDetails")}</p>`;
+    return html;
+  }
+
+  const build = data.build;
+  if (build.augmentsOverall && build.augmentsOverall.length) {
+    html += `<p class="detailSkillOrderLabel">${t("communityDbAugmentsOverall")}</p><ul class="detailTagList">` +
+      build.augmentsOverall.slice(0, 5).map((a) => `<li>${a.name}${a.pick_pct != null ? ` (${a.pick_pct}%)` : ""}</li>`).join("") +
+      `</ul>`;
+  }
+  if (build.synergies && build.synergies.length) {
+    html += `<p class="detailSkillOrderLabel">${t("communityDbSynergies")}</p><ul class="detailTagList">` +
+      build.synergies.map((s) => `<li>${s.name}</li>`).join("") + `</ul>`;
+  }
+  if (build.skillOrder && build.skillOrder.priority) {
+    html += `<div class="detailSkillOrder" style="margin-top:8px;"><span class="detailSkillOrderLabel">${t("communityDbSkillOrder")}:</span> ${build.skillOrder.priority}</div>`;
+  }
+  return html;
+}
+
+async function loadCommunityDbSection(champ) {
+  const section = document.getElementById("communityDbSection");
+  if (!section) return;
+  try {
+    const res = await fetch(serverUrl(`/community-meta/${champ.key}`));
+    if (!res.ok) {
+      section.innerHTML = renderCommunityDbContent(null);
+      return;
+    }
+    const data = await res.json();
+    section.innerHTML = renderCommunityDbContent(data);
+  } catch {
+    section.innerHTML = renderCommunityDbContent(null);
+  }
+}
+
+// ---- KI-Analyse der Standard-Datenbank (Collection "communityAiMeta") ----
+// Erscheint UNTER der Standard-Datenbank-Sektion, getrennte eigene KI-Quelle
+// (NICHT zu verwechseln mit der bestehenden "itemMeta"-KI-Empfehlung oben,
+// die auf eigenen Match-Daten basiert statt auf der Community-Datenbank).
+function renderCommunityAiPlaceholder() {
+  return `<div class="detailSection" id="communityAiSection"><h3>${t("communityAiHeading")}</h3><p class="detailEmpty">...</p></div>`;
+}
+
+function renderCommunityAiContent(data) {
+  if (!data) {
+    return `<h3>${t("communityAiHeading")}</h3><p class="detailEmpty">${t("communityAiNone")}</p>`;
+  }
+
+  let html = `<h3>${t("communityAiHeading")}</h3>`;
+  html += `<p class="detailEmpty" style="margin-bottom:8px;">${confidenceLabel(data.confidence)}</p>`;
+
+  if (data.summary) {
+    html += `<p class="detailEmpty">${data.summary}</p>`;
+  }
+  if (data.strengths && data.strengths.length) {
+    html += `<p class="detailSkillOrderLabel">${t("communityAiStrengths")}</p><ul class="detailTacticsList">` +
+      data.strengths.map((s) => `<li>${s}</li>`).join("") + `</ul>`;
+  }
+  if (data.recommendedAugments && data.recommendedAugments.length) {
+    html += `<p class="detailSkillOrderLabel">${t("communityAiAugments")}</p><ul class="detailTacticsList">` +
+      data.recommendedAugments.map((a) => `<li><strong>${a.name}</strong> - ${a.reason}</li>`).join("") + `</ul>`;
+  }
+  if (data.synergyNote) {
+    html += `<p class="detailSkillOrderLabel">${t("communityAiSynergy")}</p><p class="detailEmpty">${data.synergyNote}</p>`;
+  }
+  if (data.weaknessNote) {
+    html += `<p class="detailSkillOrderLabel">${t("communityAiWeakness")}</p><p class="detailEmpty">${data.weaknessNote}</p>`;
+  }
+  return html;
+}
+
+async function loadCommunityAiSection(champ) {
+  const section = document.getElementById("communityAiSection");
+  if (!section) return;
+  try {
+    const res = await fetch(serverUrl(`/community-meta-ai/${champ.key}`));
+    if (!res.ok) {
+      section.innerHTML = renderCommunityAiContent(null);
+      return;
+    }
+    const data = await res.json();
+    section.innerHTML = renderCommunityAiContent(data);
+  } catch {
+    section.innerHTML = renderCommunityAiContent(null);
+  }
+}
+
 // Rendert ein einzelnes Tag der KI-Empfehlung: NUR Icon, kein Text.
 // "icon" kann entweder ein einzelner String sein (Augments, 1 URL-
 // Konvention reicht) oder ein Array von Kandidaten-URLs (Items/Spells,
@@ -1122,6 +1284,8 @@ function openChampDetail(champ) {
       ${renderBestAugmentsColumn(champ)}
     </div>
     ${renderAiMetaPlaceholder()}
+    ${renderCommunityDbPlaceholder()}
+    ${renderCommunityAiPlaceholder()}
   `;
 
   document.getElementById("champDetailBackBtn").addEventListener("click", closeChampDetail);
@@ -1129,6 +1293,8 @@ function openChampDetail(champ) {
     li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
   });
   loadAiMetaSection(champ);
+  loadCommunityDbSection(champ);
+  loadCommunityAiSection(champ);
 }
 
 // ---------- Item-/Augment-Detailansicht (Klick auf ein Item- oder Augment-Tag) ----------
