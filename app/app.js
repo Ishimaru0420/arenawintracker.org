@@ -52,6 +52,9 @@ const I18N = {
     sortWins: "Meiste Wins",
     sortTier: "Tier-Liste",
     tierUnknown: "Ohne Tier-Daten",
+    tierSectionStufe: "Stufe",
+    tierSectionAnd: "und",
+    tierSectionIntro: "Zu den aktuellen Champions in {tier}-Stufe gehören ",
     onlyMissingLabel: "nur offene zeigen",
     metaTitle: "📊 Tages-Meta",
     metaTrioHeading: "Beste Trio-Combos",
@@ -148,7 +151,7 @@ const I18N = {
     communityDbDiff: "Differenz",
     communityDbSkillOrder: "Skill-Reihenfolge",
     communityDbNoBuildDetails: "Nur Tier-Liste-Daten vorhanden, noch keine Build-Details.",
-    communityAiHeading: "KI-Analyse (Standard-Datenbank)",
+    communityAiHeading: "KI-Analyse · Testphase",
     communityAiNone: "Noch keine KI-Analyse für diesen Champion.",
     communityAiStrengths: "Stärken",
     communityAiAugments: "Augment-Empfehlung",
@@ -186,6 +189,9 @@ const I18N = {
     sortWins: "Most wins",
     sortTier: "Tier list",
     tierUnknown: "No tier data",
+    tierSectionStufe: "tier",
+    tierSectionAnd: "and",
+    tierSectionIntro: "Current {tier}-tier champions include ",
     onlyMissingLabel: "show only missing",
     metaTitle: "📊 Daily meta",
     metaTrioHeading: "Best trio combos",
@@ -282,7 +288,7 @@ const I18N = {
     communityDbDiff: "Difference",
     communityDbSkillOrder: "Skill order",
     communityDbNoBuildDetails: "Only tier-list data available, no build details yet.",
-    communityAiHeading: "AI analysis (standard database)",
+    communityAiHeading: "AI analysis · Beta test",
     communityAiNone: "No AI analysis for this champion yet.",
     communityAiStrengths: "Strengths",
     communityAiAugments: "Augment recommendation",
@@ -382,7 +388,7 @@ async function loadCommunityTierMap() {
     const list = await res.json();
     communityTierMap = {};
     for (const entry of list) {
-      communityTierMap[String(entry.championId)] = entry.tier || null;
+      communityTierMap[String(entry.championId)] = { tier: entry.tier || null, score: entry.score };
     }
   } catch {
     communityTierMap = {};
@@ -659,7 +665,8 @@ function metaTierBadgeClass(tier) {
 // Baut das DOM-Element fuer einen einzelnen Champion im Grid - identisch
 // fuer die flache (Name/Wins) und die gruppierte (Tier-Liste) Darstellung,
 // damit Status-Logik (won/lost/missing) nur an einer Stelle gepflegt wird.
-function buildChampDiv(champ) {
+function buildChampDiv(champ, options) {
+  const showScore = options && options.showScore;
   const winCount = getWinCount(champ.key);
   const hasWin = winCount > 0;
   const hasGames = !!(state.matchHistory[champ.key] && state.matchHistory[champ.key].length > 0);
@@ -670,6 +677,8 @@ function buildChampDiv(champ) {
   else status = "missing";
 
   const tierClass = getTierClass(winCount);
+  const tierInfo = communityTierMap[champ.key];
+  const scoreText = showScore && tierInfo && tierInfo.score != null ? tierInfo.score.toFixed(2) : null;
 
   const div = document.createElement("div");
   div.className = "champ " + status + (tierClass ? " " + tierClass : "");
@@ -677,6 +686,7 @@ function buildChampDiv(champ) {
     <img src="${champ.icon}" alt="${champ.name}" />
     ${hasWin ? `<span class="winBadge">${winCount}</span>` : ""}
     <span>${champ.name}</span>
+    ${scoreText ? `<span class="champScoreLabel">${scoreText}</span>` : ""}
   `;
   div.addEventListener("mouseenter", (e) => showChampTooltip(e, champ));
   div.addEventListener("mousemove", positionTooltip);
@@ -707,8 +717,9 @@ function renderGrid() {
   if (sortMode === "tier") {
     // Eigene, getrennte Tier-Abschnitte (S+ bis D + "ohne Tier-Daten"),
     // ALLE gleichzeitig sichtbar und untereinander gestapelt - kein
-    // Accordion/Collapse, jeder Abschnitt ist innerhalb sich selbst
-    // weiterhin alphabetisch sortiert.
+    // Accordion/Collapse. Innerhalb eines Abschnitts nach Score sortiert
+    // (hoechster zuerst), angelehnt an die metasrc-Tier-Liste, aber im
+    // eigenen Chaos-Arena-Look statt deren Farben/Layout 1:1 zu kopieren.
     const groups = {};
     for (const tier of META_TIER_ORDER) groups[tier] = [];
     groups.unknown = [];
@@ -717,12 +728,19 @@ function renderGrid() {
       const winCount = getWinCount(champ.key);
       const hasWin = winCount > 0;
       if (onlyMissing && hasWin) continue;
-      const tier = communityTierMap[champ.key];
+      const tierInfo = communityTierMap[champ.key];
+      const tier = tierInfo && tierInfo.tier;
       const bucket = tier && groups[tier] ? tier : "unknown";
       groups[bucket].push(champ);
       if (hasWin) wonCount++;
     }
-    for (const tier of META_TIER_ORDER) groups[tier].sort((a, b) => a.name.localeCompare(b.name));
+    for (const tier of META_TIER_ORDER) {
+      groups[tier].sort((a, b) => {
+        const scoreA = (communityTierMap[a.key] && communityTierMap[a.key].score) || 0;
+        const scoreB = (communityTierMap[b.key] && communityTierMap[b.key].score) || 0;
+        return scoreB - scoreA || a.name.localeCompare(b.name);
+      });
+    }
     groups.unknown.sort((a, b) => a.name.localeCompare(b.name));
 
     const orderedTiers = [...META_TIER_ORDER, "unknown"];
@@ -730,17 +748,46 @@ function renderGrid() {
       const champs = groups[tier];
       if (!champs.length) continue;
 
+      const scores = champs
+        .map((c) => communityTierMap[c.key] && communityTierMap[c.key].score)
+        .filter((s) => s != null);
+      const rangeText = scores.length
+        ? `(${Math.min(...scores).toFixed(2)}-${Math.max(...scores).toFixed(2)})`
+        : "";
+
       const header = document.createElement("div");
       header.className = "tierSectionHeader";
-      header.innerHTML = `<span class="metaTierBadge ${metaTierBadgeClass(tier)}">${tier === "unknown" ? "?" : tier}</span>` +
-        `<span class="tierSectionLabel">${tier === "unknown" ? t("tierUnknown") : ""}</span>` +
-        `<span class="tierSectionCount">${champs.length}</span>`;
+      header.innerHTML = `
+        <span class="metaTierBadge ${metaTierBadgeClass(tier)}">${tier === "unknown" ? "?" : tier}</span>
+        <span class="tierSectionLabel">${tier === "unknown" ? t("tierUnknown") : `${t("tierSectionStufe")} ${rangeText}`}</span>
+        <span class="tierSectionCount">${champs.length}</span>
+      `;
       grid.appendChild(header);
+
+      if (tier !== "unknown" && champs.length) {
+        const topNames = champs.slice(0, 3).map((c) => c.name);
+        const topHtml = topNames
+          .map((n, i) => {
+            const sep = i === 0 ? "" : i === topNames.length - 1 ? ` ${t("tierSectionAnd")} ` : ", ";
+            return `${sep}<span class="tierTopChampLink" data-champname="${n}">${n}</span>`;
+          })
+          .join("");
+        const desc = document.createElement("div");
+        desc.className = "tierSectionDesc";
+        desc.innerHTML = t("tierSectionIntro", { tier }) + topHtml + ".";
+        grid.appendChild(desc);
+        desc.querySelectorAll(".tierTopChampLink").forEach((el) => {
+          el.addEventListener("click", () => {
+            const c = champs.find((cc) => cc.name === el.dataset.champname);
+            if (c) openChampDetail(c);
+          });
+        });
+      }
 
       const subGrid = document.createElement("div");
       subGrid.className = "tierSectionGrid";
       for (const champ of champs) {
-        const { div } = buildChampDiv(champ);
+        const { div } = buildChampDiv(champ, { showScore: true });
         subGrid.appendChild(div);
       }
       grid.appendChild(subGrid);
@@ -1131,9 +1178,9 @@ function championIconUrlByName(name) {
 // Icon pro Eintrag (anders als die Mehrfach-Kandidaten-Kette der KI-Tags),
 // bei Ladefehler wird einfach auf eine Kuerzel-Badge ohne Bild umgeschaltet.
 function bindDbIconFallbacks(container) {
-  container.querySelectorAll(".dbIconRow img").forEach((img) => {
+  container.querySelectorAll(".dbIconRow img, .dbSkillIcon img").forEach((img) => {
     img.addEventListener("error", () => {
-      const li = img.closest(".dbIconRow");
+      const li = img.closest(".dbIconRow") || img.closest(".dbSkillIcon");
       const span = document.createElement("span");
       span.className = "dbIconFallback";
       span.textContent = (img.alt || "?").slice(0, 2).toUpperCase();
@@ -1251,15 +1298,21 @@ function renderCommunityDbContent(data) {
 
   const build = data.build;
 
-  html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbAugmentsHeading")}</p>`;
+  html += `<div class="dbTwoCol">`;
+
+  html += `<div>`;
+  html += `<p class="detailSkillOrderLabel">${t("communityDbAugmentsHeading")}</p>`;
   html += renderAugmentTabs(build);
 
   if (build.itemNamesFromIntro && build.itemNamesFromIntro.length) {
     html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbItems")}</p><ul class="dbIconList" data-itemlist="1">` +
       build.itemNamesFromIntro.map((i) => renderIconNameRow(i, "")).join("") + `</ul>`;
   }
+  html += `</div>`;
+
+  html += `<div>`;
   if (build.synergies && build.synergies.length) {
-    html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbSynergies")}</p><ul class="dbIconList" data-synergylist="1">` +
+    html += `<p class="detailSkillOrderLabel">${t("communityDbSynergies")}</p><ul class="dbIconList" data-synergylist="1">` +
       build.synergies.map((s) => renderChampionIconRow(s)).join("") + `</ul>`;
   }
   if (build.strongAgainst && build.strongAgainst.length) {
@@ -1267,9 +1320,38 @@ function renderCommunityDbContent(data) {
       build.strongAgainst.map((s) => renderChampionIconRow(s)).join("") + `</ul>`;
   }
   if (build.skillOrder && build.skillOrder.priority) {
-    html += `<div class="detailSkillOrder" style="margin-top:10px;"><span class="detailSkillOrderLabel">${t("communityDbSkillOrder")}:</span> ${build.skillOrder.priority}</div>`;
+    html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbSkillOrder")}</p>`;
+    html += renderSkillOrderIcons(build.skillOrder);
   }
+  html += `</div>`;
+
+  html += `</div>`;
   return html;
+}
+
+// Skill-Reihenfolge als Icon-Reihe (Q/W/E/R-Bilder statt nur Buchstaben),
+// mit Hover-Tooltip (Faehigkeitsname + Beschreibung DE/EN). Fehlt das
+// Icon (Sync noch nicht gelaufen), wird der Buchstabe als Fallback gezeigt.
+function renderSkillOrderIcons(skillOrder) {
+  const icons = skillOrder.icons;
+  if (!icons || !icons.length) {
+    return `<div class="detailSkillOrder">${skillOrder.priority}</div>`;
+  }
+  const rows = icons.map((s, i) => {
+    const iconHtml = s.icon
+      ? `<img src="${s.icon}" alt="${s.key}" />`
+      : `<span class="dbIconFallback">${s.key}</span>`;
+    const arrow = i < icons.length - 1 ? `<span class="dbSkillArrow">&gt;</span>` : "";
+    return `<span class="dbSkillIcon" data-skillkey="${s.key}">${iconHtml}</span>${arrow}`;
+  }).join("");
+  return `<div class="dbSkillOrderRow" data-skillorder="1">${rows}</div>`;
+}
+
+function bindSkillOrderTooltips(section, build) {
+  if (!build.skillOrder || !build.skillOrder.icons) return;
+  const row = section.querySelector("[data-skillorder]");
+  if (!row) return;
+  bindAiTagTooltips(row, ".dbSkillIcon", build.skillOrder.icons);
 }
 
 // Hover-Info fuer Champion-Icon-Zeilen (Synergien/Stark-gegen): hier gibt
@@ -1316,6 +1398,8 @@ function bindCommunityDbInteractions(section, data) {
 
   const strongList = section.querySelector("[data-stronglist]");
   if (strongList && build.strongAgainst) bindChampionStatTooltips(strongList, ".dbIconRow", build.strongAgainst);
+
+  bindSkillOrderTooltips(section, build);
 }
 
 async function loadCommunityDbSection(champ) {
@@ -1552,14 +1636,6 @@ function openChampDetail(champ) {
       <img src="${champ.icon}" alt="${champ.name}" />
       <h2>${champ.name}</h2>
     </div>
-    ${renderSkillOrderBlock(champ)}
-    ${renderTacticsBlock(champ)}
-    <div class="detailGrid3">
-      ${renderBestPartnersColumn(champ)}
-      ${renderBestItemsColumn(champ)}
-      ${renderBestAugmentsColumn(champ)}
-    </div>
-    ${renderAiMetaPlaceholder()}
     ${renderCommunityDbPlaceholder()}
     ${renderCommunityAiPlaceholder()}
   `;
@@ -1568,7 +1644,6 @@ function openChampDetail(champ) {
   detail.querySelectorAll(".clickableTag").forEach((li) => {
     li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
   });
-  loadAiMetaSection(champ);
   loadCommunityDbSection(champ);
   loadCommunityAiSection(champ);
 }

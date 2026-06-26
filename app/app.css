@@ -676,3 +676,32 @@ button.danger:hover { background: #c43b4a; }
   display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
   gap: 6px;
 }
+
+/* Zwei-Spalten-Layout der Standard-Datenbank (Augments+Items links,
+   Synergien+Stark-gegen+Skill-Reihenfolge rechts) - macht die Sektion
+   deutlich groesser/uebersichtlicher als die alte einspaltige Liste. */
+.dbTwoCol {
+  display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px; margin-top: 10px;
+}
+@media (max-width: 640px) {
+  .dbTwoCol { grid-template-columns: 1fr; }
+}
+
+/* Skill-Reihenfolge als Q/W/E/R-Icon-Kette mit Pfeilen, statt nur Text */
+.dbSkillOrderRow { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.dbSkillIcon img {
+  width: 30px; height: 30px; border-radius: 5px; border: 1px solid #4a3a34; display: block;
+}
+.dbSkillArrow { color: #9c8882; font-size: 13px; margin: 0 2px; }
+
+/* Tier-Listen-Sortierung: Score unter dem Champion-Icon, Beschreibungszeile
+   mit den Top-Champions der Stufe (klickbar -> oeffnet Detailansicht) */
+.champScoreLabel { font-size: 9px; color: #ffb37a; font-weight: 700; }
+.tierSectionDesc {
+  grid-column: 1 / -1;
+  font-size: 11px; color: #9c8882; margin: -2px 0 6px;
+}
+.tierTopChampLink {
+  color: #ff7a3c; text-decoration: underline; cursor: pointer; font-weight: 600;
+}
+.tierTopChampLink:hover { color: #ffb37a; }
