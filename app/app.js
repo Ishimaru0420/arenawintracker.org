@@ -50,6 +50,8 @@ const I18N = {
     champSearchPlaceholder: "Champion suchen...",
     sortName: "Name (A-Z)",
     sortWins: "Meiste Wins",
+    sortTier: "Tier-Liste",
+    tierUnknown: "Ohne Tier-Daten",
     onlyMissingLabel: "nur offene zeigen",
     metaTitle: "📊 Tages-Meta",
     metaTrioHeading: "Beste Trio-Combos",
@@ -135,8 +137,15 @@ const I18N = {
     communityDbKda: "KDA",
     communityDbAvgPlace: "Ø Platzierung",
     communityDbGames: "Spiele",
-    communityDbAugmentsOverall: "Beste Augments (gesamt)",
+    communityDbAugmentsOverall: "Gesamt",
+    communityDbAugmentsSilver: "Silber",
+    communityDbAugmentsGold: "Gold",
+    communityDbAugmentsPrismatic: "Prismatic",
+    communityDbAugmentsHeading: "Augments",
+    communityDbItems: "Empfohlene Items",
     communityDbSynergies: "Synergien",
+    communityDbStrongAgainst: "Stark gegen",
+    communityDbDiff: "Differenz",
     communityDbSkillOrder: "Skill-Reihenfolge",
     communityDbNoBuildDetails: "Nur Tier-Liste-Daten vorhanden, noch keine Build-Details.",
     communityAiHeading: "KI-Analyse (Standard-Datenbank)",
@@ -175,6 +184,8 @@ const I18N = {
     champSearchPlaceholder: "Search champion...",
     sortName: "Name (A-Z)",
     sortWins: "Most wins",
+    sortTier: "Tier list",
+    tierUnknown: "No tier data",
     onlyMissingLabel: "show only missing",
     metaTitle: "📊 Daily meta",
     metaTrioHeading: "Best trio combos",
@@ -260,8 +271,15 @@ const I18N = {
     communityDbKda: "KDA",
     communityDbAvgPlace: "Avg. placement",
     communityDbGames: "Games",
-    communityDbAugmentsOverall: "Best augments (overall)",
+    communityDbAugmentsOverall: "Overall",
+    communityDbAugmentsSilver: "Silver",
+    communityDbAugmentsGold: "Gold",
+    communityDbAugmentsPrismatic: "Prismatic",
+    communityDbAugmentsHeading: "Augments",
+    communityDbItems: "Recommended items",
     communityDbSynergies: "Synergies",
+    communityDbStrongAgainst: "Strong against",
+    communityDbDiff: "Difference",
     communityDbSkillOrder: "Skill order",
     communityDbNoBuildDetails: "Only tier-list data available, no build details yet.",
     communityAiHeading: "AI analysis (standard database)",
@@ -350,6 +368,26 @@ let championByNormName = {}; // wie championByApiName, aber Key normalisiert (ke
 let lastFriendsList = null; // zuletzt geladene Freundesliste, fuer Re-Render bei Sprachwechsel
 let metaData = null; // zuletzt vom Server geladene /meta-Antwort, fuer die Champion-Detailansicht
 let ddragonVersion = null; // wird in loadChampionList() gesetzt, fuer Profilicon-URLs im Ranking
+
+// Tier-Map fuer die Hauptmenue-Sortierung ("Tier-Liste"): {championKey: "S+"}.
+// Einmalig beim Start geladen (schlanker Endpoint, keine Build-Details),
+// danach nur noch aus dem Speicher gelesen - kein Re-Fetch bei jedem
+// Umschalten der Sortierung.
+let communityTierMap = {};
+
+async function loadCommunityTierMap() {
+  try {
+    const res = await fetch(serverUrl("/community-meta-tiers"));
+    if (!res.ok) return;
+    const list = await res.json();
+    communityTierMap = {};
+    for (const entry of list) {
+      communityTierMap[String(entry.championId)] = entry.tier || null;
+    }
+  } catch {
+    communityTierMap = {};
+  }
+}
 
 // Normalisiert einen Champion-Namen fuer Vergleiche, unabhaengig von
 // Apostroph/Punkt/Leerzeichen-Schreibweise ("Cho'Gath" / "ChoGath" -> "chogath").
@@ -606,6 +644,47 @@ function formatLastSync(lastSync) {
 
 // ---------- Rendering ----------
 
+const META_TIER_ORDER = ["S+", "S", "A", "B", "C", "D"];
+
+function metaTierBadgeClass(tier) {
+  if (tier === "S+") return "metaTier-splus";
+  if (tier === "S") return "metaTier-s";
+  if (tier === "A") return "metaTier-a";
+  if (tier === "B") return "metaTier-b";
+  if (tier === "C") return "metaTier-c";
+  if (tier === "D") return "metaTier-d";
+  return "metaTier-unknown";
+}
+
+// Baut das DOM-Element fuer einen einzelnen Champion im Grid - identisch
+// fuer die flache (Name/Wins) und die gruppierte (Tier-Liste) Darstellung,
+// damit Status-Logik (won/lost/missing) nur an einer Stelle gepflegt wird.
+function buildChampDiv(champ) {
+  const winCount = getWinCount(champ.key);
+  const hasWin = winCount > 0;
+  const hasGames = !!(state.matchHistory[champ.key] && state.matchHistory[champ.key].length > 0);
+
+  let status;
+  if (hasWin) status = "won";
+  else if (hasGames) status = "lost";
+  else status = "missing";
+
+  const tierClass = getTierClass(winCount);
+
+  const div = document.createElement("div");
+  div.className = "champ " + status + (tierClass ? " " + tierClass : "");
+  div.innerHTML = `
+    <img src="${champ.icon}" alt="${champ.name}" />
+    ${hasWin ? `<span class="winBadge">${winCount}</span>` : ""}
+    <span>${champ.name}</span>
+  `;
+  div.addEventListener("mouseenter", (e) => showChampTooltip(e, champ));
+  div.addEventListener("mousemove", positionTooltip);
+  div.addEventListener("mouseleave", hideChampTooltip);
+  div.addEventListener("click", () => openChampDetail(champ));
+  return { div, hasWin };
+}
+
 function renderGrid() {
   const grid = document.getElementById("grid");
   const filterText = document.getElementById("filterInput").value.toLowerCase();
@@ -625,33 +704,61 @@ function renderGrid() {
     });
   }
 
+  if (sortMode === "tier") {
+    // Eigene, getrennte Tier-Abschnitte (S+ bis D + "ohne Tier-Daten"),
+    // ALLE gleichzeitig sichtbar und untereinander gestapelt - kein
+    // Accordion/Collapse, jeder Abschnitt ist innerhalb sich selbst
+    // weiterhin alphabetisch sortiert.
+    const groups = {};
+    for (const tier of META_TIER_ORDER) groups[tier] = [];
+    groups.unknown = [];
+
+    for (const champ of visible) {
+      const winCount = getWinCount(champ.key);
+      const hasWin = winCount > 0;
+      if (onlyMissing && hasWin) continue;
+      const tier = communityTierMap[champ.key];
+      const bucket = tier && groups[tier] ? tier : "unknown";
+      groups[bucket].push(champ);
+      if (hasWin) wonCount++;
+    }
+    for (const tier of META_TIER_ORDER) groups[tier].sort((a, b) => a.name.localeCompare(b.name));
+    groups.unknown.sort((a, b) => a.name.localeCompare(b.name));
+
+    const orderedTiers = [...META_TIER_ORDER, "unknown"];
+    for (const tier of orderedTiers) {
+      const champs = groups[tier];
+      if (!champs.length) continue;
+
+      const header = document.createElement("div");
+      header.className = "tierSectionHeader";
+      header.innerHTML = `<span class="metaTierBadge ${metaTierBadgeClass(tier)}">${tier === "unknown" ? "?" : tier}</span>` +
+        `<span class="tierSectionLabel">${tier === "unknown" ? t("tierUnknown") : ""}</span>` +
+        `<span class="tierSectionCount">${champs.length}</span>`;
+      grid.appendChild(header);
+
+      const subGrid = document.createElement("div");
+      subGrid.className = "tierSectionGrid";
+      for (const champ of champs) {
+        const { div } = buildChampDiv(champ);
+        subGrid.appendChild(div);
+      }
+      grid.appendChild(subGrid);
+    }
+
+    document.getElementById("summaryText").textContent =
+      t("summaryWon", { won: wonCount, total: championList.length });
+    updateOverallStats();
+    return;
+  }
+
   for (const champ of visible) {
     const winCount = getWinCount(champ.key);
     const hasWin = winCount > 0;
-    const hasGames = !!(state.matchHistory[champ.key] && state.matchHistory[champ.key].length > 0);
     if (hasWin) wonCount++;
     if (onlyMissing && hasWin) continue;
 
-    // Drei Status: "won" (gruen, mind. 1 Sieg), "lost" (rot, gespielt
-    // aber noch kein Sieg), "missing" (grau, noch nie gespielt).
-    let status;
-    if (hasWin) status = "won";
-    else if (hasGames) status = "lost";
-    else status = "missing";
-
-    const tierClass = getTierClass(winCount);
-
-    const div = document.createElement("div");
-    div.className = "champ " + status + (tierClass ? " " + tierClass : "");
-    div.innerHTML = `
-      <img src="${champ.icon}" alt="${champ.name}" />
-      ${hasWin ? `<span class="winBadge">${winCount}</span>` : ""}
-      <span>${champ.name}</span>
-    `;
-    div.addEventListener("mouseenter", (e) => showChampTooltip(e, champ));
-    div.addEventListener("mousemove", positionTooltip);
-    div.addEventListener("mouseleave", hideChampTooltip);
-    div.addEventListener("click", () => openChampDetail(champ));
+    const { div } = buildChampDiv(champ);
     grid.appendChild(div);
   }
 
@@ -1006,9 +1113,111 @@ function renderCommunityDbPlaceholder() {
   return `<div class="detailSection" id="communityDbSection"><h3>${t("communityDbHeading")}</h3><p class="detailEmpty">...</p></div>`;
 }
 
-function renderStatLine(label, value) {
+function renderStatCard(label, value) {
   if (value === undefined || value === null || value === "") return "";
-  return `<span class="detailSkillOrderLabel">${label}:</span> ${value}`;
+  return `<div class="dbStatCard"><div class="dbStatValue">${value}</div><div class="dbStatLabel">${label}</div></div>`;
+}
+
+// Loest einen Champion-Namen (aus synergies/strongAgainst) ueber die schon
+// vorhandene championByNormName-Lookup-Tabelle (aus loadChampionList) auf -
+// kein zusaetzlicher Request noetig, dieselbe Tabelle nutzt auch der Rest
+// der App fuer Trio-/Synergie-Anzeigen.
+function championIconUrlByName(name) {
+  const c = championByNormName ? championByNormName[normName(name)] : null;
+  return c ? c.icon : null;
+}
+
+// Icon-Fallback fuer die neuen DB-Reihen (Augments/Items/Champions): EIN
+// Icon pro Eintrag (anders als die Mehrfach-Kandidaten-Kette der KI-Tags),
+// bei Ladefehler wird einfach auf eine Kuerzel-Badge ohne Bild umgeschaltet.
+function bindDbIconFallbacks(container) {
+  container.querySelectorAll(".dbIconRow img").forEach((img) => {
+    img.addEventListener("error", () => {
+      const li = img.closest(".dbIconRow");
+      const span = document.createElement("span");
+      span.className = "dbIconFallback";
+      span.textContent = (img.alt || "?").slice(0, 2).toUpperCase();
+      img.replaceWith(span);
+      if (li) li.classList.add("dbIconRow-broken");
+    });
+  });
+}
+
+// Icon + NAME (sichtbar, nicht nur per Tooltip) + optionaler Prozentwert -
+// genau das vom Nutzer gewuenschte Format fuer Augments/Items.
+function renderIconNameRow(entry, percentLabel) {
+  const safeName = (entry.name || "").replace(/"/g, "&quot;");
+  const iconHtml = entry.icon
+    ? `<img src="${entry.icon}" alt="${safeName}" />`
+    : `<span class="dbIconFallback">${safeName.slice(0, 2).toUpperCase()}</span>`;
+  return `<li class="dbIconRow">
+    <span class="dbIconRow-icon">${iconHtml}</span>
+    <span class="dbIconRow-name">${entry.name}</span>
+    ${percentLabel ? `<span class="dbIconRow-pct">${percentLabel}</span>` : ""}
+  </li>`;
+}
+
+// Gleiche Optik wie renderIconNameRow, aber Icon kommt aus der ddragon-
+// Champion-Liste (synergies/strongAgainst enthalten nur Champion-Namen,
+// keine eigenen Icon-URLs von uns - die brauchen wir hier auch nicht, da
+// die App den Champion-Icon-Katalog schon vollstaendig im Speicher hat).
+function renderChampionIconRow(entry) {
+  const icon = championIconUrlByName(entry.name);
+  const iconHtml = icon
+    ? `<img src="${icon}" alt="${entry.name}" />`
+    : `<span class="dbIconFallback">${entry.name.slice(0, 2).toUpperCase()}</span>`;
+  const top3 = entry.top3_pct != null ? `${entry.top3_pct}%` : "";
+  const diff = entry.diff ? `<span class="dbDiffTag">${entry.diff}</span>` : "";
+  return `<li class="dbIconRow">
+    <span class="dbIconRow-icon">${iconHtml}</span>
+    <span class="dbIconRow-name">${entry.name}</span>
+    ${top3 ? `<span class="dbIconRow-pct">${top3}${diff}</span>` : ""}
+  </li>`;
+}
+
+// Vier getrennte "Spielstile" (Anvil-Stufen) als Tabs, damit man die
+// Augment-Empfehlung gezielt nach Silber/Gold/Prismatic/Gesamt umschalten
+// kann statt einer langen vermischten Liste - angelehnt an die Tab-Logik
+// von metasrc, aber eigenstaendig umgesetzt (eigene Klassen/Optik).
+const AUGMENT_TABS = [
+  { key: "overall", labelKey: "communityDbAugmentsOverall", field: "augmentsOverall" },
+  { key: "silver", labelKey: "communityDbAugmentsSilver", field: "augmentsSilver" },
+  { key: "gold", labelKey: "communityDbAugmentsGold", field: "augmentsGold" },
+  { key: "prismatic", labelKey: "communityDbAugmentsPrismatic", field: "augmentsPrismatic" },
+];
+
+function renderAugmentTabs(build) {
+  const tabsHtml = AUGMENT_TABS.map(
+    (tab, i) => `<button class="dbTabBtn${i === 0 ? " active" : ""}" data-augtab="${tab.key}">${t(tab.labelKey)}</button>`
+  ).join("");
+
+  const panelsHtml = AUGMENT_TABS.map((tab, i) => {
+    const list = build[tab.field] || [];
+    const content = list.length
+      ? `<ul class="dbIconList" data-augpanel-list="${tab.key}">` +
+        list.map((a) => renderIconNameRow(a, a.pickPct != null ? `${a.pickPct}%` : "")).join("") +
+        `</ul>`
+      : `<p class="detailEmpty">${t("communityDbNoBuildDetails")}</p>`;
+    return `<div class="dbTabPanel${i === 0 ? "" : " hidden"}" data-augpanel="${tab.key}">${content}</div>`;
+  }).join("");
+
+  return `<div class="dbTabBar">${tabsHtml}</div>${panelsHtml}`;
+}
+
+function bindAugmentTabs(section, build) {
+  section.querySelectorAll(".dbTabBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.augtab;
+      section.querySelectorAll(".dbTabBtn").forEach((b) => b.classList.toggle("active", b === btn));
+      section.querySelectorAll(".dbTabPanel").forEach((p) => p.classList.toggle("hidden", p.dataset.augpanel !== key));
+    });
+  });
+
+  for (const tab of AUGMENT_TABS) {
+    const list = build[tab.field] || [];
+    const panel = section.querySelector(`[data-augpanel-list="${tab.key}"]`);
+    if (panel) bindAiTagTooltips(panel, ".dbIconRow", list);
+  }
 }
 
 function renderCommunityDbContent(data) {
@@ -1016,42 +1225,97 @@ function renderCommunityDbContent(data) {
     return `<h3>${t("communityDbHeading")}</h3><p class="detailEmpty">${t("communityDbNone")}</p>`;
   }
 
-  let html = `<h3>${t("communityDbHeading")}</h3>`;
-  const statParts = [
-    renderStatLine(t("communityDbTier"), data.tier),
-    renderStatLine(t("communityDbWinrate"), data.winPct != null ? `${data.winPct}%` : null),
-    renderStatLine(t("communityDbTop3"), data.top3Pct != null ? `${data.top3Pct}%` : null),
-    renderStatLine(t("communityDbPickRate"), data.pickPct != null ? `${data.pickPct}%` : null),
-    renderStatLine(t("communityDbBanRate"), data.banPct != null ? `${data.banPct}%` : null),
-    renderStatLine(t("communityDbKda"), data.kda),
-    renderStatLine(t("communityDbAvgPlace"), data.avgPlace),
-    renderStatLine(t("communityDbGames"), data.games),
+  let html = `<div class="dbHeaderRow">
+    <span class="metaTierBadge ${metaTierBadgeClass(data.tier)}">${data.tier || "?"}</span>
+    <h3 style="margin:0;">${t("communityDbHeading")}</h3>
+  </div>`;
+
+  const statCards = [
+    renderStatCard(t("communityDbWinrate"), data.winPct != null ? `${data.winPct}%` : null),
+    renderStatCard(t("communityDbTop3"), data.top3Pct != null ? `${data.top3Pct}%` : null),
+    renderStatCard(t("communityDbPickRate"), data.pickPct != null ? `${data.pickPct}%` : null),
+    renderStatCard(t("communityDbBanRate"), data.banPct != null ? `${data.banPct}%` : null),
+    renderStatCard(t("communityDbKda"), data.kda),
+    renderStatCard(t("communityDbAvgPlace"), data.avgPlace),
+    renderStatCard(t("communityDbGames"), data.games),
   ].filter(Boolean);
 
-  if (statParts.length) {
-    html += `<p class="detailEmpty" style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:8px;">` +
-      statParts.map((p) => `<span>${p}</span>`).join("") + `</p>`;
+  if (statCards.length) {
+    html += `<div class="dbStatGrid">${statCards.join("")}</div>`;
   }
 
   if (!data.hasBuildDetails || !data.build) {
-    html += `<p class="detailEmpty">${t("communityDbNoBuildDetails")}</p>`;
+    html += `<p class="detailEmpty" style="margin-top:8px;">${t("communityDbNoBuildDetails")}</p>`;
     return html;
   }
 
   const build = data.build;
-  if (build.augmentsOverall && build.augmentsOverall.length) {
-    html += `<p class="detailSkillOrderLabel">${t("communityDbAugmentsOverall")}</p><ul class="detailTagList">` +
-      build.augmentsOverall.slice(0, 5).map((a) => `<li>${a.name}${a.pick_pct != null ? ` (${a.pick_pct}%)` : ""}</li>`).join("") +
-      `</ul>`;
+
+  html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbAugmentsHeading")}</p>`;
+  html += renderAugmentTabs(build);
+
+  if (build.itemNamesFromIntro && build.itemNamesFromIntro.length) {
+    html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbItems")}</p><ul class="dbIconList" data-itemlist="1">` +
+      build.itemNamesFromIntro.map((i) => renderIconNameRow(i, "")).join("") + `</ul>`;
   }
   if (build.synergies && build.synergies.length) {
-    html += `<p class="detailSkillOrderLabel">${t("communityDbSynergies")}</p><ul class="detailTagList">` +
-      build.synergies.map((s) => `<li>${s.name}</li>`).join("") + `</ul>`;
+    html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbSynergies")}</p><ul class="dbIconList" data-synergylist="1">` +
+      build.synergies.map((s) => renderChampionIconRow(s)).join("") + `</ul>`;
+  }
+  if (build.strongAgainst && build.strongAgainst.length) {
+    html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbStrongAgainst")}</p><ul class="dbIconList" data-stronglist="1">` +
+      build.strongAgainst.map((s) => renderChampionIconRow(s)).join("") + `</ul>`;
   }
   if (build.skillOrder && build.skillOrder.priority) {
-    html += `<div class="detailSkillOrder" style="margin-top:8px;"><span class="detailSkillOrderLabel">${t("communityDbSkillOrder")}:</span> ${build.skillOrder.priority}</div>`;
+    html += `<div class="detailSkillOrder" style="margin-top:10px;"><span class="detailSkillOrderLabel">${t("communityDbSkillOrder")}:</span> ${build.skillOrder.priority}</div>`;
   }
   return html;
+}
+
+// Hover-Info fuer Champion-Icon-Zeilen (Synergien/Stark-gegen): hier gibt
+// es keine CDragon-Beschreibung, sondern Zahlen (Top-3%, Differenz, Spiele) -
+// deshalb eigene kleine Tooltip-Funktion statt des Text-basierten
+// showAiTagTooltip, aber mit demselben #champTooltip-Element.
+function championStatsTooltipText(entry) {
+  const parts = [];
+  if (entry.top3_pct != null) parts.push(`${t("communityDbTop3")}: ${entry.top3_pct}%`);
+  if (entry.diff) parts.push(`${t("communityDbDiff")}: ${entry.diff}`);
+  if (entry.games) parts.push(`${t("communityDbGames")}: ${entry.games}`);
+  return parts.join(" · ");
+}
+function bindChampionStatTooltips(container, selector, entries) {
+  const items = container.querySelectorAll(selector);
+  items.forEach((li, i) => {
+    const entry = entries[i];
+    if (!entry) return;
+    const show = (e) => {
+      const tooltip = document.getElementById("champTooltip");
+      const bodyText = championStatsTooltipText(entry);
+      tooltip.innerHTML = `<div class="tooltipTitle">${entry.name}</div>` +
+        (bodyText ? `<div class="tooltipCount">${bodyText}</div>` : "");
+      tooltip.classList.remove("hidden");
+      positionTooltip(e);
+    };
+    li.addEventListener("mouseenter", show);
+    li.addEventListener("mousemove", positionTooltip);
+    li.addEventListener("mouseleave", hideChampTooltip);
+  });
+}
+
+function bindCommunityDbInteractions(section, data) {
+  bindDbIconFallbacks(section);
+  if (!data || !data.build) return;
+  const build = data.build;
+  bindAugmentTabs(section, build);
+
+  const itemList = section.querySelector("[data-itemlist]");
+  if (itemList && build.itemNamesFromIntro) bindAiTagTooltips(itemList, ".dbIconRow", build.itemNamesFromIntro);
+
+  const synergyList = section.querySelector("[data-synergylist]");
+  if (synergyList && build.synergies) bindChampionStatTooltips(synergyList, ".dbIconRow", build.synergies);
+
+  const strongList = section.querySelector("[data-stronglist]");
+  if (strongList && build.strongAgainst) bindChampionStatTooltips(strongList, ".dbIconRow", build.strongAgainst);
 }
 
 async function loadCommunityDbSection(champ) {
@@ -1065,6 +1329,7 @@ async function loadCommunityDbSection(champ) {
     }
     const data = await res.json();
     section.innerHTML = renderCommunityDbContent(data);
+    bindCommunityDbInteractions(section, data);
   } catch {
     section.innerHTML = renderCommunityDbContent(null);
   }
@@ -1094,8 +1359,10 @@ function renderCommunityAiContent(data) {
       data.strengths.map((s) => `<li>${s}</li>`).join("") + `</ul>`;
   }
   if (data.recommendedAugments && data.recommendedAugments.length) {
-    html += `<p class="detailSkillOrderLabel">${t("communityAiAugments")}</p><ul class="detailTacticsList">` +
-      data.recommendedAugments.map((a) => `<li><strong>${a.name}</strong> - ${a.reason}</li>`).join("") + `</ul>`;
+    html += `<p class="detailSkillOrderLabel">${t("communityAiAugments")}</p><ul class="dbIconList" data-airecaugs="1">` +
+      data.recommendedAugments.map((a) => renderIconNameRow(a, "")).join("") + `</ul>`;
+    html += `<ul class="detailTacticsList" style="margin-top:4px;">` +
+      data.recommendedAugments.map((a) => `<li><strong>${a.name}:</strong> ${a.reason}</li>`).join("") + `</ul>`;
   }
   if (data.synergyNote) {
     html += `<p class="detailSkillOrderLabel">${t("communityAiSynergy")}</p><p class="detailEmpty">${data.synergyNote}</p>`;
@@ -1104,6 +1371,14 @@ function renderCommunityAiContent(data) {
     html += `<p class="detailSkillOrderLabel">${t("communityAiWeakness")}</p><p class="detailEmpty">${data.weaknessNote}</p>`;
   }
   return html;
+}
+
+function bindCommunityAiInteractions(section, data) {
+  bindDbIconFallbacks(section);
+  if (data && data.recommendedAugments && data.recommendedAugments.length) {
+    const list = section.querySelector("[data-airecaugs]");
+    if (list) bindAiTagTooltips(list, ".dbIconRow", data.recommendedAugments);
+  }
 }
 
 async function loadCommunityAiSection(champ) {
@@ -1117,6 +1392,7 @@ async function loadCommunityAiSection(champ) {
     }
     const data = await res.json();
     section.innerHTML = renderCommunityAiContent(data);
+    bindCommunityAiInteractions(section, data);
   } catch {
     section.innerHTML = renderCommunityAiContent(null);
   }
@@ -1720,6 +1996,7 @@ safeBind("playerViewFilter", "oninput", renderPlayerViewGrid);
 (async function init() {
   setStatus(t("statusLoadingChampList"));
   await loadChampionList();
+  await loadCommunityTierMap();
   renderGrid();
   loadMetaData();
   ensureRankingLoaded();

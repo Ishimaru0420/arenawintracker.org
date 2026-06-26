@@ -600,3 +600,79 @@ button.danger:hover { background: #c43b4a; }
 .detailTacticsList li::before {
   content: "•"; position: absolute; left: 0; color: #ff7a3c; font-weight: 700;
 }
+
+/* ---------- Standard-Datenbank / KI-Analyse (Champion-Detailansicht) ---------- */
+.dbHeaderRow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+
+/* Meta-Tier-Badge (S+/S/A/B/C/D aus der Standard-Datenbank) - bewusst eigene
+   Klasse/Farbpalette, getrennt von .champ.tier-gold/-silver/-bronze (das ist
+   die WIN-STREAK-Faerbung im Grid, ein anderes Konzept). */
+.metaTierBadge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 22px; padding: 0 6px; border-radius: 5px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.02em; flex-shrink: 0;
+  border: 1px solid transparent;
+}
+.metaTier-splus { background: rgba(255,61,61,0.18); color: #ff6b6b; border-color: #ff3d3d; }
+.metaTier-s     { background: rgba(255,122,60,0.18); color: #ffb37a; border-color: #ff7a3c; }
+.metaTier-a     { background: rgba(255,215,0,0.14); color: #ffd86b; border-color: #cca700; }
+.metaTier-b     { background: rgba(155,219,140,0.12); color: #9bdb8c; border-color: #5fa852; }
+.metaTier-c     { background: rgba(155,170,219,0.12); color: #aebbe6; border-color: #6a7bb0; }
+.metaTier-d     { background: rgba(156,136,130,0.12); color: #9c8882; border-color: #5a4a44; }
+.metaTier-unknown { background: rgba(156,136,130,0.10); color: #9c8882; border-color: #4a3a34; }
+
+/* Stat-Kacheln (Winrate/Top3/Pickrate/Banrate/KDA/Platzierung/Spiele) */
+.dbStatGrid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 6px; margin-bottom: 4px;
+}
+.dbStatCard {
+  background: rgba(255,122,60,0.05); border: 1px solid #3a2620; border-radius: 6px;
+  padding: 6px 4px; text-align: center;
+}
+.dbStatValue { font-size: 14px; font-weight: 800; color: #ffb37a; line-height: 1.2; }
+.dbStatLabel { font-size: 9px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
+/* Tabs fuer die Augment-"Spielstile" (Gesamt/Silber/Gold/Prismatic) */
+.dbTabBar { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0 8px; }
+.dbTabBtn {
+  background: rgba(255,122,60,0.05); border: 1px solid #3a2620; color: #b3a39c;
+  border-radius: 5px; padding: 4px 10px; font-size: 11px; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.dbTabBtn:hover { border-color: #ff7a3c; color: #f5ece6; }
+.dbTabBtn.active { background: rgba(255,122,60,0.18); border-color: #ff7a3c; color: #ffb37a; font-weight: 700; }
+.dbTabPanel.hidden { display: none; }
+
+/* Icon+Name(+Prozent)-Reihen: Augments, Items, Champion-Synergien */
+.dbIconList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.dbIconRow {
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(255,122,60,0.04); border-radius: 5px; padding: 4px 7px; font-size: 12px;
+  cursor: default;
+}
+.dbIconRow-icon { width: 24px; height: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.dbIconRow-icon img { width: 24px; height: 24px; border-radius: 4px; border: 1px solid #4a3a34; display: block; }
+.dbIconFallback {
+  width: 24px; height: 24px; border-radius: 4px; border: 1px solid #4a3a34;
+  background: #1a1212; color: #9c8882; font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.dbIconRow-name { flex: 1; min-width: 0; color: #f5ece6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dbIconRow-pct { color: #4ade80; font-weight: 700; font-size: 11px; flex-shrink: 0; white-space: nowrap; }
+.dbDiffTag { color: #ffb37a; font-weight: 600; margin-left: 4px; font-size: 10.5px; }
+
+/* ---------- Tier-Listen-Sortierung im Hauptmenue (eigene Abschnitte, alle offen) ---------- */
+.tierSectionHeader {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 0 4px; padding-bottom: 4px; border-bottom: 1px solid #3a2620;
+}
+.tierSectionHeader:first-child { margin-top: 0; }
+.tierSectionLabel { font-size: 11px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; }
+.tierSectionCount { margin-left: auto; font-size: 11px; color: #9c8882; }
+.tierSectionGrid {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+}
