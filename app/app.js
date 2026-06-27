@@ -748,41 +748,14 @@ function renderGrid() {
       const champs = groups[tier];
       if (!champs.length) continue;
 
-      const scores = champs
-        .map((c) => communityTierMap[c.key] && communityTierMap[c.key].score)
-        .filter((s) => s != null);
-      const rangeText = scores.length
-        ? `(${Math.min(...scores).toFixed(2)}-${Math.max(...scores).toFixed(2)})`
-        : "";
-
       const header = document.createElement("div");
       header.className = "tierSectionHeader";
       header.innerHTML = `
         <span class="metaTierBadge ${metaTierBadgeClass(tier)}">${tier === "unknown" ? "?" : tier}</span>
-        <span class="tierSectionLabel">${tier === "unknown" ? t("tierUnknown") : `${t("tierSectionStufe")} ${rangeText}`}</span>
+        <span class="tierSectionLabel">${tier === "unknown" ? t("tierUnknown") : t("tierSectionStufe")}</span>
         <span class="tierSectionCount">${champs.length}</span>
       `;
       grid.appendChild(header);
-
-      if (tier !== "unknown" && champs.length) {
-        const topNames = champs.slice(0, 3).map((c) => c.name);
-        const topHtml = topNames
-          .map((n, i) => {
-            const sep = i === 0 ? "" : i === topNames.length - 1 ? ` ${t("tierSectionAnd")} ` : ", ";
-            return `${sep}<span class="tierTopChampLink" data-champname="${n}">${n}</span>`;
-          })
-          .join("");
-        const desc = document.createElement("div");
-        desc.className = "tierSectionDesc";
-        desc.innerHTML = t("tierSectionIntro", { tier }) + topHtml + ".";
-        grid.appendChild(desc);
-        desc.querySelectorAll(".tierTopChampLink").forEach((el) => {
-          el.addEventListener("click", () => {
-            const c = champs.find((cc) => cc.name === el.dataset.champname);
-            if (c) openChampDetail(c);
-          });
-        });
-      }
 
       const subGrid = document.createElement("div");
       subGrid.className = "tierSectionGrid";
@@ -918,53 +891,10 @@ async function loadMetaData() {
     if (!res.ok) return; // noch keine Daten vorhanden, einfach ausblenden
     const data = await res.json();
     metaData = data;
-    renderMeta(data);
     renderTop30TrioSection();
   } catch (err) {
     console.error("Meta-Daten konnten nicht geladen werden:", err);
   }
-}
-
-function renderMeta(data) {
-  const section = document.getElementById("metaSection");
-  const comboList = document.getElementById("comboList");
-  const synergyList = document.getElementById("synergyList");
-
-  comboList.innerHTML = "";
-  for (const combo of data.trioCombos || []) {
-    const div = document.createElement("div");
-    div.className = "metaItem";
-    const partners = combo.partners && combo.partners.length
-      ? combo.partners.join(" + ")
-      : "-";
-    div.innerHTML = `
-      <span class="metaTier">${combo.tier}</span>
-      <span class="metaName">${combo.champion}</span>
-      <span class="metaPartners">${t("withLabel")} ${partners}</span>
-    `;
-    comboList.appendChild(div);
-  }
-
-  synergyList.innerHTML = "";
-  for (const champName in (data.augmentSynergies || {})) {
-    const augments = data.augmentSynergies[champName];
-    const div = document.createElement("div");
-    div.className = "metaItem";
-    const augText = augments.map((a) => `${a.name} (${a.rarity})`).join(", ");
-    div.innerHTML = `
-      <span class="metaName">${champName}</span>
-      <span class="metaPartners">${augText}</span>
-    `;
-    synergyList.appendChild(div);
-  }
-
-  if ((data.trioCombos && data.trioCombos.length) || Object.keys(data.augmentSynergies || {}).length) {
-    section.classList.remove("hidden");
-  }
-
-  document.getElementById("metaUpdatedText").textContent = data.updatedAt
-    ? t("metaUpdatedAt", { time: new Date(data.updatedAt).toLocaleString(currentLang === "de" ? "de-DE" : "en-US") })
-    : "";
 }
 
 // ---------- Champion-Detailansicht (Klick auf eine Kachel im Grid) ----------
@@ -1050,13 +980,19 @@ function renderTop30TrioSection() {
     combos.sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
     html += `<ul class="detailTrioList">`;
     combos.slice(0, 30).forEach((c, i) => {
-      const names = [c.champion, ...(c.partners || [])].join(" + ");
+      const names = [c.champion, ...(c.partners || [])];
+      const iconsHtml = names.map((n) => {
+        const champ = championByNormName[normName(n)];
+        return champ
+          ? `<img src="${champ.icon}" alt="${n}" title="${n}" class="trioChampIcon" />`
+          : `<span class="dbIconFallback trioChampIconFallback" title="${n}">${n.slice(0, 2).toUpperCase()}</span>`;
+      }).join("");
       const winRateText = typeof c.winRate === "number" ? `${c.winRate.toFixed(1)}%` : "";
       html += `
         <li>
           <span class="detailTrioRank">${i + 1}.</span>
           <span class="metaTier">${c.tier || ""}</span>
-          <span class="detailTrioNames">${names}</span>
+          <span class="detailTrioNames trioIconGroup">${iconsHtml}</span>
           <span class="detailWinRate">${winRateText}</span>
         </li>
       `;
@@ -1180,6 +1116,13 @@ function championIconUrlByName(name) {
 function bindDbIconFallbacks(container) {
   container.querySelectorAll(".dbIconRow img, .dbSkillIcon img").forEach((img) => {
     img.addEventListener("error", () => {
+      const candidates = JSON.parse(img.dataset.candidates || "[]");
+      const nextIndex = Number(img.dataset.iconIndex || "0") + 1;
+      if (nextIndex < candidates.length) {
+        img.dataset.iconIndex = String(nextIndex);
+        img.src = candidates[nextIndex];
+        return;
+      }
       const li = img.closest(".dbIconRow") || img.closest(".dbSkillIcon");
       const span = document.createElement("span");
       span.className = "dbIconFallback";
@@ -1191,11 +1134,15 @@ function bindDbIconFallbacks(container) {
 }
 
 // Icon + NAME (sichtbar, nicht nur per Tooltip) + optionaler Prozentwert -
-// genau das vom Nutzer gewuenschte Format fuer Augments/Items.
+// genau das vom Nutzer gewuenschte Format fuer Augments/Items. Items
+// koennen mehrere Icon-URL-Kandidaten haben (zwei CDragon-Konventionen) -
+// schlaegt die erste fehl, probiert bindDbIconFallbacks automatisch die
+// naechste, bevor es auf den Buchstaben-Fallback zurueckfaellt.
 function renderIconNameRow(entry, percentLabel) {
   const safeName = (entry.name || "").replace(/"/g, "&quot;");
-  const iconHtml = entry.icon
-    ? `<img src="${entry.icon}" alt="${safeName}" />`
+  const candidates = (entry.iconCandidates && entry.iconCandidates.length ? entry.iconCandidates : [entry.icon]).filter(Boolean);
+  const iconHtml = candidates.length
+    ? `<img src="${candidates[0]}" alt="${safeName}" data-candidates='${JSON.stringify(candidates).replace(/'/g, "&#39;")}' data-icon-index="0" />`
     : `<span class="dbIconFallback">${safeName.slice(0, 2).toUpperCase()}</span>`;
   return `<li class="dbIconRow">
     <span class="dbIconRow-icon">${iconHtml}</span>

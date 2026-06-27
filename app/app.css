@@ -705,3 +705,10 @@ button.danger:hover { background: #c43b4a; }
   color: #ff7a3c; text-decoration: underline; cursor: pointer; font-weight: 600;
 }
 .tierTopChampLink:hover { color: #ffb37a; }
+
+/* Top-30-Trio-Sidebar: Champion-Icons statt Namenstext */
+.trioIconGroup { display: flex; align-items: center; gap: 3px; flex-wrap: nowrap; }
+.trioChampIcon { width: 20px; height: 20px; border-radius: 4px; border: 1px solid #4a3a34; flex-shrink: 0; }
+.trioChampIconFallback {
+  width: 20px; height: 20px; font-size: 8px; flex-shrink: 0;
+}
