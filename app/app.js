@@ -1,22 +1,188 @@
 // ============================================================
-// Arena Win Tracker - overlay.js
+// Arena Win Tracker - app.js  (QoL-Version)
 //
-// WICHTIGE AENDERUNG: Die App spricht NICHT MEHR direkt mit der
-// Riot-API. Stattdessen laeuft der gesamte Riot-API-Zugriff auf
-// einem zentralen Server (siehe "Arena Win Tracker Server"-Projekt).
-// Diese App ist jetzt nur noch ein duenner Client, der:
-//   1. die eigene Riot-ID beim Server registriert
-//   2. die bereits gesyncten Stats vom Server abruft
-//   3. optional einen sofortigen Sync anstoesst (statt auf den
-//      naechsten taeglichen Cron-Lauf zu warten)
+// BASIEREND AUF: arenawintracker.org-main/app/app.js (v17)
+// NEU ggü. Vorgängerversion:
+//   1. Secret-System (Übergang bis RSO steht)
+//   2. authFetch() - hängt automatisch x-cron-secret-Header an
+//   3. Manueller Sync-Button (POST /account/me/sync)
+//   4. Toast-Notification-System statt alert()
+//   5. Dark/Light-Theme-Toggle mit Persistenz
+//   6. Tastatur-Shortcuts (/, Esc, S, F, ?)
+//   7. Lade-Indikator für Server-Kaltstart
+//   8. Auto-Refresh der Stats nach 6h
+//   9. Filter-Einstellungen persistieren (localStorage)
+//  10. Long-Press auf Mobile für Tooltips
+//  11. Saison-Fortschrittsbalken
 //
-// Vorteil: kein eigener Riot API-Key mehr in der App noetig, kein
-// 24h-Ablauf-Problem mehr fuer einzelne Nutzer.
+// Alle bestehenden Funktionen (Champion-Detailansicht, KI-Empfehlung,
+// Community-DB, Trios, Freunde, Ranking, etc.) sind unverändert
+// übernommen, nur die fetch()-Aufrufe wurden auf authFetch() umgestellt.
 // ============================================================
 
 const STORAGE_KEY = "arenaWinTracker";
 const LANG_STORAGE_KEY = "arenaWinTrackerLang";
 const DEFAULT_SERVER_URL = "https://arena-win-tracker-server.onrender.com";
+
+// ---------- NEU: Secret-System (Übergang bis RSO steht) ----------
+const SECRET_STORAGE_KEY = "arenaWinTrackerSecret";
+
+function getSecretHeader() {
+  const secret = localStorage.getItem(SECRET_STORAGE_KEY) || "";
+  return secret ? { "x-cron-secret": secret } : {};
+}
+
+async function authFetch(url, options = {}) {
+  const headers = {
+    ...(options.headers || {}),
+    ...getSecretHeader()
+  };
+  return fetch(url, { ...options, headers });
+}
+
+// ---------- NEU: UI-Prefs persistieren ----------
+const UI_PREFS_KEY = "arenaWinTrackerUIPrefs";
+
+function loadUIPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(UI_PREFS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveUIPrefs(prefs) {
+  localStorage.setItem(UI_PREFS_KEY, JSON.stringify(prefs));
+}
+
+function applyUIPrefs() {
+  const prefs = loadUIPrefs();
+  const filterInput = document.getElementById("filterInput");
+  const sortMode = document.getElementById("sortMode");
+  const onlyMissing = document.getElementById("onlyMissing");
+  if (prefs.filterText && filterInput) filterInput.value = prefs.filterText;
+  if (prefs.sortMode && sortMode) sortMode.value = prefs.sortMode;
+  if (typeof prefs.onlyMissing === "boolean" && onlyMissing) {
+    onlyMissing.checked = prefs.onlyMissing;
+  }
+}
+
+function persistUIPrefs() {
+  const filterInput = document.getElementById("filterInput");
+  const sortMode = document.getElementById("sortMode");
+  const onlyMissing = document.getElementById("onlyMissing");
+  saveUIPrefs({
+    filterText: filterInput?.value || "",
+    sortMode: sortMode?.value || "name",
+    onlyMissing: !!onlyMissing?.checked
+  });
+}
+
+// ---------- NEU: Theme-Toggle ----------
+const THEME_KEY = "arenaWinTrackerTheme";
+
+function getCurrentTheme() {
+  return localStorage.getItem(THEME_KEY) || "dark";
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const btn = document.getElementById("themeToggle");
+  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+}
+
+function toggleTheme() {
+  const next = getCurrentTheme() === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+}
+
+// ---------- NEU: Toast-Notification-System ----------
+function ensureToastContainer() {
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.style.cssText = `
+      position: fixed; top: 16px; right: 16px; z-index: 99999;
+      display: flex; flex-direction: column; gap: 8px;
+      pointer-events: none; max-width: 360px;
+    `;
+    document.body.appendChild(container);
+  }
+  return container;
+}
+
+function showToast(message, type = "info", durationMs = 4000) {
+  const container = ensureToastContainer();
+  const toast = document.createElement("div");
+  const colors = {
+    info:    { bg: "#1f6feb", border: "#4493f8" },
+    success: { bg: "#238636", border: "#2ea043" },
+    warning: { bg: "#9e6a03", border: "#bb8009" },
+    error:   { bg: "#da3633", border: "#f85149" }
+  };
+  const c = colors[type] || colors.info;
+  toast.style.cssText = `
+    background: ${c.bg}; border: 1px solid ${c.border};
+    color: white; padding: 10px 14px; border-radius: 6px;
+    font-size: 13px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    pointer-events: auto; cursor: pointer;
+    transition: opacity 0.2s, transform 0.2s;
+    opacity: 0; transform: translateX(20px);
+  `;
+  toast.textContent = message;
+  toast.title = "Klicken zum Schließen";
+  toast.addEventListener("click", () => toast.remove());
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translateX(0)";
+  });
+
+  setTimeout(() => {
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(20px)";
+    setTimeout(() => toast.remove(), 200);
+  }, durationMs);
+}
+
+// ---------- NEU: Lade-Indikator für Server-Kaltstart ----------
+function showLoadingIndicator(message) {
+  let loader = document.getElementById("kaltstartLoader");
+  if (!loader) {
+    loader = document.createElement("div");
+    loader.id = "kaltstartLoader";
+    loader.style.cssText = `
+      position: fixed; inset: 0; z-index: 99997;
+      background: rgba(13, 17, 23, 0.85);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; color: #c9d1d9; font-size: 14px;
+      backdrop-filter: blur(2px);
+    `;
+    loader.innerHTML = `
+      <div style="font-size: 36px; animation: awt-spin 1s linear infinite;">⚙️</div>
+      <div id="kaltstartMessage">${message || "Lade..."}</div>
+      <div style="font-size: 11px; color: #8b949e;">Erster Start kann bis zu 60s dauern (Server-Kaltstart)</div>
+    `;
+    document.body.appendChild(loader);
+
+    const style = document.createElement("style");
+    style.textContent = "@keyframes awt-spin { to { transform: rotate(360deg); } }";
+    document.head.appendChild(style);
+  }
+  const msg = loader.querySelector("#kaltstartMessage");
+  if (msg && message) msg.textContent = message;
+  loader.style.display = "flex";
+}
+
+function hideLoadingIndicator() {
+  const loader = document.getElementById("kaltstartLoader");
+  if (loader) loader.style.display = "none";
+}
 
 // ---------- Uebersetzungen (DE/EN) ----------
 
@@ -61,6 +227,8 @@ const I18N = {
     metaSynergyHeading: "Augment/Item-Synergien",
     addFriendBtnShort: "+ Freund",
     closeTitle: "Schließen",
+    manualSyncTitle: "Jetzt synchronisieren",
+    themeToggleTitle: "Theme umschalten",
 
     statusEnterRiotIdServer: "Bitte Riot-ID und Server-URL eintragen.",
     statusConnecting: "Verbinde mit Server (kann beim ersten Mal bis zu 60s dauern)...",
@@ -198,6 +366,8 @@ const I18N = {
     metaSynergyHeading: "Augment/item synergies",
     addFriendBtnShort: "+ Friend",
     closeTitle: "Close",
+    manualSyncTitle: "Sync now",
+    themeToggleTitle: "Toggle theme",
 
     statusEnterRiotIdServer: "Please enter Riot ID and server URL.",
     statusConnecting: "Connecting to server (can take up to 60s the first time)...",
@@ -300,10 +470,6 @@ const I18N = {
 let currentLang = localStorage.getItem(LANG_STORAGE_KEY) || "de";
 
 // Setzt einen Event-Handler nur, wenn das Element wirklich existiert.
-// Verhindert, dass EIN fehlendes/falsch benanntes Element (z.B. durch
-// eine veraltete index.html) das GESAMTE restliche Skript zum Absturz
-// bringt - ohne diese Absicherung wuerde ein einzelner Tippfehler oder
-// ein Versions-Mismatch dazu fuehren, dass die komplette App leer bleibt.
 function safeBind(id, prop, handler) {
   const el = document.getElementById(id);
   if (!el) {
@@ -323,15 +489,12 @@ function safeSetValue(id, value) {
   else console.warn(`safeSetValue: Element #${id} nicht gefunden.`);
 }
 
-// Holt einen uebersetzten String und ersetzt {platzhalter} mit Werten aus vars.
 function t(key, vars) {
   const str = (I18N[currentLang] && I18N[currentLang][key]) || I18N.de[key] || key;
   if (!vars) return str;
   return str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : `{${k}}`));
 }
 
-// Wendet die Uebersetzung auf alle statisch markierten Elemente an
-// (data-i18n fuer Textinhalt, data-i18n-placeholder, data-i18n-title).
 function applyStaticTranslations() {
   document.querySelectorAll("[data-i18n]").forEach((el) => {
     el.textContent = t(el.getAttribute("data-i18n"));
@@ -346,7 +509,6 @@ function applyStaticTranslations() {
   document.documentElement.lang = currentLang;
 }
 
-// Rahmen-Stufen je nach Anzahl Erster-Plaetze mit einem Champion.
 const WIN_TIERS = [
   { min: 50, class: "tier-gold" },
   { min: 25, class: "tier-silver" },
@@ -360,30 +522,23 @@ function getTierClass(winCount) {
   return "";
 }
 
-// Win-Count kommt jetzt direkt vom Server (dort beim Sync mitgezaehlt),
-// kein erneutes Durchsuchen der matchHistory im Client mehr noetig.
 function getWinCount(champKey) {
   return state.winCounts[champKey] || 0;
 }
 
 let state = loadState();
-let championList = []; // [{id, name, key}] aus Data Dragon
-let championByApiName = {}; // { "Ahri": {icon, name}, "MonkeyKing": {...}, ... } - id ist Riots interner Name
-let championByKey = {}; // { "112": {icon, name}, ... } - numerischer Riot-Key, wie winCounts/wins indiziert sind
-let championByNormName = {}; // wie championByApiName, aber Key normalisiert (kein Apostroph/Leerzeichen, lowercase)
-let lastFriendsList = null; // zuletzt geladene Freundesliste, fuer Re-Render bei Sprachwechsel
-let metaData = null; // zuletzt vom Server geladene /meta-Antwort, fuer die Champion-Detailansicht
-let ddragonVersion = null; // wird in loadChampionList() gesetzt, fuer Profilicon-URLs im Ranking
-
-// Tier-Map fuer die Hauptmenue-Sortierung ("Tier-Liste"): {championKey: "S+"}.
-// Einmalig beim Start geladen (schlanker Endpoint, keine Build-Details),
-// danach nur noch aus dem Speicher gelesen - kein Re-Fetch bei jedem
-// Umschalten der Sortierung.
+let championList = [];
+let championByApiName = {};
+let championByKey = {};
+let championByNormName = {};
+let lastFriendsList = null;
+let metaData = null;
+let ddragonVersion = null;
 let communityTierMap = {};
 
 async function loadCommunityTierMap() {
   try {
-    const res = await fetch(serverUrl("/community-meta-tiers"));
+    const res = await authFetch(serverUrl("/community-meta-tiers"));
     if (!res.ok) return;
     const list = await res.json();
     communityTierMap = {};
@@ -395,13 +550,9 @@ async function loadCommunityTierMap() {
   }
 }
 
-// Normalisiert einen Champion-Namen fuer Vergleiche, unabhaengig von
-// Apostroph/Punkt/Leerzeichen-Schreibweise ("Cho'Gath" / "ChoGath" -> "chogath").
 function normName(s) {
   return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
-
-// ---------- Persistenz ----------
 
 function loadState() {
   try {
@@ -419,9 +570,9 @@ function defaultState() {
     region: "europe",
     serverUrl: DEFAULT_SERVER_URL,
     seasonStart: "2026-04-29",
-    wins: {},          // { championKey: true } - kommt vom Server
-    winCounts: {},     // { championKey: Anzahl Erster-Plaetze } - kommt vom Server
-    matchHistory: {},  // { championKey: [...] } - kommt vom Server
+    wins: {},
+    winCounts: {},
+    matchHistory: {},
     lastSync: null
   };
 }
@@ -435,15 +586,14 @@ function saveState() {
 safeSetValue("riotId", state.riotId);
 safeSetValue("region", state.region);
 safeSetValue("seasonStart", state.seasonStart);
-
+applyUIPrefs();
+applyTheme(getCurrentTheme());
 applyStaticTranslations();
 
 safeBind("langToggle", "onclick", () => {
   currentLang = currentLang === "de" ? "en" : "de";
   localStorage.setItem(LANG_STORAGE_KEY, currentLang);
   applyStaticTranslations();
-  // Dynamisch erzeugte Inhalte muessen separat neu gerendert werden,
-  // da sie nicht ueber data-i18n-Attribute laufen.
   renderGrid();
   if (metaData) renderMeta(metaData);
   renderTop30TrioSection();
@@ -456,6 +606,8 @@ safeBind("langToggle", "onclick", () => {
   }
   if (viewedPlayerStats) renderPlayerViewGrid();
 });
+
+safeBind("themeToggle", "onclick", toggleTheme);
 
 const DEFAULT_SEASON_START = "2026-04-29";
 safeBind("resetSeasonStart", "onclick", () => {
@@ -478,10 +630,15 @@ safeBind("saveSettings", "onclick", async () => {
   state.seasonStart = newSeasonStart;
   saveState();
   document.getElementById("settingsPanel").classList.add("hidden");
+  showToast("Einstellungen gespeichert, lade Daten...", "info");
   await registerAndLoad();
-  if (seasonStartChanged) await updateSeasonOnServer();
+  if (seasonStartChanged) {
+    showToast("Season-Start aktualisiert, Sync läuft im Hintergrund...", "info");
+    await updateSeasonOnServer();
+  }
   loadMetaData();
   loadFriends();
+  showToast("Daten aktualisiert ✅", "success", 2500);
 });
 
 safeBind("resetData", "onclick", () => {
@@ -495,17 +652,167 @@ safeBind("resetData", "onclick", () => {
   setStatus(t("statusResetDone"));
 });
 
-safeBind("filterInput", "oninput", renderGrid);
-safeBind("onlyMissing", "onchange", renderGrid);
-safeBind("sortMode", "onchange", renderGrid);
+safeBind("filterInput", "oninput", () => { persistUIPrefs(); renderGrid(); });
+safeBind("onlyMissing", "onchange", () => { persistUIPrefs(); renderGrid(); });
+safeBind("sortMode", "onchange", () => { persistUIPrefs(); renderGrid(); });
+
+// ---------- NEU: Manueller Sync-Button ----------
+safeBind("manualSyncBtn", "onclick", async () => {
+  if (!state.riotId) {
+    showToast("Bitte zuerst Riot-ID in den Einstellungen eintragen.", "warning");
+    return;
+  }
+  const btn = document.getElementById("manualSyncBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳";
+  }
+  showToast("Sync läuft... kann bis zu 60s dauern.", "info", 8000);
+
+  try {
+    const res = await authFetch(serverUrl("/account/me/sync"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ riotId: state.riotId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Sync fehlgeschlagen");
+
+    showToast(`Sync fertig: ${data.newMatchesProcessed} neue(s) Match(es) ✅`, "success");
+    const stats = await fetchStatsFromServer();
+    applyStats(stats);
+  } catch (err) {
+    showToast("Sync-Fehler: " + err.message, "error", 6000);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "🔄";
+    }
+  }
+});
+
+// ---------- NEU: Tastatur-Shortcuts ----------
+document.addEventListener("keydown", (e) => {
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "select" || tag === "textarea") return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  switch (e.key) {
+    case "/":
+      e.preventDefault();
+      document.getElementById("filterInput")?.focus();
+      break;
+    case "Escape": {
+      const tooltip = document.getElementById("champTooltip");
+      if (tooltip && !tooltip.classList.contains("hidden")) {
+        tooltip.classList.add("hidden");
+        break;
+      }
+      const detail = document.getElementById("champDetail");
+      if (detail && !detail.classList.contains("hidden")) {
+        detail.classList.add("hidden");
+        const grid = document.getElementById("grid");
+        if (grid) grid.classList.remove("hidden");
+        const t30 = document.getElementById("top30Trio");
+        if (t30) t30.classList.remove("hidden");
+        const rp = document.getElementById("rankingPanel");
+        if (rp) rp.classList.remove("hidden");
+        break;
+      }
+      const playerView = document.getElementById("playerViewOverlay");
+      if (playerView && !playerView.classList.contains("hidden")) {
+        playerView.classList.add("hidden");
+        break;
+      }
+      document.getElementById("settingsPanel")?.classList.add("hidden");
+      document.getElementById("friendsPanel")?.classList.add("hidden");
+      break;
+    }
+    case "s":
+    case "S":
+      document.getElementById("settingsPanel")?.classList.toggle("hidden");
+      break;
+    case "f":
+    case "F":
+      document.getElementById("friendsPanel")?.classList.toggle("hidden");
+      break;
+    case "?":
+      showToast("Shortcuts: / = Suche · Esc = Schließen · S = Settings · F = Freunde", "info", 5000);
+      break;
+  }
+});
+
+// ---------- NEU: Mobile Long-Press für Tooltips ----------
+let longPressTimer = null;
+let longPressTarget = null;
+
+document.addEventListener("touchstart", (e) => {
+  if (e.touches.length !== 1) return;
+  const champDiv = e.target.closest?.(".champ");
+  if (!champDiv) return;
+
+  longPressTarget = champDiv;
+  longPressTimer = setTimeout(() => {
+    if (longPressTarget === champDiv) {
+      const touch = e.touches[0];
+      const champName = champDiv.querySelector("span")?.textContent;
+      const champ = championList.find(c => c.name === champName);
+      if (champ) {
+        showChampTooltip({ clientX: touch.clientX, clientY: touch.clientY }, champ);
+        navigator.vibrate?.(30);
+      }
+    }
+  }, 500);
+}, { passive: true });
+
+document.addEventListener("touchend", () => {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  setTimeout(() => {
+    if (longPressTarget === null) hideChampTooltip();
+  }, 100);
+  longPressTarget = null;
+});
+
+document.addEventListener("touchmove", () => {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}, { passive: true });
+
+// ---------- NEU: Auto-Refresh der Stats ----------
+const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000;
+
+let autoRefreshTimer = null;
+function startAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(async () => {
+    if (!state.riotId || !state.lastSync) return;
+    if (document.hidden) return;
+    const lastSyncMs = new Date(state.lastSync).getTime();
+    if (Date.now() - lastSyncMs < STALE_THRESHOLD_MS) return;
+
+    console.log("[Auto-Refresh] Stats sind älter als 6h, lade neu...");
+    try {
+      const stats = await fetchStatsFromServer();
+      applyStats(stats);
+      setStatus(t("statusConnected", { time: formatLastSync(stats.lastSync) }));
+    } catch (err) {
+      console.warn("[Auto-Refresh] fehlgeschlagen:", err.message);
+    }
+  }, AUTO_REFRESH_INTERVAL_MS);
+}
+startAutoRefresh();
 
 function setStatus(text) {
   document.getElementById("statusText").textContent = text;
 }
 
 // ---------- Data Dragon: Champion-Liste ----------
-// (unveraendert - das ist oeffentliches Spiel-Datenmaterial, kein
-// Riot-API-Key noetig, bleibt deshalb client-seitig)
 
 async function loadChampionList() {
   const versionsRes = await fetch("https://ddragon.leagueoflegends.com/api/versions.json");
@@ -527,26 +834,14 @@ async function loadChampionList() {
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  // Lookup nach Riots internem API-Namen (z.B. "MonkeyKing" fuer Wukong) -
-  // genau das liefert match.info.participants[].championName, mit dem
-  // die Teammates in der matchHistory gespeichert sind.
   championByApiName = {};
   for (const c of championList) {
     championByApiName[c.id] = c;
   }
-
-  // Lookup nach dem NUMERISCHEN Riot-Key (z.B. "112" fuer Viktor) - so
-  // sind winCounts/wins/matchHistory indiziert (siehe champ.key in
-  // renderGrid). Wird fuer die "Bester Champion"-Ranking-Kategorie
-  // gebraucht, um aus dem gespeicherten Key wieder Icon/Name aufzuloesen.
   championByKey = {};
   for (const c of championList) {
     championByKey[c.key] = c;
   }
-
-  // Normalisierter Index (z.B. "Cho'Gath" / "ChoGath" / "cho gath" -> "chogath"),
-  // damit Meta-Daten (Anzeigename mit Apostroph/Leerzeichen) zuverlaessig auf
-  // den richtigen Champion aus championList matchen, unabhaengig von Schreibweise.
   championByNormName = {};
   for (const c of championList) {
     championByNormName[normName(c.id)] = c;
@@ -559,10 +854,9 @@ function serverUrl(path) {
   return `${state.serverUrl}${path}`;
 }
 
-// Registriert die Riot-ID beim Server (idempotent - schadet nicht,
-// wenn der Nutzer schon existiert).
+// GEÄNDERT: nutzt jetzt authFetch statt fetch (für Secret-Header)
 async function registerWithServer() {
-  const res = await fetch(serverUrl("/register"), {
+  const res = await authFetch(serverUrl("/register"), {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -578,11 +872,9 @@ async function registerWithServer() {
   return res.json();
 }
 
-// Holt die zuletzt gesyncten Stats vom Server (kein Riot-Aufruf hier,
-// nur ein Datenbank-Abruf - entsprechend schnell).
 async function fetchStatsFromServer() {
   const encodedId = encodeURIComponent(state.riotId);
-  const res = await fetch(serverUrl(`/stats/${encodedId}`));
+  const res = await authFetch(serverUrl(`/stats/${encodedId}`));
   if (res.status === 404) {
     throw new Error(t("rankNotRegistered404"));
   }
@@ -593,13 +885,10 @@ async function fetchStatsFromServer() {
   return res.json();
 }
 
-// Aktualisiert NUR das Season-Start-Datum auf dem Server. Eigener
-// Endpunkt, weil POST /register idempotent ist und das Datum bei
-// einem bereits registrierten Nutzer sonst nie aktualisieren wuerde.
 async function updateSeasonOnServer() {
   try {
     const encodedId = encodeURIComponent(state.riotId);
-    const res = await fetch(serverUrl(`/season/${encodedId}`), {
+    const res = await authFetch(serverUrl(`/season/${encodedId}`), {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ seasonStart: state.seasonStart })
@@ -614,8 +903,7 @@ async function updateSeasonOnServer() {
   }
 }
 
-// ---------- Ablauf: Registrieren + Laden ----------
-
+// ---------- NEU: registerAndLoad mit Lade-Indikator ----------
 async function registerAndLoad() {
   if (!state.riotId || !state.serverUrl) {
     setStatus(t("statusEnterRiotIdServer"));
@@ -624,14 +912,35 @@ async function registerAndLoad() {
   }
   try {
     setStatus(t("statusConnecting"));
-    await registerWithServer();
+    showLoadingIndicator("Verbinde mit Server...");
+
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("timeout")), 8000)
+    );
+
+    try {
+      await Promise.race([registerWithServer(), timeoutPromise]);
+    } catch (err) {
+      if (err.message === "timeout") {
+        showLoadingIndicator("Server startet (Kaltstart kann 60s dauern)...");
+        await registerWithServer();
+      } else {
+        throw err;
+      }
+    }
+
     setStatus(t("statusLoadingStats"));
+    showLoadingIndicator("Lade Stats...");
     const stats = await fetchStatsFromServer();
     applyStats(stats);
     setStatus(t("statusConnected", { time: formatLastSync(stats.lastSync) }));
+    hideLoadingIndicator();
+    showToast("Verbunden ✅", "success", 2000);
   } catch (err) {
     console.error(err);
+    hideLoadingIndicator();
     setStatus(t("errorPrefix") + err.message);
+    showToast("Verbindung fehlgeschlagen: " + err.message, "error", 6000);
   }
 }
 
@@ -642,10 +951,29 @@ function applyStats(stats) {
   state.lastSync = stats.lastSync || null;
   saveState();
   renderGrid();
+  updateSeasonProgress();
 }
 
 function formatLastSync(lastSync) {
   return lastSync ? new Date(lastSync).toLocaleString(currentLang === "de" ? "de-DE" : "en-US") : t("neverSynced");
+}
+
+// ---------- NEU: Saison-Fortschrittsbalken ----------
+function updateSeasonProgress() {
+  const bar = document.getElementById("seasonProgress");
+  const fill = document.getElementById("seasonProgressFill");
+  const label = document.getElementById("seasonProgressLabel");
+  const count = document.getElementById("seasonProgressCount");
+  if (!bar || !fill || !label || !count) return;
+
+  const wonCount = Object.keys(state.wins || {}).length;
+  const total = championList.length;
+  const pct = total > 0 ? Math.round((wonCount / total) * 100) : 0;
+
+  bar.style.display = total > 0 ? "flex" : "none";
+  fill.style.width = pct + "%";
+  label.textContent = pct + "%";
+  count.textContent = wonCount + " / " + total;
 }
 
 // ---------- Rendering ----------
@@ -662,9 +990,6 @@ function metaTierBadgeClass(tier) {
   return "metaTier-unknown";
 }
 
-// Baut das DOM-Element fuer einen einzelnen Champion im Grid - identisch
-// fuer die flache (Name/Wins) und die gruppierte (Tier-Liste) Darstellung,
-// damit Status-Logik (won/lost/missing) nur an einer Stelle gepflegt wird.
 function buildChampDiv(champ, options) {
   const showScore = options && options.showScore;
   const winCount = getWinCount(champ.key);
@@ -707,7 +1032,6 @@ function renderGrid() {
   let visible = championList.filter((c) => c.name.toLowerCase().includes(filterText));
 
   if (sortMode === "wins") {
-    // Meiste Wins zuerst, bei Gleichstand alphabetisch (stabil/vorhersehbar).
     visible = visible.slice().sort((a, b) => {
       const diff = getWinCount(b.key) - getWinCount(a.key);
       return diff !== 0 ? diff : a.name.localeCompare(b.name);
@@ -715,11 +1039,6 @@ function renderGrid() {
   }
 
   if (sortMode === "tier") {
-    // Eigene, getrennte Tier-Abschnitte (S+ bis D + "ohne Tier-Daten"),
-    // ALLE gleichzeitig sichtbar und untereinander gestapelt - kein
-    // Accordion/Collapse. Innerhalb eines Abschnitts nach Score sortiert
-    // (hoechster zuerst), angelehnt an die metasrc-Tier-Liste, aber im
-    // eigenen Chaos-Arena-Look statt deren Farben/Layout 1:1 zu kopieren.
     const groups = {};
     for (const tier of META_TIER_ORDER) groups[tier] = [];
     groups.unknown = [];
@@ -769,6 +1088,7 @@ function renderGrid() {
     document.getElementById("summaryText").textContent =
       t("summaryWon", { won: wonCount, total: championList.length });
     updateOverallStats();
+    updateSeasonProgress();
     return;
   }
 
@@ -786,27 +1106,21 @@ function renderGrid() {
     t("summaryWon", { won: wonCount, total: championList.length });
 
   updateOverallStats();
+  updateSeasonProgress();
 }
 
-// Zaehlt ALLE Arena-Spiele ueber alle Champions hinweg (unabhaengig
-// vom aktuellen Filter), inkl. Aufschluesselung Sieg/Niederlage.
 function updateOverallStats() {
   let totalGames = 0;
   let totalWins = 0;
-
   for (const champKey in state.matchHistory) {
     const games = state.matchHistory[champKey] || [];
     totalGames += games.length;
     totalWins += games.filter((g) => g.placement === 1).length;
   }
-
   const totalLosses = totalGames - totalWins;
-
   document.getElementById("overallStatsText").textContent =
     t("overallStats", { games: totalGames, wins: totalWins, losses: totalLosses });
 }
-
-// ---------- Hover-Tooltip: Match-History pro Champion ----------
 
 function showChampTooltip(e, champ) {
   const tooltip = document.getElementById("champTooltip");
@@ -854,11 +1168,9 @@ function positionTooltip(e) {
   const offset = 14;
   let x = e.clientX + offset;
   let y = e.clientY + offset;
-
   const rect = tooltip.getBoundingClientRect();
   if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
   if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
-
   tooltip.style.left = x + "px";
   tooltip.style.top = y + "px";
 }
@@ -873,22 +1185,16 @@ function formatSeasonStart() {
     : "Season-Start";
 }
 
-// Englische Ordinalzahl fuer die Platzierungsanzeige im Tooltip
-// (1 -> "1st", 2 -> "2nd", 3 -> "3rd", 4/5/6/... -> "4th" usw.).
 function ordinal(n) {
   const s = ["th", "st", "nd", "rd"];
   const v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
-// ---------- Tages-Meta: Trio-Combos & Augment/Item-Synergien ----------
-// Tagesaktuelle Community-Daten (taeglich vom Server via metasrc.com
-// aktualisiert) - rein informativ, KEINE Live-Erkennung im Spiel.
-
 async function loadMetaData() {
   try {
-    const res = await fetch(serverUrl("/meta"));
-    if (!res.ok) return; // noch keine Daten vorhanden, einfach ausblenden
+    const res = await authFetch(serverUrl("/meta"));
+    if (!res.ok) return;
     const data = await res.json();
     metaData = data;
     renderTop30TrioSection();
@@ -1353,7 +1659,7 @@ async function loadCommunityDbSection(champ) {
   const section = document.getElementById("communityDbSection");
   if (!section) return;
   try {
-    const res = await fetch(serverUrl(`/community-meta/${champ.key}`));
+    const res = await authFetch(serverUrl(`/community-meta/${champ.key}`));
     if (!res.ok) {
       section.innerHTML = renderCommunityDbContent(null);
       return;
@@ -1416,7 +1722,7 @@ async function loadCommunityAiSection(champ) {
   const section = document.getElementById("communityAiSection");
   if (!section) return;
   try {
-    const res = await fetch(serverUrl(`/community-meta-ai/${champ.key}`));
+    const res = await authFetch(serverUrl(`/community-meta-ai/${champ.key}`));
     if (!res.ok) {
       section.innerHTML = renderCommunityAiContent(null);
       return;
@@ -1555,7 +1861,7 @@ async function loadAiMetaSection(champ) {
   const section = document.getElementById("aiMetaSection");
   if (!section) return;
   try {
-    const res = await fetch(serverUrl(`/meta-ai/${champ.key}`));
+    const res = await authFetch(serverUrl(`/meta-ai/${champ.key}`));
     if (!res.ok) {
       section.innerHTML = renderAiMetaContent(null);
       return;
@@ -1654,7 +1960,7 @@ function closeChampDetail() {
 async function loadFriends() {
   if (!state.riotId || !state.serverUrl) return;
   try {
-    const res = await fetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
+    const res = await authFetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
     if (!res.ok) return;
     const data = await res.json();
     lastFriendsList = data.friends || [];
@@ -1689,7 +1995,7 @@ async function addFriend(friendRiotIdParam) {
     return;
   }
   try {
-    const res = await fetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`), {
+    const res = await authFetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ friendRiotId })
@@ -1774,7 +2080,7 @@ async function loadRanking(mode) {
       ? "/ranking/global"
       : `/ranking/friends/${encodeURIComponent(state.riotId)}`;
     const path = `${basePath}?sort=${currentRankingCategory}`;
-    const res = await fetch(serverUrl(path));
+    const res = await authFetch(serverUrl(path));
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || t("rankLoadFailed"));
     renderRanking(data.ranking || []);
@@ -1908,7 +2214,7 @@ async function openPlayerView(riotId) {
   }
 
   try {
-    const res = await fetch(serverUrl(`/stats/${encodeURIComponent(riotId)}`));
+    const res = await authFetch(serverUrl(`/stats/${encodeURIComponent(riotId)}`));
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || t("statsLoadFailed"));
     viewedPlayerStats = data;
@@ -1925,7 +2231,7 @@ async function updatePlayerViewFriendButton(riotId) {
   btn.textContent = t("addFriendBtnShort");
   btn.disabled = false;
   try {
-    const res = await fetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
+    const res = await authFetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
     if (!res.ok) return;
     const data = await res.json();
     const alreadyFriend = (data.friends || []).some(

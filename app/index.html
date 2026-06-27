@@ -1,10 +1,15 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="de" data-theme="dark">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>Arena Win Tracker - Web</title>
-  <link rel="stylesheet" href="app.css?v=17" />
+
+  <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
+  <link rel="stylesheet" href="theme.css?v=1" />
+  <link rel="stylesheet" href="mobile.css?v=1" />
+  <link rel="stylesheet" href="app.css?v=18" />
+
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
        nicht noetig sind (dort ist die Fenstergroesse fix). */
@@ -15,6 +20,9 @@
       background: rgba(255,122,60,0.10); border: 1px solid #ff7a3c;
       border-radius: 8px; padding: 10px 12px; font-size: 11px;
       color: #ffb37a; margin-bottom: 10px; -webkit-app-region: no-drag;
+    }
+    .headerBtns {
+      display: flex; gap: 4px; align-items: center;
     }
   </style>
 </head>
@@ -28,6 +36,8 @@
     <header>
       <h1>Arena Win Tracker</h1>
       <div class="headerBtns">
+        <button id="manualSyncBtn" title="Jetzt synchronisieren" data-i18n-title="manualSyncTitle">🔄</button>
+        <button id="themeToggle" title="Theme umschalten" data-i18n-title="themeToggleTitle">☀️</button>
         <button id="friendsToggle" title="Freunde verwalten" data-i18n-title="friendsToggleTitle">👥</button>
         <button id="settingsToggle" title="Einstellungen" data-i18n-title="settingsToggleTitle">⚙</button>
       </div>
@@ -95,6 +105,13 @@
         <input id="onlyMissing" type="checkbox" />
         <span data-i18n="onlyMissingLabel">nur offene zeigen</span>
       </label>
+      <div class="seasonProgress" id="seasonProgress" style="display:none;">
+        <span class="seasonProgressLabel" id="seasonProgressLabel">0%</span>
+        <div class="seasonProgressBar">
+          <div class="seasonProgressFill" id="seasonProgressFill" style="width:0%"></div>
+        </div>
+        <span class="seasonProgressLabel" id="seasonProgressCount">0 / 0</span>
+      </div>
     </section>
 
     <div id="mainRow">
@@ -138,6 +155,7 @@
     </div>
   </div>
 
-  <script src="app.js?v=17"></script>
+  <!-- Cache-Busting: v=18 statt v=17 -->
+  <script src="app.js?v=18"></script>
 </body>
 </html>
