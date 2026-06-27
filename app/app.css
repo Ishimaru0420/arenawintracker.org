@@ -322,9 +322,10 @@ button.danger:hover { background: #c43b4a; }
 }
 #rankingPanel { flex: 0 0 17.85%; }
 #mainRow #grid, #mainRow #champDetail { flex: 1 1 auto; min-width: 0; }
-#top30Trio { flex: 0 0 8%; }
+#top30Trio { display: none !important; }
+#externalTrio { flex: 0 0 18%; }
 
-/* ---------- Top-30-Trio-Section (immer sichtbar, ausser bei offener Champion-Detailansicht) ---------- */
+/* ---------- Top-30-Trio-Section: entfernt (siehe display:none oben), Styling bleibt fuer evtl. Reaktivierung ---------- */
 #top30Trio {
   -webkit-app-region: no-drag;
   background: linear-gradient(180deg, #1a1212, #150f0d);
@@ -338,9 +339,23 @@ button.danger:hover { background: #c43b4a; }
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 
+/* ---------- Meta-Trio-Section (extern, z.B. blitz.gg) - jetzt die einzige rechte Spalte ---------- */
+#externalTrio {
+  -webkit-app-region: no-drag;
+  background: linear-gradient(180deg, #1a1212, #150f0d);
+  border: 1px solid #3a2620; border-radius: 6px;
+  padding: 8px 10px;
+  max-height: none; overflow: visible;
+}
+#externalTrio.hidden { display: none; }
+#externalTrio h3 {
+  font-size: 13px; color: #ff7a3c; margin: 0 0 8px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
 @media (max-width: 900px) {
   #mainRow { flex-direction: column; }
-  #rankingPanel, #top30Trio { flex: 1 1 auto; }
+  #rankingPanel, #externalTrio { flex: 1 1 auto; }
 }
 
 .champ {
