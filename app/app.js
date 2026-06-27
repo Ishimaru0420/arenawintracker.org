@@ -3,9 +3,9 @@
 //
 // BASIEREND AUF: arenawintracker.org-main/app/app.js (v17)
 // NEU ggü. Vorgängerversion:
-//   1. Secret-System (Übergang bis RSO steht)
-//   2. authFetch() - hängt automatisch x-cron-secret-Header an
-//   3. Manueller Sync-Button (POST /account/me/sync)
+//   1. Secret-System wieder ENTFERNT (siehe authFetch unten - nur noch
+//      simpler fetch()-Alias, kein x-cron-secret-Header mehr)
+//   2. Manueller Sync-Button (POST /account/me/sync)
 //   4. Toast-Notification-System statt alert()
 //   5. Dark/Light-Theme-Toggle mit Persistenz
 //   6. Tastatur-Shortcuts (/, Esc, S, F, ?)
@@ -24,20 +24,14 @@ const STORAGE_KEY = "arenaWinTracker";
 const LANG_STORAGE_KEY = "arenaWinTrackerLang";
 const DEFAULT_SERVER_URL = "https://arena-win-tracker-server.onrender.com";
 
-// ---------- NEU: Secret-System (Übergang bis RSO steht) ----------
-const SECRET_STORAGE_KEY = "arenaWinTrackerSecret";
-
-function getSecretHeader() {
-  const secret = localStorage.getItem(SECRET_STORAGE_KEY) || "";
-  return secret ? { "x-cron-secret": secret } : {};
-}
-
+// ---------- Secret-System entfernt ----------
+// Frueher hier: x-cron-secret-Header-Logik. Entfernt, weil die App nur
+// fuer dich + Freunde gedacht ist und das Secret im Browser ohnehin
+// sichtbar war - kein echter Schutz, nur Reibung. authFetch bleibt als
+// Name erhalten (an allen Call-Sites im Code), ruft aber direkt fetch()
+// auf, damit nicht jede einzelne Stelle umbenannt werden muss.
 async function authFetch(url, options = {}) {
-  const headers = {
-    ...(options.headers || {}),
-    ...getSecretHeader()
-  };
-  return fetch(url, { ...options, headers });
+  return fetch(url, options);
 }
 
 // ---------- NEU: UI-Prefs persistieren ----------
