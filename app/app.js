@@ -283,6 +283,7 @@ const I18N = {
     champDetailTactics: "Taktiken",
     champDetailNoTactics: "Noch keine Taktik-Tipps für diesen Champion.",
     topTrioHeading: "Top 30 Trios (Winrate)",
+    externalTrioHeading: "Meta-Trios (extern, blitz.gg)",
     champDetailAiHeading: "KI-Empfehlung (experimentell)",
     champDetailAiCore: "Core-Items",
     champDetailAiSituational: "Situativ",
@@ -422,6 +423,7 @@ const I18N = {
     champDetailTactics: "Tactics",
     champDetailNoTactics: "No tactic tips for this champion yet.",
     topTrioHeading: "Top 30 trios (win rate)",
+    externalTrioHeading: "Meta trios (external, blitz.gg)",
     champDetailAiHeading: "AI recommendation (experimental)",
     champDetailAiCore: "Core items",
     champDetailAiSituational: "Situational",
@@ -591,6 +593,7 @@ safeBind("langToggle", "onclick", () => {
   renderGrid();
   if (metaData) renderMeta(metaData);
   renderTop30TrioSection();
+  renderExternalTrioSection();
   if (currentDetailChamp && !document.getElementById("champDetail").classList.contains("hidden")) {
     openChampDetail(currentDetailChamp);
   }
@@ -709,6 +712,8 @@ document.addEventListener("keydown", (e) => {
         if (grid) grid.classList.remove("hidden");
         const t30 = document.getElementById("top30Trio");
         if (t30) t30.classList.remove("hidden");
+        const extTrio = document.getElementById("externalTrio");
+        if (extTrio) extTrio.classList.remove("hidden");
         const rp = document.getElementById("rankingPanel");
         if (rp) rp.classList.remove("hidden");
         break;
@@ -1302,6 +1307,56 @@ function renderTop30TrioSection() {
   section.innerHTML = html;
 }
 
+// ---- Externe Meta-Trios (z.B. blitz.gg), getrennt von den eigenen
+// gespielten Trios oben. Eigene Collection "externalTrioMeta" im
+// Backend, eigener Endpoint /community-meta-trios. Wird einmal beim
+// Start geladen (kein automatisches Re-Fetch, da sich diese Daten nur
+// per manuellem Re-Import aendern, nicht durch eigene Matches).
+let externalTrioData = null;
+
+async function loadExternalTrioMeta() {
+  try {
+    const res = await authFetch(serverUrl("/community-meta-trios?limit=30"));
+    if (!res.ok) return;
+    externalTrioData = await res.json();
+    renderExternalTrioSection();
+  } catch (err) {
+    console.error("[ExternalTrioMeta] Laden fehlgeschlagen:", err);
+  }
+}
+
+function renderExternalTrioSection() {
+  const section = document.getElementById("externalTrio");
+  if (!section) return;
+  const combos = Array.isArray(externalTrioData) ? externalTrioData : [];
+
+  let html = `<h3>${t("externalTrioHeading")}</h3>`;
+  if (combos.length === 0) {
+    html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
+  } else {
+    html += `<ul class="detailTrioList">`;
+    combos.slice(0, 30).forEach((c, i) => {
+      const names = c.champions || [];
+      const iconsHtml = names.map((n) => {
+        const champ = championByNormName[normName(n)];
+        return champ
+          ? `<img src="${champ.icon}" alt="${n}" title="${n}" class="trioChampIcon" />`
+          : `<span class="dbIconFallback trioChampIconFallback" title="${n}">${n.slice(0, 2).toUpperCase()}</span>`;
+      }).join("");
+      const winRateText = typeof c.winRate === "number" ? `${c.winRate.toFixed(1)}%` : "";
+      html += `
+        <li>
+          <span class="detailTrioRank">${i + 1}.</span>
+          <span class="detailTrioNames trioIconGroup">${iconsHtml}</span>
+          <span class="detailWinRate">${winRateText}</span>
+        </li>
+      `;
+    });
+    html += `</ul>`;
+  }
+  section.innerHTML = html;
+}
+
 // ---- Mittlere Spalte: beste Items fuer den Champion (klickbar) ----
 // Liefert die Icon-URL fuer einen Item-Namen, falls der Server eine
 // itemIconMap mitliefert (normalisierter Name -> URL). Kein Icon
@@ -1873,6 +1928,7 @@ function openChampDetail(champ) {
   hideChampTooltip();
   document.getElementById("grid").classList.add("hidden");
   document.getElementById("top30Trio").classList.add("hidden");
+  document.getElementById("externalTrio").classList.add("hidden");
   document.getElementById("rankingPanel").classList.add("hidden");
   const detail = document.getElementById("champDetail");
   detail.classList.remove("hidden");
@@ -1946,6 +2002,7 @@ function closeChampDetail() {
   document.getElementById("champDetail").classList.add("hidden");
   document.getElementById("grid").classList.remove("hidden");
   document.getElementById("top30Trio").classList.remove("hidden");
+  document.getElementById("externalTrio").classList.remove("hidden");
   document.getElementById("rankingPanel").classList.remove("hidden");
 }
 
@@ -2321,6 +2378,7 @@ safeBind("playerViewFilter", "oninput", renderPlayerViewGrid);
   await loadCommunityTierMap();
   renderGrid();
   loadMetaData();
+  loadExternalTrioMeta();
   ensureRankingLoaded();
 
   if (state.riotId && state.serverUrl) {
