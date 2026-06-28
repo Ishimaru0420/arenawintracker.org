@@ -571,7 +571,13 @@ function defaultState() {
     wins: {},
     winCounts: {},
     matchHistory: {},
-    lastSync: null
+    lastSync: null,
+    // Merkt sich, fuer welche Riot-ID zuletzt erfolgreich /register
+    // aufgerufen wurde. Ist sie identisch mit der aktuellen riotId,
+    // wird /register beim naechsten Speichern/Start NICHT erneut
+    // aufgerufen (das Backend wuerde fuer existierende Nutzer ohnehin
+    // nichts tun, siehe db.registerUser) - schont das Rate-Limit.
+    registeredRiotId: null
   };
 }
 
@@ -675,13 +681,20 @@ safeBind("manualSyncBtn", "onclick", async () => {
       body: JSON.stringify({ riotId: state.riotId })
     });
     const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Sync fehlgeschlagen");
+    if (!res.ok) {
+      // Bei Rate-Limit (429) liefert der Server retryAt mit - zeigt dem
+      // Nutzer eine konkrete Uhrzeit, ab wann der naechste manuelle
+      // Sync wieder moeglich ist.
+      const retryTime = data.retryAt ? formatRetryTime(data.retryAt) : null;
+      const msg = retryTime ? `${data.error} (wieder möglich um ${retryTime} Uhr)` : (data.error || "Sync fehlgeschlagen");
+      throw new Error(msg);
+    }
 
     showToast(`Sync fertig: ${data.newMatchesProcessed} neue(s) Match(es) ✅`, "success");
     const stats = await fetchStatsFromServer();
     applyStats(stats);
   } catch (err) {
-    showToast("Sync-Fehler: " + err.message, "error", 6000);
+    showToast("Sync-Fehler: " + err.message, "error", 8000);
   } finally {
     if (btn) {
       btn.disabled = false;
@@ -868,9 +881,31 @@ async function registerWithServer() {
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error || t("registrationFailed", { status: res.status }));
+    const err = new Error(data.error || t("registrationFailed", { status: res.status }));
+    // Bei Rate-Limit (429) liefert der Server retryAfterSeconds/retryAt
+    // mit - wird hier am Error mitgegeben, damit registerAndLoad() dem
+    // Nutzer anzeigen kann, WANN es wieder geht statt nur "spaeter".
+    if (data.retryAt) err.retryAt = data.retryAt;
+    if (data.retryAfterSeconds) err.retryAfterSeconds = data.retryAfterSeconds;
+    throw err;
   }
+  state.registeredRiotId = state.riotId;
+  saveState();
   return res.json();
+}
+
+// Formatiert einen ISO-Zeitstempel als lokale Uhrzeit (HH:MM:SS), inkl.
+// "morgen", falls der Reset erst am naechsten Tag liegt.
+function formatRetryTime(retryAt) {
+  try {
+    const d = new Date(retryAt);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const time = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    return isToday ? time : `${d.toLocaleDateString("de-DE")} ${time}`;
+  } catch {
+    return null;
+  }
 }
 
 async function fetchStatsFromServer() {
@@ -911,22 +946,32 @@ async function registerAndLoad() {
     document.getElementById("settingsPanel").classList.remove("hidden");
     return;
   }
+  // /register ist rate-limitiert (5x/h pro IP) und macht beim Backend
+  // fuer bereits registrierte Riot-IDs ohnehin nichts (siehe db.js
+  // registerUser - existierende Nutzer werden unveraendert
+  // zurueckgegeben). Daher: nur aufrufen, wenn sich die Riot-ID seit
+  // der letzten erfolgreichen Registrierung geaendert hat. Spart das
+  // Limit fuer Faelle wie "nur Settings-Panel erneut speichern" oder
+  // App-Neustart mit unveraenderter ID.
+  const needsRegister = state.riotId !== state.registeredRiotId;
   try {
     setStatus(t("statusConnecting"));
     showLoadingIndicator("Verbinde mit Server...");
 
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("timeout")), 8000)
-    );
+    if (needsRegister) {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 8000)
+      );
 
-    try {
-      await Promise.race([registerWithServer(), timeoutPromise]);
-    } catch (err) {
-      if (err.message === "timeout") {
-        showLoadingIndicator("Server startet (Kaltstart kann 60s dauern)...");
-        await registerWithServer();
-      } else {
-        throw err;
+      try {
+        await Promise.race([registerWithServer(), timeoutPromise]);
+      } catch (err) {
+        if (err.message === "timeout") {
+          showLoadingIndicator("Server startet (Kaltstart kann 60s dauern)...");
+          await registerWithServer();
+        } else {
+          throw err;
+        }
       }
     }
 
@@ -940,8 +985,12 @@ async function registerAndLoad() {
   } catch (err) {
     console.error(err);
     hideLoadingIndicator();
-    setStatus(t("errorPrefix") + err.message);
-    showToast("Verbindung fehlgeschlagen: " + err.message, "error", 6000);
+    // Bei Rate-Limit (429) liefert der Server retryAt mit - zeigt dem
+    // Nutzer eine konkrete Uhrzeit statt nur "spaeter erneut versuchen".
+    const retryTime = err.retryAt ? formatRetryTime(err.retryAt) : null;
+    const msg = retryTime ? `${err.message} (wieder möglich um ${retryTime} Uhr)` : err.message;
+    setStatus(t("errorPrefix") + msg);
+    showToast("Verbindung fehlgeschlagen: " + msg, "error", retryTime ? 10000 : 6000);
   }
 }
 
