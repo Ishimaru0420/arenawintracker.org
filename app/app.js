@@ -76,7 +76,9 @@ function persistUIPrefs() {
 const THEME_KEY = "arenaWinTrackerTheme";
 
 function getCurrentTheme() {
-  return localStorage.getItem(THEME_KEY) || "dark";
+  // Theme-Toggle entfernt - nur noch Dark Mode, unabhängig von
+  // eventuell alten localStorage-Werten aus früheren Sessions.
+  return "dark";
 }
 
 function applyTheme(theme) {
@@ -2191,17 +2193,23 @@ function renderRanking(ranking) {
     }
 
     const opggUrl = buildOpggUrl(entry.riotId, entry.region);
-    // Echtes In-Game-Profilicon des Spielers statt generischem Op.gg-Logo,
-    // wenn vorhanden (wird beim Sync mitgespeichert). Fehlt es (z.B. weil
-    // der Nutzer noch nicht seit dem Update neu gesynct wurde), faellt es
-    // automatisch auf das alte Op.gg-Logo zurueck statt leer zu bleiben.
-    const profileIconUrl =
-      entry.profileIconId && ddragonVersion
-        ? `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/profileicon/${entry.profileIconId}.png`
-        : null;
+    // Echtes In-Game-Profilicon des Spielers, wenn vorhanden (wird beim
+    // Sync mitgespeichert). Fehlt es (z.B. weil der Nutzer noch nicht
+    // seit dem Update neu gesynct wurde) oder schlaegt das Laden fehl,
+    // wird IMMER ein echtes League-Profilicon angezeigt (Standard-Icon
+    // 29), NIE mehr das op.gg-Logo - alle Spieler sollen optisch
+    // gleich aussehen wie in League selbst, nicht wie auf op.gg.
+    const DEFAULT_PROFILE_ICON_ID = 29;
+    const iconId = entry.profileIconId || DEFAULT_PROFILE_ICON_ID;
+    const profileIconUrl = ddragonVersion
+      ? `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/profileicon/${iconId}.png`
+      : null;
+    const fallbackIconUrl = ddragonVersion
+      ? `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/profileicon/${DEFAULT_PROFILE_ICON_ID}.png`
+      : "";
     const iconImg = profileIconUrl
-      ? `<img src="${profileIconUrl}" alt="${entry.riotId}" onerror="this.src='https://meta-static.op.gg/logo/image/fe6c3da400b7249ea97b06699f48f133.png?image=q_auto:good,f_png,w_64,h_64';" />`
-      : `<img src="https://meta-static.op.gg/logo/image/fe6c3da400b7249ea97b06699f48f133.png?image=q_auto:good,f_png,w_64,h_64" alt="op.gg" />`;
+      ? `<img src="${profileIconUrl}" alt="${entry.riotId}" onerror="this.onerror=null;this.src='${fallbackIconUrl}';" />`
+      : "";
     const opggLink = opggUrl
       ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}">${iconImg}</a>`
       : "";
