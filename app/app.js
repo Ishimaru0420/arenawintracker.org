@@ -130,7 +130,14 @@ function showToast(message, type = "info", durationMs = 4000) {
   `;
   toast.textContent = message;
   toast.title = "Klicken zum Schließen";
-  toast.addEventListener("click", () => toast.remove());
+  let dismissTimer = null;
+  function dismissNow() {
+    if (dismissTimer) clearTimeout(dismissTimer);
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(20px)";
+    setTimeout(() => toast.remove(), 200);
+  }
+  toast.addEventListener("click", dismissNow);
   container.appendChild(toast);
 
   requestAnimationFrame(() => {
@@ -138,11 +145,13 @@ function showToast(message, type = "info", durationMs = 4000) {
     toast.style.transform = "translateX(0)";
   });
 
-  setTimeout(() => {
-    toast.style.opacity = "0";
-    toast.style.transform = "translateX(20px)";
-    setTimeout(() => toast.remove(), 200);
-  }, durationMs);
+  dismissTimer = setTimeout(dismissNow, durationMs);
+
+  // Rueckgabe, damit Aufrufer (z.B. der manuelle Sync-Button) diesen
+  // Toast vorzeitig schliessen koennen, sobald der eigentliche
+  // Vorgang (z.B. wegen Rate-Limit) sofort fehlschlaegt - statt dass
+  // er noch 8 Sekunden neben der Fehlermeldung stehen bleibt.
+  return { dismiss: dismissNow };
 }
 
 // ---------- NEU: Lade-Indikator für Server-Kaltstart ----------
@@ -672,7 +681,7 @@ safeBind("manualSyncBtn", "onclick", async () => {
     btn.disabled = true;
     btn.textContent = "⏳";
   }
-  showToast("Sync läuft... kann bis zu 60s dauern.", "info", 8000);
+  const runningToast = showToast("Sync läuft... kann bis zu 60s dauern.", "info", 8000);
 
   try {
     const res = await authFetch(serverUrl("/account/me/sync"), {
@@ -690,10 +699,15 @@ safeBind("manualSyncBtn", "onclick", async () => {
       throw new Error(msg);
     }
 
+    runningToast.dismiss();
     showToast(`Sync fertig: ${data.newMatchesProcessed} neue(s) Match(es) ✅`, "success");
     const stats = await fetchStatsFromServer();
     applyStats(stats);
   } catch (err) {
+    // "Sync laeuft..." sofort weg, statt noch Sekunden parallel zur
+    // roten Fehlermeldung stehen zu bleiben (z.B. bei Rate-Limit, das
+    // sofort beim ersten Request zurueckkommt).
+    runningToast.dismiss();
     showToast("Sync-Fehler: " + err.message, "error", 8000);
   } finally {
     if (btn) {
