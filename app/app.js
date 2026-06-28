@@ -25,19 +25,10 @@ const LANG_STORAGE_KEY = "arenaWinTrackerLang";
 const DEFAULT_SERVER_URL = "https://arena-win-tracker-server.onrender.com";
 
 // ============================================================
-// Monetarisierung Stufe A: Overwolf-Ads + Ko-fi-Spendenlink
+// Monetarisierung Stufe A: Overwolf-Ads
+// (Ko-fi-Spendenlink erstmal wieder ausgebaut - siehe Git-Historie
+// falls spaeter doch gewuenscht.)
 // ============================================================
-//
-// WICHTIG fuer den Ko-fi-Link: "DEIN-KOFI-NAME" muss durch den
-// tatsaechlichen Ko-fi-Benutzernamen ersetzt werden (https://ko-fi.com/<name>).
-// Ohne Anpassung fuehrt der Button auf eine nicht existierende Ko-fi-Seite.
-const KOFI_USERNAME = "DEIN-KOFI-NAME";
-
-document.addEventListener("DOMContentLoaded", () => {
-  safeBind("supportBtn", "onclick", () => {
-    window.open(`https://ko-fi.com/${KOFI_USERNAME}`, "_blank", "noopener");
-  });
-});
 
 // ---------- Overwolf Ads SDK ----------
 // onAdsSDKReady/onAdsSDKNotLoaded werden direkt vom <script>-Tag im
@@ -243,7 +234,6 @@ const I18N = {
     rankCatBestChamp: "Bester Champ",
     friendsToggleTitle: "Freunde verwalten",
     settingsToggleTitle: "Einstellungen",
-    supportBtnTitle: "Unterstützen (Ko-fi)",
     webNotice: "Browser-Testversion. Funktioniert identisch zur Overwolf-App, läuft aber als normale Webseite - kein Overwolf nötig.",
     friendIdLabel: "Riot-ID des Freundes",
     friendIdPlaceholder: "z.B. Buddy#EUW",
@@ -336,7 +326,7 @@ const I18N = {
     champDetailTactics: "Taktiken",
     champDetailNoTactics: "Noch keine Taktik-Tipps für diesen Champion.",
     topTrioHeading: "Top 30 Trios (Winrate)",
-    externalTrioHeading: "Meta-Trios (extern, blitz.gg)",
+    externalTrioHeading: "Meta-Trios",
     champDetailAiHeading: "KI-Empfehlung (experimentell)",
     champDetailAiCore: "Core-Items",
     champDetailAiSituational: "Situativ",
@@ -384,7 +374,6 @@ const I18N = {
     rankCatBestChamp: "Best champ",
     friendsToggleTitle: "Manage friends",
     settingsToggleTitle: "Settings",
-    supportBtnTitle: "Support us (Ko-fi)",
     webNotice: "Browser test version. Works identically to the Overwolf app, but runs as a normal website - no Overwolf needed.",
     friendIdLabel: "Friend's Riot ID",
     friendIdPlaceholder: "e.g. Buddy#EUW",
@@ -477,7 +466,7 @@ const I18N = {
     champDetailTactics: "Tactics",
     champDetailNoTactics: "No tactic tips for this champion yet.",
     topTrioHeading: "Top 30 trios (win rate)",
-    externalTrioHeading: "Meta trios (external, blitz.gg)",
+    externalTrioHeading: "Meta trios",
     champDetailAiHeading: "AI recommendation (experimental)",
     champDetailAiCore: "Core items",
     champDetailAiSituational: "Situational",
@@ -1453,8 +1442,8 @@ function renderTop30TrioSection() {
   section.innerHTML = html;
 }
 
-// ---- Externe Meta-Trios (z.B. blitz.gg), getrennt von den eigenen
-// gespielten Trios oben. Eigene Collection "externalTrioMeta" im
+// ---- Meta-Trios (separate Sammlung, getrennt von den eigenen
+// gespielten Trios oben). Eigene Collection "externalTrioMeta" im
 // Backend, eigener Endpoint /community-meta-trios. Wird einmal beim
 // Start geladen (kein automatisches Re-Fetch, da sich diese Daten nur
 // per manuellem Re-Import aendern, nicht durch eigene Matches).

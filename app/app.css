@@ -339,7 +339,7 @@ button.danger:hover { background: #c43b4a; }
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 
-/* ---------- Meta-Trio-Section (extern, z.B. blitz.gg) - jetzt die einzige rechte Spalte ---------- */
+/* ---------- Meta-Trio-Section - jetzt die einzige rechte Spalte ---------- */
 #externalTrio {
   -webkit-app-region: no-drag;
   background: linear-gradient(180deg, #1a1212, #150f0d);
