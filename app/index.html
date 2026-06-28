@@ -5,10 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
   <title>Arena Win Tracker - Web</title>
 
+  <!-- Favicon (gleiche Datei wie auf der Landing-Page, ../ da im app/-Unterordner) -->
+  <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="../favicon-32.png" />
+  <link rel="apple-touch-icon" href="../apple-touch-icon.png" />
+
   <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
   <link rel="stylesheet" href="theme.css?v=1" />
   <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=20" />
+  <link rel="stylesheet" href="app.css?v=21" />
+
+  <!-- Overwolf Ads SDK (Stufe A der Monetarisierung). Laedt nur das SDK-
+       Script - tatsaechlich aktiv wird es erst innerhalb der Overwolf-App
+       UND erst, sobald Overwolf den Account dafuer freigeschaltet hat
+       (developers@overwolf.com kontaktieren). Im normalen Browser bzw.
+       bevor die Freischaltung erfolgt ist, passiert hier einfach nichts. -->
+  <script src="https://content.overwolf.com/libs/ads/latest/owads.min.js" async onerror="onAdsSDKNotLoaded()" onload="onAdsSDKReady()"></script>
 
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
@@ -39,6 +51,7 @@
         <button id="manualSyncBtn" title="Jetzt synchronisieren" data-i18n-title="manualSyncTitle">🔄</button>
         <button id="friendsToggle" title="Freunde verwalten" data-i18n-title="friendsToggleTitle">👥</button>
         <button id="settingsToggle" title="Einstellungen" data-i18n-title="settingsToggleTitle">⚙</button>
+        <button id="supportBtn" title="Unterstützen (Ko-fi)" data-i18n-title="supportBtnTitle">☕</button>
       </div>
     </header>
 
@@ -134,6 +147,13 @@
 
       <section id="top30Trio"></section>
       <section id="externalTrio"></section>
+
+      <!-- Stufe A Monetarisierung: Overwolf-Ad-Zone. Bleibt leer/unsichtbar,
+           bis das Overwolf-Ads-SDK geladen UND der App-Account von Overwolf
+           fuer Ads freigeschaltet ist (siehe Kommentar im <head>). -->
+      <section id="adZone">
+        <div id="ad-div"></div>
+      </section>
     </div>
 
     <div id="champTooltip" class="hidden"></div>
@@ -155,7 +175,7 @@
     </div>
   </div>
 
-  <!-- Cache-Busting: v=20 statt v=19 (externe Meta-Trios ergänzt) -->
-  <script src="app.js?v=24"></script>
+  <!-- Cache-Busting: v=26 statt v=25 (Stufe-A-Monetarisierung: Ads + Ko-fi-Button) -->
+  <script src="app.js?v=26"></script>
 </body>
 </html>

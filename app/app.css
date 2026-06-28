@@ -727,3 +727,21 @@ button.danger:hover { background: #c43b4a; }
 .trioChampIconFallback {
   width: 28px; height: 28px; font-size: 10px; flex-shrink: 0;
 }
+
+/* ---------- Stufe A Monetarisierung: Overwolf-Ad-Zone ---------- */
+/* Hintergrund MUSS transparent sein (Overwolf-Vorgabe fuer Ad-Container).
+   Bleibt unsichtbar/ohne Platzbedarf, solange kein OwAd hineingerendert
+   wird (z.B. im Browser oder vor der Ads-Freischaltung durch Overwolf). */
+#adZone {
+  background: transparent;
+  display: flex;
+  justify-content: center;
+}
+#adZone:has(#ad-div:empty) {
+  display: none;
+}
+#ad-div {
+  width: 300px;
+  height: 250px;
+  background: transparent;
+}

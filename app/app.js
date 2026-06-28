@@ -24,6 +24,47 @@ const STORAGE_KEY = "arenaWinTracker";
 const LANG_STORAGE_KEY = "arenaWinTrackerLang";
 const DEFAULT_SERVER_URL = "https://arena-win-tracker-server.onrender.com";
 
+// ============================================================
+// Monetarisierung Stufe A: Overwolf-Ads + Ko-fi-Spendenlink
+// ============================================================
+//
+// WICHTIG fuer den Ko-fi-Link: "DEIN-KOFI-NAME" muss durch den
+// tatsaechlichen Ko-fi-Benutzernamen ersetzt werden (https://ko-fi.com/<name>).
+// Ohne Anpassung fuehrt der Button auf eine nicht existierende Ko-fi-Seite.
+const KOFI_USERNAME = "DEIN-KOFI-NAME";
+
+document.addEventListener("DOMContentLoaded", () => {
+  safeBind("supportBtn", "onclick", () => {
+    window.open(`https://ko-fi.com/${KOFI_USERNAME}`, "_blank", "noopener");
+  });
+});
+
+// ---------- Overwolf Ads SDK ----------
+// onAdsSDKReady/onAdsSDKNotLoaded werden direkt vom <script>-Tag im
+// <head> (onload/onerror) aufgerufen, MUESSEN deshalb globale Funktionen
+// sein (kein "const" / keine IIFE). Im normalen Browser (kein
+// window.overwolf) wird absichtlich gar kein Ad-Objekt erzeugt - dort
+// gibt es ohnehin keine Overwolf-Ads, und der leere #adZone-Container
+// wird per CSS (:has) automatisch ausgeblendet.
+function onAdsSDKReady() {
+  if (typeof window.overwolf === "undefined") {
+    return; // laeuft als normale Webseite, nicht in der Overwolf-App
+  }
+  const container = document.getElementById("ad-div");
+  if (!container || typeof OwAd === "undefined") return;
+  try {
+    // Erzeugt KEINE sichtbare Werbung, solange Overwolf den App-Account
+    // nicht fuer Ads freigeschaltet hat (siehe Kommentar im <head>) -
+    // bis dahin bleibt der Container leer und unsichtbar.
+    window.owAd = new OwAd(container, { size: { width: 300, height: 250 } });
+  } catch (err) {
+    console.warn("[Ads] Overwolf-Ad konnte nicht initialisiert werden:", err.message);
+  }
+}
+function onAdsSDKNotLoaded() {
+  console.warn("[Ads] Overwolf Ads SDK konnte nicht geladen werden (kein Problem im normalen Browser).");
+}
+
 // ---------- Secret-System entfernt ----------
 // Frueher hier: x-cron-secret-Header-Logik. Entfernt, weil die App nur
 // fuer dich + Freunde gedacht ist und das Secret im Browser ohnehin
@@ -202,6 +243,7 @@ const I18N = {
     rankCatBestChamp: "Bester Champ",
     friendsToggleTitle: "Freunde verwalten",
     settingsToggleTitle: "Einstellungen",
+    supportBtnTitle: "Unterstützen (Ko-fi)",
     webNotice: "Browser-Testversion. Funktioniert identisch zur Overwolf-App, läuft aber als normale Webseite - kein Overwolf nötig.",
     friendIdLabel: "Riot-ID des Freundes",
     friendIdPlaceholder: "z.B. Buddy#EUW",
@@ -342,6 +384,7 @@ const I18N = {
     rankCatBestChamp: "Best champ",
     friendsToggleTitle: "Manage friends",
     settingsToggleTitle: "Settings",
+    supportBtnTitle: "Support us (Ko-fi)",
     webNotice: "Browser test version. Works identically to the Overwolf app, but runs as a normal website - no Overwolf needed.",
     friendIdLabel: "Friend's Riot ID",
     friendIdPlaceholder: "e.g. Buddy#EUW",
@@ -841,27 +884,37 @@ function setStatus(text) {
 }
 
 // ---------- Data Dragon: Champion-Liste ----------
+// NEU: Cache in localStorage, schluesselt sich am DDragon-Patch-Stand.
+// versions.json wird weiterhin bei jedem Start abgefragt (sehr klein,
+// nur ein paar hundert Bytes), aber champion.json (~150-300 KB) wird
+// nur dann neu geladen, wenn sich die Patch-Version seit dem letzten
+// Besuch tatsaechlich geaendert hat - ansonsten kommt die Liste direkt
+// aus dem Cache, ohne Netzwerk-Request.
+const DDRAGON_CACHE_KEY = "awt_ddragon_champions_cache";
 
-async function loadChampionList() {
-  const versionsRes = await fetch("https://ddragon.leagueoflegends.com/api/versions.json");
-  const versions = await versionsRes.json();
-  const latest = versions[0];
-  ddragonVersion = latest;
+function readDdragonCache() {
+  try {
+    const raw = localStorage.getItem(DDRAGON_CACHE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
 
-  const champRes = await fetch(
-    `https://ddragon.leagueoflegends.com/cdn/${latest}/data/de_DE/champion.json`
-  );
-  const champData = await champRes.json();
+function writeDdragonCache(version, championList) {
+  try {
+    localStorage.setItem(
+      DDRAGON_CACHE_KEY,
+      JSON.stringify({ version, championList })
+    );
+  } catch {
+    // localStorage kann z.B. im Inkognito-Modus voll/gesperrt sein -
+    // dann faellt die App einfach auf "jedes Mal neu laden" zurueck.
+  }
+}
 
-  championList = Object.values(champData.data)
-    .map((c) => ({
-      key: c.key,
-      id: c.id,
-      name: c.name,
-      icon: `https://ddragon.leagueoflegends.com/cdn/${latest}/img/champion/${c.image.full}`
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-
+function applyChampionList(list) {
+  championList = list;
   championByApiName = {};
   for (const c of championList) {
     championByApiName[c.id] = c;
@@ -874,6 +927,36 @@ async function loadChampionList() {
   for (const c of championList) {
     championByNormName[normName(c.id)] = c;
   }
+}
+
+async function loadChampionList() {
+  const versionsRes = await fetch("https://ddragon.leagueoflegends.com/api/versions.json");
+  const versions = await versionsRes.json();
+  const latest = versions[0];
+  ddragonVersion = latest;
+
+  const cached = readDdragonCache();
+  if (cached && cached.version === latest && Array.isArray(cached.championList) && cached.championList.length > 0) {
+    applyChampionList(cached.championList);
+    return;
+  }
+
+  const champRes = await fetch(
+    `https://ddragon.leagueoflegends.com/cdn/${latest}/data/de_DE/champion.json`
+  );
+  const champData = await champRes.json();
+
+  const list = Object.values(champData.data)
+    .map((c) => ({
+      key: c.key,
+      id: c.id,
+      name: c.name,
+      icon: `https://ddragon.leagueoflegends.com/cdn/${latest}/img/champion/${c.image.full}`
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  applyChampionList(list);
+  writeDdragonCache(latest, list);
 }
 
 // ---------- Server-Kommunikation ----------
@@ -1072,10 +1155,7 @@ function buildChampDiv(champ, options) {
   const div = document.createElement("div");
   div.className = "champ " + status + (tierClass ? " " + tierClass : "");
   div.innerHTML = `
-    <img src="${champ.icon}" alt="${champ.name}" />
-    ${hasWin ? `<span class="winBadge">${winCount}</span>` : ""}
-    <span>${champ.name}</span>
-    ${scoreText ? `<span class="champScoreLabel">${scoreText}</span>` : ""}
+    <img src="${champ.icon}" alt="${champ.name}" loading="lazy" />
   `;
   div.addEventListener("mouseenter", (e) => showChampTooltip(e, champ));
   div.addEventListener("mousemove", positionTooltip);
@@ -1354,7 +1434,7 @@ function renderTop30TrioSection() {
       const iconsHtml = names.map((n) => {
         const champ = championByNormName[normName(n)];
         return champ
-          ? `<img src="${champ.icon}" alt="${n}" class="trioChampIcon" />`
+          ? `<img src="${champ.icon}" alt="${n}" class="trioChampIcon" loading="lazy" />`
           : `<span class="dbIconFallback trioChampIconFallback">${n.slice(0, 2).toUpperCase()}</span>`;
       }).join("");
       const comboTitle = names.join("+");
@@ -1406,7 +1486,7 @@ function renderExternalTrioSection() {
       const iconsHtml = names.map((n) => {
         const champ = championByNormName[normName(n)];
         return champ
-          ? `<img src="${champ.icon}" alt="${n}" class="trioChampIcon" />`
+          ? `<img src="${champ.icon}" alt="${n}" class="trioChampIcon" loading="lazy" />`
           : `<span class="dbIconFallback trioChampIconFallback">${n.slice(0, 2).toUpperCase()}</span>`;
       }).join("");
       // Gemeinsamer Tooltip auf der ganzen Gruppe statt pro Icon einzeln -
@@ -1566,7 +1646,7 @@ function renderIconNameRow(entry, percentLabel) {
   const safeName = (entry.name || "").replace(/"/g, "&quot;");
   const candidates = (entry.iconCandidates && entry.iconCandidates.length ? entry.iconCandidates : [entry.icon]).filter(Boolean);
   const iconHtml = candidates.length
-    ? `<img src="${candidates[0]}" alt="${safeName}" data-candidates='${JSON.stringify(candidates).replace(/'/g, "&#39;")}' data-icon-index="0" />`
+    ? `<img src="${candidates[0]}" alt="${safeName}" data-candidates='${JSON.stringify(candidates).replace(/'/g, "&#39;")}' data-icon-index="0" loading="lazy" />`
     : `<span class="dbIconFallback">${safeName.slice(0, 2).toUpperCase()}</span>`;
   return `<li class="dbIconRow">
     <span class="dbIconRow-icon">${iconHtml}</span>
@@ -1867,7 +1947,7 @@ function renderAiTag(entry) {
 
   if (candidates.length > 0) {
     return `<li class="detailTagList-item aiTagItem" data-fallback-name="${safeName}" data-icon-index="0">` +
-      `<img src="${candidates[0]}" alt="${safeName}" data-candidates='${JSON.stringify(candidates).replace(/'/g, "&#39;")}' />` +
+      `<img src="${candidates[0]}" alt="${safeName}" data-candidates='${JSON.stringify(candidates).replace(/'/g, "&#39;")}' loading="lazy" />` +
       `</li>`;
   }
   return `<li class="detailTagList-item aiTagItem">${entry.name}</li>`;
@@ -2275,7 +2355,7 @@ function renderRanking(ranking) {
       ? `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/profileicon/${DEFAULT_PROFILE_ICON_ID}.png`
       : "";
     const iconImg = profileIconUrl
-      ? `<img src="${profileIconUrl}" alt="${entry.riotId}" onerror="this.onerror=null;this.src='${fallbackIconUrl}';" />`
+      ? `<img src="${profileIconUrl}" alt="${entry.riotId}" loading="lazy" onerror="this.onerror=null;this.src='${fallbackIconUrl}';" />`
       : "";
     const opggLink = opggUrl
       ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}">${iconImg}</a>`
@@ -2291,7 +2371,7 @@ function renderRanking(ranking) {
     } else if (currentRankingCategory === "bestChampion") {
       const champ = entry.bestChampionKey ? championByKey[entry.bestChampionKey] : null;
       const champIcon = champ
-        ? `<img src="${champ.icon}" alt="${champ.name}" title="${champ.name}" class="rankBestChampIcon" />`
+        ? `<img src="${champ.icon}" alt="${champ.name}" title="${champ.name}" class="rankBestChampIcon" loading="lazy" />`
         : "";
       valueHtml = `${champIcon}<span class="rankWins">${entry.bestChampionWins}</span>`;
     } else {
@@ -2418,7 +2498,7 @@ function renderPlayerViewGrid() {
     const div = document.createElement("div");
     div.className = "champ " + status + (tierClass ? " " + tierClass : "");
     div.innerHTML = `
-      <img src="${champ.icon}" alt="${champ.name}" />
+      <img src="${champ.icon}" alt="${champ.name}" loading="lazy" />
       ${hasWin ? `<span class="winBadge">${winCount}</span>` : ""}
       <span>${champ.name}</span>
     `;

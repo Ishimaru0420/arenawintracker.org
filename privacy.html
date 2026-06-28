@@ -4,6 +4,11 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Datenschutz – Arena Win Tracker</title>
+
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
+  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
+
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -16,6 +21,7 @@
         <a href="app/index.html">Web-App</a>
         <a href="privacy.html">Datenschutz</a>
         <a href="terms.html">Nutzungsbedingungen</a>
+        <a href="https://ko-fi.com/DEIN-KOFI-NAME" target="_blank" rel="noopener noreferrer">☕ Unterstützen</a>
       </div>
     </div>
   </nav>
@@ -26,7 +32,8 @@
       <h1 style="font-size: 30px;">Datenschutzerklärung</h1>
       <p class="lead">
         Diese Erklärung beschreibt, welche Daten Arena Win Tracker verarbeitet,
-        wo sie gespeichert werden und welche Rechte du als Nutzer hast.
+        wo sie gespeichert werden, wer sie sehen kann und welche Rechte du als
+        Nutzer hast.
       </p>
     </div>
   </header>
@@ -37,7 +44,7 @@
       <table class="legal">
         <tr><th>Name</th><td>JC</td></tr>
         <tr><th>Kontakt</th><td><a href="mailto:arenawintracker.support@proton.me">arenawintracker.support@proton.me</a></td></tr>
-        <tr><th>Projekt</th><td>Arena Win Tracker (Overwolf-App und Web-App, privates Projekt)</td></tr>
+        <tr><th>Projekt</th><td>Arena Win Tracker (Overwolf-App und Web-App, privates Projekt für einen kleinen Freundeskreis)</td></tr>
       </table>
     </div>
   </section>
@@ -49,15 +56,18 @@
       <table class="legal">
         <tr><th>Riot-ID (Name#Tag)</th><td>Um deinen Spieler-Account bei der Riot-API zu identifizieren und deinen Sync zuzuordnen.</td></tr>
         <tr><th>Region</th><td>Server-Region deines Accounts (z.B. Europe), zur richtigen Riot-API-Abfrage.</td></tr>
-        <tr><th>Match-Historie (Arena)</th><td>Datum, Champion, Platzierung und Teammates deiner Arena-Spiele seit Season-Start.</td></tr>
+        <tr><th>Match-Historie (Arena)</th><td>Datum, Champion, Platzierung, genutzte Items/Augments/Perks/Summoner-Spells und Teammates deiner Arena-Spiele seit Season-Start.</td></tr>
         <tr><th>Season-Start-Datum</th><td>Einstellung, die du selbst festlegst.</td></tr>
-        <tr><th>Sync-Secret</th><td>Gemeinsames Zugangs-Secret, um den manuellen Sync auszulösen - kein persönliches Passwort, sondern ein geteilter Wert für alle Nutzer des Servers.</td></tr>
+        <tr><th>Profilicon-ID</th><td>Dein öffentliches Riot-Profilbild - identisch zu dem, was ohnehin im Spiel und über die Riot-API für jeden sichtbar ist.</td></tr>
+        <tr><th>Freundesliste</th><td>Die Riot-IDs der von dir selbst hinzugefügten Freunde, damit dir ein Freundes-Ranking angezeigt werden kann.</td></tr>
+        <tr><th>IP-Adresse</th><td>Wird kurzfristig technisch verarbeitet, um Registrierung und manuellen Sync vor Missbrauch zu schützen (Rate-Limit). Sie wird nicht dauerhaft gespeichert oder mit deiner Riot-ID verknüpft abgelegt.</td></tr>
       </table>
       <p class="muted">
-        Du musst <strong>keinen eigenen Riot API-Key</strong> mehr angeben - der Abruf
-        bei Riot erfolgt zentral über den Sync-Server. Es werden keine Zahlungsdaten,
-        keine Standortdaten und keine Daten von anderen Spielern außerhalb deiner
-        eigenen Match-Historie verarbeitet.
+        Du musst <strong>keinen eigenen Riot API-Key</strong> angeben - der Abruf
+        bei Riot erfolgt zentral über den Sync-Server. Es werden keine
+        Zahlungsdaten, keine Standortdaten und keine Klartextdaten von anderen
+        Spielern außerhalb deiner eigenen Match-Historie (z.B. Teammate-Namen
+        aus euren gemeinsamen Matches) verarbeitet.
       </p>
     </div>
   </section>
@@ -66,78 +76,133 @@
     <div class="wrap">
       <h2><span class="num">03</span>Wo deine Daten gespeichert werden</h2>
       <p>
-        Arena Win Tracker nutzt seit Juni 2026 einen <strong>zentralen Sync-Server</strong>
-        statt ausschließlich lokaler Speicherung. Das betrifft sowohl die Overwolf-App
-        als auch die Web-App-Version.
+        Arena Win Tracker nutzt einen <strong>zentralen Sync-Server</strong>
+        statt lokaler Speicherung. Das betrifft sowohl die Overwolf-App als
+        auch die Web-App-Version.
       </p>
       <table class="legal">
         <tr>
           <th>Zentrale Datenbank</th>
           <td>
-            Deine Riot-ID, Region, Season-Start sowie deine Match-Historie und
-            Sieg-Übersicht werden auf einem Server gespeichert (Hosting: Render,
-            Datenbank: MongoDB Atlas), damit der tägliche automatische Sync
-            funktioniert und du nicht jedes Mal neu syncen musst.
+            Deine Riot-ID, Region, Season-Start, Profilicon, Freundesliste sowie
+            deine Match-Historie und Sieg-Übersicht werden in einer MongoDB-
+            Atlas-Datenbank gespeichert (Rechenzentrum: AWS Frankfurt, EU). Der
+            Sync-Server selbst läuft bei Render, ebenfalls in der Region
+            Frankfurt (EU). Deine Daten verlassen damit für den Normalbetrieb
+            die EU nicht.
           </td>
         </tr>
         <tr>
           <th>Lokale Zwischenspeicherung</th>
           <td>
-            Zusätzlich speichert dein Browser/die App eine Kopie der zuletzt
-            geladenen Anzeige-Daten lokal (<code>localStorage</code>), damit die
-            Oberfläche auch ohne erneuten Serverabruf sofort etwas anzeigen kann.
-            Das ist nur ein Anzeige-Cache, keine eigenständige Datenquelle.
+            Zusätzlich speichert dein Browser eine Kopie der zuletzt geladenen
+            Anzeige-Daten lokal (<code>localStorage</code>), damit die
+            Oberfläche auch ohne erneuten Serverabruf sofort etwas anzeigen
+            kann. Das ist nur ein Anzeige-Cache, keine eigenständige
+            Datenquelle, und lässt sich über die Einstellung "Lokale Anzeige
+            zurücksetzen" jederzeit löschen.
           </td>
         </tr>
       </table>
-      <p class="muted">
-        Andere Nutzer des Servers (z.B. Freunde) können über die Liste registrierter
-        Riot-IDs sehen, <em>dass</em> du registriert bist und wann zuletzt gesynct
-        wurde - nicht jedoch deine Match-Historie oder Sieg-Details, sofern sie nicht
-        gezielt deine Riot-ID abrufen.
-      </p>
     </div>
   </section>
 
   <section class="block">
     <div class="wrap">
-      <h2><span class="num">04</span>Riot Games API & weitere Drittanbieter</h2>
+      <h2><span class="num">04</span>Wer deine Daten sehen kann</h2>
       <p>
-        Zur Abfrage der Match-Daten nutzt der Server die offizielle Riot Match-V5 API
-        sowie Champion-Daten von Riots Data Dragon CDN. Zusätzlich werden folgende
-        Dienste zum Betrieb des Servers eingesetzt:
+        Arena Win Tracker ist als kleine, öffentlich erreichbare Webseite mit
+        zugehörigem Server aufgebaut. Das bedeutet konkret:
       </p>
       <table class="legal">
-        <tr><th>Render (Hosting)</th><td>Betreibt den Sync-Server und den täglichen automatischen Abgleich.</td></tr>
-        <tr><th>MongoDB Atlas (Datenbank)</th><td>Speichert die in Abschnitt 02 genannten Daten dauerhaft.</td></tr>
+        <tr>
+          <th>Globales Ranking</th>
+          <td>
+            Das Globale Ranking auf der Webseite ist <strong>für jeden
+            Besucher öffentlich sichtbar</strong>, auch ohne eigene
+            Registrierung - inklusive deiner Riot-ID, deines Profilicons und
+            deiner Sieg-Statistiken (Anzahl Champions, Gesamt-Siege, bester
+            Champion). Wenn du das nicht möchtest, kontaktiere uns für eine
+            Löschung (siehe Abschnitt 06).
+          </td>
+        </tr>
+        <tr>
+          <th>Detail-Statistiken</th>
+          <td>
+            Deine vollständige Match-Historie ist über deine Riot-ID technisch
+            abrufbar, ähnlich wie öffentliche Drittanbieter-Seiten zu League of
+            Legends (z.B. op.gg) ohnehin auf Basis öffentlicher Riot-API-Daten
+            funktionieren. Es gibt keinen Login-Schutz, der das einschränkt.
+          </td>
+        </tr>
+        <tr>
+          <th>Freunde</th>
+          <td>
+            Nutzer, die dich als Freund hinzugefügt haben, sehen deinen
+            Fortschritt zusätzlich im Freundes-Ranking - das ist der eigentliche
+            Zweck der Freundesfunktion.
+          </td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">05</span>Riot Games API & weitere Drittanbieter</h2>
+      <p>
+        Zur Abfrage der Match-Daten nutzt der Server die offizielle Riot
+        Match-V5 API sowie Champion-Daten von Riots Data Dragon CDN. Für den
+        Betrieb und einzelne Funktionen werden zusätzlich folgende Dienste
+        eingesetzt:
+      </p>
+      <table class="legal">
+        <tr><th>Render (Hosting, EU)</th><td>Betreibt den Sync-Server und den automatischen Abgleich.</td></tr>
+        <tr><th>MongoDB Atlas (Datenbank, EU)</th><td>Speichert die in Abschnitt 02 genannten Daten dauerhaft.</td></tr>
+        <tr><th>blitz.gg</th><td>Quelle für die angezeigten externen Meta-Trios. Es werden keine deiner Daten an blitz.gg übermittelt, die Daten fließen ausschließlich in eine Richtung (Import durch uns).</td></tr>
+        <tr><th>OpenRouter (KI-Dienst)</th><td>Wird für die experimentelle KI-Analyse-Funktion genutzt. Dabei werden ausschließlich aggregierte, anonyme Champion-Statistiken zur Auswertung übermittelt - keine Riot-IDs, keine individuellen Match-Daten und keine sonstigen personenbezogenen Angaben.</td></tr>
+        <tr><th>Ko-fi (freiwillige Spenden)</th><td>Der "☕ Unterstützen"-Link führt auf eine externe Ko-fi-Seite. Es werden dabei keine Daten von uns an Ko-fi übermittelt - sobald du dem Link folgst, gilt die Datenschutzerklärung von Ko-fi für deine dortigen Angaben.</td></tr>
       </table>
       <p class="muted">
-        Es werden keine Werbenetzwerke, Analyse- oder Tracking-Dienste eingebunden.
+        Es werden keine Werbenetzwerke und keine Analyse- oder Tracking-Dienste
+        zur Nutzerverfolgung eingebunden.
       </p>
     </div>
   </section>
 
   <section class="block">
     <div class="wrap">
-      <h2><span class="num">05</span>Deine Rechte</h2>
+      <h2><span class="num">06</span>Deine Rechte & Löschung</h2>
       <p>
-        Die App-Einstellung "Lokale Anzeige zurücksetzen" löscht nur den lokalen
-        Anzeige-Cache auf deinem Gerät - <strong>nicht</strong> die zentral auf dem
-        Server gespeicherten Daten. Für Auskunft, Berichtigung oder vollständige
-        Löschung deiner auf dem Server gespeicherten Daten wende dich jederzeit an
-        die oben genannte Kontaktadresse; die Löschung erfolgt dann manuell durch
-        den Verantwortlichen.
+        Die App-Einstellung "Lokale Anzeige zurücksetzen" löscht nur den
+        lokalen Anzeige-Cache auf deinem Gerät - <strong>nicht</strong> die
+        zentral auf dem Server gespeicherten Daten. Für Auskunft, Berichtigung
+        oder vollständige Löschung deiner auf dem Server gespeicherten Daten
+        (inklusive deines Eintrags im globalen Ranking) wende dich jederzeit an
+        die oben genannte Kontaktadresse; die Löschung erfolgt dann zeitnah
+        manuell durch den Verantwortlichen.
       </p>
     </div>
   </section>
 
   <section class="block">
     <div class="wrap">
-      <h2><span class="num">06</span>Änderungen dieser Erklärung</h2>
+      <h2><span class="num">07</span>Speicherdauer</h2>
+      <p>
+        Deine Daten werden gespeichert, solange dein Account besteht. Es gibt
+        aktuell keine automatische Löschung nach einer festen Frist oder bei
+        Inaktivität - eine Löschung erfolgt auf Anfrage gemäß Abschnitt 06.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">08</span>Änderungen dieser Erklärung</h2>
       <p>
         Diese Datenschutzerklärung wird angepasst, sobald sich an der
-        Datenverarbeitung etwas ändert. Es lohnt sich, bei größeren Updates
-        der App hier vorbeizuschauen.
+        Datenverarbeitung etwas ändert. Es lohnt sich, bei größeren Updates der
+        App hier vorbeizuschauen.
       </p>
     </div>
   </section>
