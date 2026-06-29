@@ -4,27 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Arena Win Tracker</title>
-  <meta name="description" content="Arena Win Tracker zeigt dir auf einen Blick, mit welchen Champions du in dieser League of Legends Arena-Season schon einen echten 1. Platz erreicht hast - inklusive Freunde-Ranking und Community-Tier-Liste." />
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
-  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png" />
-  <link rel="icon" type="image/png" sizes="192x192" href="favicon-192.png" />
-  <link rel="apple-touch-icon" href="apple-touch-icon.png" />
-
-  <!-- Open Graph / Social-Vorschau -->
-  <meta property="og:type" content="website" />
-  <meta property="og:title" content="Arena Win Tracker" />
-  <meta property="og:description" content="Welche Champions fehlen dir noch zum Sieg? Arena Win Tracker zeigt deinen 1.-Platz-Fortschritt in League of Legends Arena." />
-  <meta property="og:url" content="https://arenawintracker.org/" />
-  <meta property="og:image" content="https://arenawintracker.org/og-image.png" />
-  <meta property="og:image:width" content="1200" />
-  <meta property="og:image:height" content="630" />
-  <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:title" content="Arena Win Tracker" />
-  <meta name="twitter:description" content="Welche Champions fehlen dir noch zum Sieg? Arena Win Tracker zeigt deinen 1.-Platz-Fortschritt in League of Legends Arena." />
-  <meta name="twitter:image" content="https://arenawintracker.org/og-image.png" />
-
+  <meta name="description" content="Arena Win Tracker zeigt dir auf einen Blick, mit welchen Champions du in dieser League of Legends Arena-Season schon einen 1. Platz erreicht hast." />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -47,9 +27,8 @@
       <h1>Welche Champions fehlen dir noch zum Sieg?</h1>
       <p class="lead">
         Arena Win Tracker liest deine Match-Historie aus und markiert jeden Champion,
-        mit dem du in dieser Arena-Season schon einen echten 1. Platz geholt hast -
-        nicht nur Top-4. Kein Excel, kein Mitschreiben, kein eigener Riot API-Key:
-        ein zentraler Server synct deine Daten automatisch.
+        mit dem du in dieser Arena-Season schon einen 1. Platz geholt hast. Kein Excel,
+        kein Mitschreiben – das Overlay zeigt es dir direkt im Spiel.
       </p>
       <div class="tile-row" aria-hidden="true">
         <div class="tile won"></div><div class="tile won"></div><div class="tile"></div>
@@ -68,11 +47,10 @@
       <h2><span class="num">01</span>Was die App macht</h2>
       <p>
         Arena Win Tracker prüft über einen zentralen Sync-Server alle deine
-        Arena-Spiele seit Season-Start (Standard: 29.04.2026, individuell
-        anpassbar). Jeder Champion, mit dem du einen echten 1. Platz erreicht
-        hast, wird grün markiert. Alles andere bleibt rot oder grau, bis der
-        nächste Sieg fällt. Du brauchst dafür <strong>keinen eigenen Riot
-        API-Key</strong> - nur deine Riot-ID.
+        Arena-Spiele seit Season-Start. Jeder Champion, mit dem du einen echten 1. Platz
+        (nicht nur Top-4) erreicht hast, wird grün markiert. Alles andere bleibt rot
+        oder grau, bis der nächste Sieg fällt. Du brauchst dafür <strong>keinen
+        eigenen Riot API-Key</strong> - nur deine Riot-ID.
       </p>
     </div>
   </section>
@@ -81,46 +59,24 @@
     <div class="wrap">
       <h2><span class="num">02</span>Funktionen</h2>
       <ul class="feature-list">
-        <li><span class="mark">✓</span> Champion-Übersicht mit echtem Sieg-Status pro Season (nur 1. Platz zählt)</li>
+        <li><span class="mark">✓</span> Champion-Übersicht mit Sieg-Status pro Season</li>
         <li><span class="mark">✓</span> Kein eigener Riot API-Key nötig - Sync läuft zentral über den Server</li>
-        <li><span class="mark">✓</span> Automatischer Sync alle 6 Stunden, zusätzlich 1× pro Stunde manuell auslösbar</li>
-        <li><span class="mark">✓</span> Verlauf pro Champion: Datum, Platzierung, Items, Augments, Perks, Summoner-Spells und Teammates</li>
-        <li><span class="mark">✓</span> Freunde hinzufügen und euren Fortschritt gemeinsam vergleichen</li>
-        <li><span class="mark">✓</span> Globales Ranking und Freundes-Ranking in drei Kategorien (meiste Champions, Gesamt-Siege, bester Einzel-Champion)</li>
-        <li><span class="mark">✓</span> Community-Champion-Datenbank mit Tier-Einstufung, Stat-Übersicht und Augment-/Item-Empfehlungen</li>
-        <li><span class="mark">✓</span> Meta-Trios mit Winrate als Orientierung für gute Team-Synergien</li>
-        <li><span class="mark">✓</span> Experimentelle KI-Analyse pro Champion (Testphase, siehe Hinweis unten)</li>
-        <li><span class="mark">✓</span> Filter-, Such- und Sortierfunktion im Champion-Grid</li>
-        <li><span class="mark">✓</span> Hell/Dunkel-Theme sowie Deutsch/Englisch umschaltbar</li>
-        <li><span class="mark">✓</span> Als Overwolf-Overlay im Spiel oder als Web-App im Browser nutzbar</li>
+        <li><span class="mark">✓</span> Täglicher automatischer Sync, zusätzlich manuell auslösbar</li>
+        <li><span class="mark">✓</span> Verlauf pro Champion: Datum, Sieg/Niederlage, Teammates</li>
+        <li><span class="mark">✓</span> Filter- und Suchfunktion im Champion-Grid</li>
+        <li><span class="mark">✓</span> Als Overwolf-Overlay oder als Web-App im Browser nutzbar</li>
       </ul>
     </div>
   </section>
 
   <section class="block">
     <div class="wrap">
-      <h2><span class="num">03</span>Woher die Meta-Daten stammen</h2>
-      <p>
-        Tier-Einstufungen, Augment- und Item-Empfehlungen sowie Meta-Trios
-        stammen aus einer von uns gepflegten Datenbank. Die KI-Analyse ist
-        eine experimentelle Zusatzfunktion in Testphase, die aggregierte
-        Champion-Statistiken automatisiert einordnet - sie ersetzt keine
-        eigene Spielentscheidung und kann Fehler enthalten.
-      </p>
-    </div>
-  </section>
-
-  <section class="block">
-    <div class="wrap">
-      <h2><span class="num">04</span>Status</h2>
+      <h2><span class="num">03</span>Status</h2>
       <p class="status-badge"><span class="pulse"></span> Aktuell in privater Testphase</p>
       <p class="muted" style="margin-top:14px;">
-        Arena Win Tracker befindet sich derzeit in der Entwicklung und wird mit
-        einer kleinen Gruppe getestet. Ein öffentlicher Release über den
-        Overwolf App Store ist geplant und befindet sich aktuell im
-        Review-Prozess bei Overwolf. Es ist aktuell <strong>keine
-        Monetarisierung</strong> vorgesehen - die App ist und bleibt ein
-        kostenloses Hilfswerkzeug.
+        Arena Win Tracker befindet sich derzeit in der Entwicklung und wird mit einer
+        kleinen Gruppe getestet. Ein öffentlicher Release über den Overwolf App Store
+        ist geplant.
       </p>
       <div class="contact-box" style="margin-top:16px;">
         Zum Testen ohne Overwolf-Installation: <a href="app/index.html">Web-App öffnen →</a>
@@ -130,7 +86,7 @@
 
   <section class="block">
     <div class="wrap">
-      <h2><span class="num">05</span>Kontakt</h2>
+      <h2><span class="num">04</span>Kontakt</h2>
       <div class="contact-box">
         Fragen, Feedback oder Bugs? <a href="mailto:arenawintracker.support@proton.me">arenawintracker.support@proton.me</a>
       </div>

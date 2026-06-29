@@ -339,7 +339,7 @@ button.danger:hover { background: #c43b4a; }
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 
-/* ---------- Meta-Trio-Section - jetzt die einzige rechte Spalte ---------- */
+/* ---------- Meta-Trio-Section (extern) - jetzt die einzige rechte Spalte ---------- */
 #externalTrio {
   -webkit-app-region: no-drag;
   background: linear-gradient(180deg, #1a1212, #150f0d);
@@ -726,22 +726,4 @@ button.danger:hover { background: #c43b4a; }
 .trioChampIcon { width: 28px; height: 28px; border-radius: 5px; border: 1px solid #4a3a34; flex-shrink: 0; }
 .trioChampIconFallback {
   width: 28px; height: 28px; font-size: 10px; flex-shrink: 0;
-}
-
-/* ---------- Stufe A Monetarisierung: Overwolf-Ad-Zone ---------- */
-/* Hintergrund MUSS transparent sein (Overwolf-Vorgabe fuer Ad-Container).
-   Bleibt unsichtbar/ohne Platzbedarf, solange kein OwAd hineingerendert
-   wird (z.B. im Browser oder vor der Ads-Freischaltung durch Overwolf). */
-#adZone {
-  background: transparent;
-  display: flex;
-  justify-content: center;
-}
-#adZone:has(#ad-div:empty) {
-  display: none;
-}
-#ad-div {
-  width: 300px;
-  height: 250px;
-  background: transparent;
 }
