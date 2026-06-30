@@ -1,0 +1,3943 @@
+// ============================================================
+// Arena Win Tracker - app.js  (QoL-Version)
+//
+// BASIEREND AUF: arenawintracker.org-main/app/app.js (v17)
+// NEU ggü. Vorgängerversion:
+//   1. Secret-System wieder ENTFERNT (siehe authFetch unten - nur noch
+//      simpler fetch()-Alias, kein x-cron-secret-Header mehr)
+//   2. Manueller Sync-Button (POST /account/me/sync)
+//   4. Toast-Notification-System statt alert()
+//   5. Dark/Light-Theme-Toggle mit Persistenz
+//   6. Tastatur-Shortcuts (/, Esc, S, F, ?)
+//   7. Lade-Indikator für Server-Kaltstart
+//   8. Auto-Refresh der Stats nach 6h
+//   9. Filter-Einstellungen persistieren (localStorage)
+//  10. Long-Press auf Mobile für Tooltips
+//  11. Saison-Fortschrittsbalken
+//
+// Alle bestehenden Funktionen (Champion-Detailansicht, KI-Empfehlung,
+// Community-DB, Trios, Freunde, Ranking, etc.) sind unverändert
+// übernommen, nur die fetch()-Aufrufe wurden auf authFetch() umgestellt.
+// ============================================================
+
+const STORAGE_KEY = "arenaWinTracker";
+const LANG_STORAGE_KEY = "arenaWinTrackerLang";
+const DEFAULT_SERVER_URL = "https://arena-win-tracker-server.onrender.com";
+
+// ---------- Secret-System entfernt ----------
+// Frueher hier: x-cron-secret-Header-Logik. Entfernt, weil die App nur
+// fuer dich + Freunde gedacht ist und das Secret im Browser ohnehin
+// sichtbar war - kein echter Schutz, nur Reibung. authFetch bleibt als
+// Name erhalten (an allen Call-Sites im Code).
+//
+// NEU: Schickt automatisch das Edit-Token mit (falls vorhanden), damit
+// der Server schreibende Synergie-/Preset-Endpunkte serverseitig
+// pruefen kann (siehe editAuth.js im Backend). Bei 401 wird das lokale
+// Token verworfen, damit beim naechsten Versuch neu nach dem Code
+// gefragt wird.
+const IA_EDIT_TOKEN_KEY = "iaEditToken";
+
+function getIaEditToken() {
+  return sessionStorage.getItem(IA_EDIT_TOKEN_KEY) || "";
+}
+
+function setIaEditToken(token) {
+  if (token) sessionStorage.setItem(IA_EDIT_TOKEN_KEY, token);
+  else sessionStorage.removeItem(IA_EDIT_TOKEN_KEY);
+}
+
+async function authFetch(url, options = {}) {
+  const token = getIaEditToken();
+  if (token) {
+    options = { ...options, headers: { ...(options.headers || {}), "x-edit-token": token } };
+  }
+  const res = await fetch(url, options);
+  if (res.status === 401 && token) {
+    setIaEditToken(""); // Code/Token war falsch oder abgelaufen - neu anfragen lassen
+  }
+  return res;
+}
+
+// ---------- NEU: UI-Prefs persistieren ----------
+const UI_PREFS_KEY = "arenaWinTrackerUIPrefs";
+
+function loadUIPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(UI_PREFS_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveUIPrefs(prefs) {
+  localStorage.setItem(UI_PREFS_KEY, JSON.stringify(prefs));
+}
+
+function applyUIPrefs() {
+  const prefs = loadUIPrefs();
+  const filterInput = document.getElementById("filterInput");
+  const sortMode = document.getElementById("sortMode");
+  const onlyMissing = document.getElementById("onlyMissing");
+  if (prefs.filterText && filterInput) filterInput.value = prefs.filterText;
+  if (prefs.sortMode && sortMode) sortMode.value = prefs.sortMode;
+  if (typeof prefs.onlyMissing === "boolean" && onlyMissing) {
+    onlyMissing.checked = prefs.onlyMissing;
+  }
+}
+
+function persistUIPrefs() {
+  const filterInput = document.getElementById("filterInput");
+  const sortMode = document.getElementById("sortMode");
+  const onlyMissing = document.getElementById("onlyMissing");
+  saveUIPrefs({
+    filterText: filterInput?.value || "",
+    sortMode: sortMode?.value || "name",
+    onlyMissing: !!onlyMissing?.checked
+  });
+}
+
+// ---------- NEU: Theme-Toggle ----------
+const THEME_KEY = "arenaWinTrackerTheme";
+
+function getCurrentTheme() {
+  // Theme-Toggle entfernt - nur noch Dark Mode, unabhängig von
+  // eventuell alten localStorage-Werten aus früheren Sessions.
+  return "dark";
+}
+
+function applyTheme(theme) {
+  document.documentElement.setAttribute("data-theme", theme);
+  const btn = document.getElementById("themeToggle");
+  if (btn) btn.textContent = theme === "dark" ? "☀️" : "🌙";
+}
+
+function toggleTheme() {
+  const next = getCurrentTheme() === "dark" ? "light" : "dark";
+  localStorage.setItem(THEME_KEY, next);
+  applyTheme(next);
+}
+
+// ---------- NEU: Toast-Notification-System ----------
+function ensureToastContainer() {
+  let container = document.getElementById("toastContainer");
+  if (!container) {
+    container = document.createElement("div");
+    container.id = "toastContainer";
+    container.style.cssText = `
+      position: fixed; top: 16px; right: 16px; z-index: 99999;
+      display: flex; flex-direction: column; gap: 8px;
+      pointer-events: none; max-width: 360px;
+    `;
+    document.body.appendChild(container);
+  }
+  return container;
+}
+
+function showToast(message, type = "info", durationMs = 4000) {
+  const container = ensureToastContainer();
+  const toast = document.createElement("div");
+  const colors = {
+    info:    { bg: "#1f6feb", border: "#4493f8" },
+    success: { bg: "#238636", border: "#2ea043" },
+    warning: { bg: "#9e6a03", border: "#bb8009" },
+    error:   { bg: "#da3633", border: "#f85149" }
+  };
+  const c = colors[type] || colors.info;
+  toast.style.cssText = `
+    background: ${c.bg}; border: 1px solid ${c.border};
+    color: white; padding: 10px 14px; border-radius: 6px;
+    font-size: 13px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    pointer-events: auto; cursor: pointer;
+    transition: opacity 0.2s, transform 0.2s;
+    opacity: 0; transform: translateX(20px);
+  `;
+  toast.textContent = message;
+  toast.title = "Klicken zum Schließen";
+  let dismissTimer = null;
+  function dismissNow() {
+    if (dismissTimer) clearTimeout(dismissTimer);
+    toast.style.opacity = "0";
+    toast.style.transform = "translateX(20px)";
+    setTimeout(() => toast.remove(), 200);
+  }
+  toast.addEventListener("click", dismissNow);
+  container.appendChild(toast);
+
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translateX(0)";
+  });
+
+  dismissTimer = setTimeout(dismissNow, durationMs);
+
+  // Rueckgabe, damit Aufrufer (z.B. der manuelle Sync-Button) diesen
+  // Toast vorzeitig schliessen koennen, sobald der eigentliche
+  // Vorgang (z.B. wegen Rate-Limit) sofort fehlschlaegt - statt dass
+  // er noch 8 Sekunden neben der Fehlermeldung stehen bleibt.
+  return { dismiss: dismissNow };
+}
+
+// ---------- NEU: Lade-Indikator für Server-Kaltstart ----------
+function showLoadingIndicator(message) {
+  let loader = document.getElementById("kaltstartLoader");
+  if (!loader) {
+    loader = document.createElement("div");
+    loader.id = "kaltstartLoader";
+    loader.style.cssText = `
+      position: fixed; inset: 0; z-index: 99997;
+      background: rgba(13, 17, 23, 0.85);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px; color: #c9d1d9; font-size: 14px;
+      backdrop-filter: blur(2px);
+    `;
+    loader.innerHTML = `
+      <div style="font-size: 36px; animation: awt-spin 1s linear infinite;">⚙️</div>
+      <div id="kaltstartMessage">${message || "Lade..."}</div>
+      <div style="font-size: 11px; color: #8b949e;">Erster Start kann bis zu 60s dauern (Server-Kaltstart)</div>
+    `;
+    document.body.appendChild(loader);
+
+    const style = document.createElement("style");
+    style.textContent = "@keyframes awt-spin { to { transform: rotate(360deg); } }";
+    document.head.appendChild(style);
+  }
+  const msg = loader.querySelector("#kaltstartMessage");
+  if (msg && message) msg.textContent = message;
+  loader.style.display = "flex";
+}
+
+function hideLoadingIndicator() {
+  const loader = document.getElementById("kaltstartLoader");
+  if (loader) loader.style.display = "none";
+}
+
+// ---------- Uebersetzungen (DE/EN) ----------
+
+const I18N = {
+  de: {
+    rankingToggleTitle: "Ranking anzeigen",
+    tabGlobal: "Global",
+    tabFriends: "Freunde",
+    rankingUpdateNote: "🕕 Update um 02:00 / 08:00 / 14:00 / 20:00 Uhr",
+    rankCatChampions: "Champions",
+    rankCatTotalWins: "Gesamt-Wins",
+    rankCatBestChamp: "Bester Champ",
+    rankCatWinRate: "Winrate",
+    friendsToggleTitle: "Freunde verwalten",
+    settingsToggleTitle: "Einstellungen",
+    webNotice: "Browser-Testversion. Funktioniert identisch zur Overwolf-App, läuft aber als normale Webseite - kein Overwolf nötig.",
+    friendIdLabel: "Riot-ID des Freundes",
+    friendIdPlaceholder: "z.B. Buddy#EUW",
+    addFriendBtn: "+ Freund hinzufügen",
+    registeredUsersHint: "Bereits registrierte Nutzer (anklicken zum Hinzufügen):",
+    yourFriendsHint: "Deine Freunde:",
+    riotIdLabel: "Riot ID (Name#Tag)",
+    languageLabel: "Sprache",
+    riotIdPlaceholder: "z.B. Glitch#EUW",
+    regionLabel: "Region",
+    seasonStartLabel: "Season-Start (Arena-Reset Datum)",
+    resetSeasonStartBtn: "↺ Standard",
+    resetSeasonStartTitle: "Auf Standard zurücksetzen (29.04.2026)",
+    saveSettingsBtn: "Speichern",
+    resetDataBtn: "Lokale Anzeige zurücksetzen",
+    settingsHint: "Server synct deine Daten automatisch alle 6 Stunden - kein eigener Riot API-Key nötig.",
+    statusNotConnected: "Noch nicht verbunden",
+    champSearchPlaceholder: "Champion suchen...",
+    sortName: "Name (A-Z)",
+    sortWins: "Meiste Wins",
+    sortTier: "Tier-Liste",
+    tierUnknown: "Ohne Tier-Daten",
+    tierSectionStufe: "Stufe",
+    tierSectionAnd: "und",
+    tierSectionIntro: "Zu den aktuellen Champions in {tier}-Stufe gehören ",
+    onlyMissingLabel: "nur offene zeigen",
+    metaTitle: "📊 Tages-Meta",
+    metaTrioHeading: "Beste Trio-Combos",
+    metaSynergyHeading: "Augment/Item-Synergien",
+    addFriendBtnShort: "+ Freund",
+    closeTitle: "Schließen",
+    manualSyncTitle: "Jetzt synchronisieren",
+    themeToggleTitle: "Theme umschalten",
+    openItemsAugmentsBtn: "📦 Items & Augments",
+    itemsAugmentsHeading: "Arena Items & Augments",
+    itemsAugmentsHint: "Auf ein Augment oder Item klicken, um nur dazu passende Treffer zu sehen.",
+    itemsAugmentsClearFilter: "← Zurück zur Übersicht",
+    iaAugmentsHeading: "Augments",
+    iaItemsHeading: "Items",
+    iaTierSilver: "Silber",
+    iaTierGold: "Gold",
+    iaTierPrismatic: "Prismatic",
+    iaTierBoots: "Stiefel",
+    iaTierLegendary: "Legendary",
+    iaTierQuest: "Quest",
+    iaTierAnvil: "Anvil",
+    iaTierJuice: "Juice",
+    iaNoSynergyYet: "Für dieses Augment gibt es noch keine Synergie-Daten.",
+    iaLoadError: "Items/Augments konnten nicht geladen werden.",
+    iaSearchPlaceholder: "Augment oder Item suchen...",
+    iaCategoryAll: "Alle Kategorien",
+    iaEditModeBtn: "✏️ Synergien bearbeiten",
+    iaEditModeBtnActive: "✓ Bearbeitungsmodus aktiv",
+    iaCodePrompt: "Code eingeben, um Synergien/Presets zu bearbeiten:",
+    iaCodeWrong: "Falscher Code.",
+    iaPresetModeBtn: "🔍 Schnellsuche",
+    iaPresetExistingHeading: "Bestehende Schnellsuchen",
+    iaPresetNoneYet: "Noch keine Schnellsuche angelegt.",
+    iaPresetDelete: "Schnellsuche löschen",
+    iaPresetEdit: "Schnellsuche bearbeiten",
+    iaPresetUpdate: "Aktualisieren",
+    iaPresetUpdated: "Schnellsuche aktualisiert.",
+    iaPresetHint: "Name vergeben, dann Augments/Items unten anklicken zum Hinzufügen/Entfernen. \"Speichern\" legt die Schnellsuche an.",
+    iaPresetNamePlaceholder: "Name (z.B. Tank, Full Autocast, Onhit Atkspeed)...",
+    iaPresetSave: "Speichern",
+    iaPresetNameRequired: "Bitte einen Namen eingeben.",
+    iaPresetEntriesRequired: "Bitte mindestens ein Augment oder Item auswählen.",
+    iaPresetSaved: "Schnellsuche gespeichert.",
+    iaPresetCreatorPlaceholder: "Dein Name...",
+    iaPresetByLabel: "von",
+    champAddPresetBtn: "🔍 Schnellsuche",
+    champPresetsHeading: "Schnellsuchen",
+    champPresetsExplain: "Allgemeine Schnellsuchen, gelten für alle Champions gleich (nicht auf diesen Champion zugeschnitten).",
+    champPresetsNone: "Noch keine Schnellsuche für diesen Champion zugewiesen.",
+    champPresetsNoneGlobal: "Noch keine globalen Schnellsuchen vorhanden - erst im \"🔍 Schnellsuche\"-Editor eins anlegen.",
+    champPresetRemove: "Schnellsuche von diesem Champion entfernen",
+    champPresetPickPrompt: "Welche Schnellsuche zuweisen? Zahl eingeben:",
+    iaEditHint: "Augment oder Item auswählen, dann unten anklicken, um Synergien hinzuzufügen (+) oder zu entfernen (✕). Wirkt automatisch in beide Richtungen.",
+    iaEditHintChooseAugment: "Zuerst links ein Augment oder Item anklicken, um seine Synergien zu bearbeiten.",
+    iaEditClearAll: "Alle entfernen",
+    iaEditCancel: "Fertig",
+    iaEditAdded: "Hinzugefügt ✓",
+    iaEditRemoved: "Entfernt ✓",
+    iaEditAllRemoved: "Alle entfernt ✓",
+    iaEditSaveError: "Speichern fehlgeschlagen.",
+
+    statusEnterRiotIdServer: "Bitte Riot-ID und Server-URL eintragen.",
+    statusConnecting: "Verbinde mit Server (kann beim ersten Mal bis zu 60s dauern)...",
+    statusLoadingStats: "Lade Stats vom Server...",
+    statusConnected: "Verbunden. Letzter Server-Sync: {time}",
+    errorPrefix: "Fehler: ",
+    statusSeasonUpdateError: "Fehler beim Aktualisieren des Season-Start: {msg}",
+    statusResetDone: "Lokale Anzeige zurückgesetzt. Lädt automatisch beim nächsten Server-Sync neu.",
+    statusAddFriendNeedRiotId: "Bitte zuerst deine eigene Riot-ID in den Einstellungen eintragen.",
+    statusLoadingChampList: "Champion-Liste wird geladen...",
+    statusReadyFillSettings: "Bereit. Einstellungen ausfüllen (Riot-ID, Region).",
+    neverSynced: "noch nie",
+    summaryWon: "{won} / {total} Champions gewonnen",
+    overallStats: "{games} Spiel(e) insgesamt ({wins} Siege / {losses} Niederlagen)",
+    tooltipNoGames: "Keine Arena-Spiele seit Season-Start.",
+    tooltipGamesCount: "{count} Spiel(e)",
+    tooltipWin: "Sieg",
+    tooltipLose: "Niederlage",
+    withLabel: "mit",
+    metaUpdatedAt: "Stand: {time}",
+    friendEmpty: "Noch keine Freunde hinzugefügt.",
+    removeFriendTitle: "Entfernen",
+    friendAddFailed: "Freund konnte nicht hinzugefügt werden.",
+    friendRemoveFailed: "Entfernen fehlgeschlagen.",
+    rankNotRegistered404: "Noch nicht registriert. Erst Einstellungen speichern.",
+    rankLoading: "Lade...",
+    rankNeedOwnId: "Erst eigene Riot-ID in den Einstellungen eintragen.",
+    rankLoadFailed: "Ranking konnte nicht geladen werden.",
+    rankEmptyData: "Noch keine Daten.",
+    opggOpenTitle: "op.gg öffnen",
+    progressTitle: "Fortschritt anzeigen",
+    statsLoadFailed: "Stats konnten nicht geladen werden.",
+    friendAlready: "✓ Freund",
+    seasonUpdateFailed: "Season-Start-Update fehlgeschlagen ({status})",
+    registrationFailed: "Registrierung fehlgeschlagen ({status})",
+    statsFetchFailed: "Stats-Abruf fehlgeschlagen ({status})",
+    resetConfirm: "Lokal angezeigte Daten wirklich zurücksetzen? (Auf dem Server bleiben sie erhalten)",
+    playerViewSummary: "{won} / {total} Champions gewonnen · {games} Spiel(e) ({wins} Siege)",
+    playerViewLastSync: " · letzter Sync: {time}",
+
+    champDetailBack: "← Zurück zum Grid",
+    champDetailBestPartners: "Beste Partner (Trio)",
+    champDetailBestItems: "Beste Items",
+    champDetailBestAugments: "Beste Augments",
+    champDetailNoPartners: "Noch keine Trio-Daten für diesen Champion.",
+    champDetailNoBuild: "Noch keine Item-/Augment-Daten für diesen Champion.",
+    champDetailStatCheck: "💡 Lohnt sich auf Stats zu spielen",
+    backArrow: "←",
+    backToGridTitle: "Zurück zum Grid",
+    backToChampTitle: "Zurück zur Champion-Ansicht",
+    itemDetailHeading: "Item-Synergien",
+    augmentDetailHeading: "Augment-Synergien",
+    detailSynergyHeading: "Funktioniert gut mit",
+    detailNoSynergyData: "Noch keine Synergie-Daten dafür.",
+    top30TrioHeading: "Top 30 Trio-Winrates",
+    champDetailSkillOrder: "Skill-Reihenfolge",
+    champDetailNoSkillOrder: "Noch keine Skill-Reihenfolge für diesen Champion.",
+    champDetailTactics: "Taktiken",
+    champDetailNoTactics: "Noch keine Taktik-Tipps für diesen Champion.",
+    topTrioHeading: "Top 30 Trios (Winrate)",
+    externalTrioHeading: "Meta-Trios",
+    champDetailAiHeading: "KI-Empfehlung (experimentell)",
+    champDetailAiCore: "Core-Items",
+    champDetailAiSituational: "Situativ",
+    champDetailAiAugments: "Augments",
+    champDetailAiSpells: "Summoner Spells",
+    champDetailAiNone: "Noch keine KI-Empfehlung für diesen Champion.",
+    champDetailAiConfidenceLow: "Wenig Datenbasis - vorsichtig interpretieren",
+    champDetailAiConfidenceMedium: "Solide Datenbasis",
+    champDetailAiConfidenceHigh: "Starke Datenbasis",
+    communityDbHeading: "Standard-Datenbank",
+    communityDbNone: "Noch keine Datenbank-Einträge für diesen Champion.",
+    communityDbTier: "Tier",
+    communityDbWinrate: "Winrate",
+    communityDbTop3: "Top-3",
+    communityDbPickRate: "Pickrate",
+    communityDbBanRate: "Banrate",
+    communityDbKda: "KDA",
+    communityDbAvgPlace: "Ø Platzierung",
+    communityDbGames: "Spiele",
+    communityDbAugmentsOverall: "Gesamt",
+    communityDbAugmentsSilver: "Silber",
+    communityDbAugmentsGold: "Gold",
+    communityDbAugmentsPrismatic: "Prismatic",
+    communityDbAugmentsHeading: "Augments",
+    communityDbItems: "Empfohlene Items",
+    communityDbSynergies: "Synergien",
+    communityDbStrongAgainst: "Stark gegen",
+    communityDbDiff: "Differenz",
+    communityDbSkillOrder: "Skill-Reihenfolge",
+    communityDbNoBuildDetails: "Nur Tier-Liste-Daten vorhanden, noch keine Build-Details.",
+    communityAiHeading: "KI-Analyse · Testphase",
+    communityAiNone: "Noch keine KI-Analyse für diesen Champion.",
+    communityAiStrengths: "Stärken",
+    communityAiAugments: "Augment-Empfehlung",
+    communityAiSynergy: "Synergie-Hinweis",
+    communityAiWeakness: "Schwäche-Hinweis"
+  },
+  en: {
+    rankingToggleTitle: "Show ranking",
+    tabGlobal: "Global",
+    tabFriends: "Friends",
+    rankingUpdateNote: "🕕 Updates at 02:00 / 08:00 / 14:00 / 20:00",
+    rankCatChampions: "Champions",
+    rankCatTotalWins: "Total wins",
+    rankCatBestChamp: "Best champ",
+    rankCatWinRate: "Win rate",
+    friendsToggleTitle: "Manage friends",
+    settingsToggleTitle: "Settings",
+    webNotice: "Browser test version. Works identically to the Overwolf app, but runs as a normal website - no Overwolf needed.",
+    friendIdLabel: "Friend's Riot ID",
+    friendIdPlaceholder: "e.g. Buddy#EUW",
+    addFriendBtn: "+ Add friend",
+    registeredUsersHint: "Already registered users (click to add):",
+    yourFriendsHint: "Your friends:",
+    riotIdLabel: "Riot ID (Name#Tag)",
+    languageLabel: "Language",
+    riotIdPlaceholder: "e.g. Glitch#EUW",
+    regionLabel: "Region",
+    seasonStartLabel: "Season start (Arena reset date)",
+    resetSeasonStartBtn: "↺ Default",
+    resetSeasonStartTitle: "Reset to default (Apr 29, 2026)",
+    saveSettingsBtn: "Save",
+    resetDataBtn: "Reset local display",
+    settingsHint: "Server automatically syncs your data every 6 hours - no own Riot API key needed.",
+    statusNotConnected: "Not connected yet",
+    champSearchPlaceholder: "Search champion...",
+    sortName: "Name (A-Z)",
+    sortWins: "Most wins",
+    sortTier: "Tier list",
+    tierUnknown: "No tier data",
+    tierSectionStufe: "tier",
+    tierSectionAnd: "and",
+    tierSectionIntro: "Current {tier}-tier champions include ",
+    onlyMissingLabel: "show only missing",
+    metaTitle: "📊 Daily meta",
+    metaTrioHeading: "Best trio combos",
+    metaSynergyHeading: "Augment/item synergies",
+    addFriendBtnShort: "+ Friend",
+    closeTitle: "Close",
+    manualSyncTitle: "Sync now",
+    themeToggleTitle: "Toggle theme",
+    openItemsAugmentsBtn: "📦 Items & Augments",
+    itemsAugmentsHeading: "Arena Items & Augments",
+    itemsAugmentsHint: "Click an augment or item to only show matching results.",
+    itemsAugmentsClearFilter: "← Back to overview",
+    iaAugmentsHeading: "Augments",
+    iaItemsHeading: "Items",
+    iaTierSilver: "Silver",
+    iaTierGold: "Gold",
+    iaTierPrismatic: "Prismatic",
+    iaTierBoots: "Boots",
+    iaTierLegendary: "Legendary",
+    iaTierQuest: "Quest",
+    iaTierAnvil: "Anvil",
+    iaTierJuice: "Juice",
+    iaNoSynergyYet: "No synergy data for this augment yet.",
+    iaLoadError: "Could not load items/augments.",
+    iaSearchPlaceholder: "Search augment or item...",
+    iaCategoryAll: "All categories",
+    iaEditModeBtn: "✏️ Edit synergies",
+    iaEditModeBtnActive: "✓ Edit mode active",
+    iaCodePrompt: "Enter code to edit synergies/presets:",
+    iaCodeWrong: "Wrong code.",
+    iaPresetModeBtn: "🔍 Quick Search",
+    iaPresetExistingHeading: "Existing quick searches",
+    iaPresetNoneYet: "No quick searches created yet.",
+    iaPresetDelete: "Delete quick search",
+    iaPresetEdit: "Edit quick search",
+    iaPresetUpdate: "Update",
+    iaPresetUpdated: "Quick search updated.",
+    iaPresetHint: "Give it a name, then click augments/items below to add/remove. \"Save\" creates the quick search.",
+    iaPresetNamePlaceholder: "Name (e.g. Tank, Full Autocast, Onhit Atkspeed)...",
+    iaPresetSave: "Save",
+    iaPresetNameRequired: "Please enter a name.",
+    iaPresetEntriesRequired: "Please select at least one augment or item.",
+    iaPresetSaved: "Quick search saved.",
+    iaPresetCreatorPlaceholder: "Your name...",
+    iaPresetByLabel: "by",
+    champAddPresetBtn: "🔍 Quick Search",
+    champPresetsHeading: "Quick Searches",
+    champPresetsExplain: "General quick searches, the same for every champion (not tailored to this champion).",
+    champPresetsNone: "No quick search assigned to this champion yet.",
+    champPresetsNoneGlobal: "No global quick searches yet - create one first in the \"🔍 Quick Search\" editor.",
+    champPresetRemove: "Remove quick search from this champion",
+    champPresetPickPrompt: "Which quick search to assign? Enter the number:",
+    iaEditHint: "Pick an augment or item, then click below to add (+) or remove (✕) synergies. Works both ways automatically.",
+    iaEditHintChooseAugment: "First click an augment or item on the left to edit its synergies.",
+    iaEditClearAll: "Remove all",
+    iaEditCancel: "Done",
+    iaEditAdded: "Added ✓",
+    iaEditRemoved: "Removed ✓",
+    iaEditAllRemoved: "All removed ✓",
+    iaEditSaveError: "Saving failed.",
+
+    statusEnterRiotIdServer: "Please enter Riot ID and server URL.",
+    statusConnecting: "Connecting to server (can take up to 60s the first time)...",
+    statusLoadingStats: "Loading stats from server...",
+    statusConnected: "Connected. Last server sync: {time}",
+    errorPrefix: "Error: ",
+    statusSeasonUpdateError: "Error updating season start: {msg}",
+    statusResetDone: "Local display reset. Will reload automatically on the next server sync.",
+    statusAddFriendNeedRiotId: "Please enter your own Riot ID in the settings first.",
+    statusLoadingChampList: "Loading champion list...",
+    statusReadyFillSettings: "Ready. Fill in settings (Riot ID, region).",
+    neverSynced: "never",
+    summaryWon: "{won} / {total} champions won",
+    overallStats: "{games} game(s) total ({wins} wins / {losses} losses)",
+    tooltipNoGames: "No Arena games since season start.",
+    tooltipGamesCount: "{count} game(s)",
+    tooltipWin: "Win",
+    tooltipLose: "Loss",
+    withLabel: "with",
+    metaUpdatedAt: "Updated: {time}",
+    friendEmpty: "No friends added yet.",
+    removeFriendTitle: "Remove",
+    friendAddFailed: "Could not add friend.",
+    friendRemoveFailed: "Removal failed.",
+    rankNotRegistered404: "Not registered yet. Save settings first.",
+    rankLoading: "Loading...",
+    rankNeedOwnId: "Enter your own Riot ID in settings first.",
+    rankLoadFailed: "Could not load ranking.",
+    rankEmptyData: "No data yet.",
+    opggOpenTitle: "Open op.gg",
+    progressTitle: "Show progress",
+    statsLoadFailed: "Could not load stats.",
+    friendAlready: "✓ Friend",
+    seasonUpdateFailed: "Season start update failed ({status})",
+    registrationFailed: "Registration failed ({status})",
+    statsFetchFailed: "Stats fetch failed ({status})",
+    resetConfirm: "Really reset locally displayed data? (Stays intact on the server)",
+    playerViewSummary: "{won} / {total} champions won · {games} game(s) ({wins} wins)",
+    playerViewLastSync: " · last sync: {time}",
+
+    champDetailBack: "← Back to grid",
+    champDetailBestPartners: "Best partners (trio)",
+    champDetailBestItems: "Best items",
+    champDetailBestAugments: "Best augments",
+    champDetailNoPartners: "No trio data for this champion yet.",
+    champDetailNoBuild: "No item/augment data for this champion yet.",
+    champDetailStatCheck: "💡 Worth playing on stats",
+    backArrow: "←",
+    backToGridTitle: "Back to grid",
+    backToChampTitle: "Back to champion view",
+    itemDetailHeading: "Item synergies",
+    augmentDetailHeading: "Augment synergies",
+    detailSynergyHeading: "Works well with",
+    detailNoSynergyData: "No synergy data for this yet.",
+    top30TrioHeading: "Top 30 trio win rates",
+    champDetailSkillOrder: "Skill order",
+    champDetailNoSkillOrder: "No skill order for this champion yet.",
+    champDetailTactics: "Tactics",
+    champDetailNoTactics: "No tactic tips for this champion yet.",
+    topTrioHeading: "Top 30 trios (win rate)",
+    externalTrioHeading: "Meta trios",
+    champDetailAiHeading: "AI recommendation (experimental)",
+    champDetailAiCore: "Core items",
+    champDetailAiSituational: "Situational",
+    champDetailAiAugments: "Augments",
+    champDetailAiSpells: "Summoner spells",
+    champDetailAiNone: "No AI recommendation for this champion yet.",
+    champDetailAiConfidenceLow: "Low sample size - interpret with caution",
+    champDetailAiConfidenceMedium: "Solid sample size",
+    champDetailAiConfidenceHigh: "Strong sample size",
+    communityDbHeading: "Standard database",
+    communityDbNone: "No database entry for this champion yet.",
+    communityDbTier: "Tier",
+    communityDbWinrate: "Win rate",
+    communityDbTop3: "Top 3",
+    communityDbPickRate: "Pick rate",
+    communityDbBanRate: "Ban rate",
+    communityDbKda: "KDA",
+    communityDbAvgPlace: "Avg. placement",
+    communityDbGames: "Games",
+    communityDbAugmentsOverall: "Overall",
+    communityDbAugmentsSilver: "Silver",
+    communityDbAugmentsGold: "Gold",
+    communityDbAugmentsPrismatic: "Prismatic",
+    communityDbAugmentsHeading: "Augments",
+    communityDbItems: "Recommended items",
+    communityDbSynergies: "Synergies",
+    communityDbStrongAgainst: "Strong against",
+    communityDbDiff: "Difference",
+    communityDbSkillOrder: "Skill order",
+    communityDbNoBuildDetails: "Only tier-list data available, no build details yet.",
+    communityAiHeading: "AI analysis · Beta test",
+    communityAiNone: "No AI analysis for this champion yet.",
+    communityAiStrengths: "Strengths",
+    communityAiAugments: "Augment recommendation",
+    communityAiSynergy: "Synergy note",
+    communityAiWeakness: "Weakness note"
+  }
+};
+
+let currentLang = localStorage.getItem(LANG_STORAGE_KEY) || "de";
+
+// Setzt einen Event-Handler nur, wenn das Element wirklich existiert.
+function safeBind(id, prop, handler) {
+  const el = document.getElementById(id);
+  if (!el) {
+    console.warn(`safeBind: Element #${id} nicht gefunden - "${prop}" wurde NICHT gesetzt.`);
+    return;
+  }
+  if (prop === "addEventListener") {
+    el.addEventListener(handler.event, handler.fn);
+  } else {
+    el[prop] = handler;
+  }
+}
+
+function safeSetValue(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value;
+  else console.warn(`safeSetValue: Element #${id} nicht gefunden.`);
+}
+
+function t(key, vars) {
+  const str = (I18N[currentLang] && I18N[currentLang][key]) || I18N.de[key] || key;
+  if (!vars) return str;
+  return str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? vars[k] : `{${k}}`));
+}
+
+function applyStaticTranslations() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(el.getAttribute("data-i18n"));
+  });
+  document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
+    el.placeholder = t(el.getAttribute("data-i18n-placeholder"));
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.title = t(el.getAttribute("data-i18n-title"));
+  });
+  const langSelect = document.getElementById("languageSelect");
+  if (langSelect) langSelect.value = currentLang;
+  document.documentElement.lang = currentLang;
+}
+
+const WIN_TIERS = [
+  { min: 50, class: "tier-gold" },
+  { min: 25, class: "tier-silver" },
+  { min: 10, class: "tier-bronze" }
+];
+
+function getTierClass(winCount) {
+  for (const tier of WIN_TIERS) {
+    if (winCount >= tier.min) return tier.class;
+  }
+  return "";
+}
+
+function getWinCount(champKey) {
+  return state.winCounts[champKey] || 0;
+}
+
+let state = loadState();
+let championList = [];
+let championByApiName = {};
+let championByKey = {};
+let championByNormName = {};
+let lastFriendsList = null;
+let metaData = null;
+let ddragonVersion = null;
+let communityTierMap = {};
+
+async function loadCommunityTierMap() {
+  try {
+    const res = await authFetch(serverUrl("/community-meta-tiers"));
+    if (!res.ok) return;
+    const list = await res.json();
+    communityTierMap = {};
+    for (const entry of list) {
+      communityTierMap[String(entry.championId)] = { tier: entry.tier || null, score: entry.score };
+    }
+  } catch {
+    communityTierMap = {};
+  }
+}
+
+function normName(s) {
+  return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return defaultState();
+    return { ...defaultState(), ...JSON.parse(raw) };
+  } catch (e) {
+    return defaultState();
+  }
+}
+
+function defaultState() {
+  return {
+    riotId: "",
+    region: "europe",
+    serverUrl: DEFAULT_SERVER_URL,
+    seasonStart: "2026-04-29",
+    wins: {},
+    winCounts: {},
+    matchHistory: {},
+    lastSync: null,
+    // Merkt sich, fuer welche Riot-ID zuletzt erfolgreich /register
+    // aufgerufen wurde. Ist sie identisch mit der aktuellen riotId,
+    // wird /register beim naechsten Speichern/Start NICHT erneut
+    // aufgerufen (das Backend wuerde fuer existierende Nutzer ohnehin
+    // nichts tun, siehe db.registerUser) - schont das Rate-Limit.
+    registeredRiotId: null
+  };
+}
+
+function saveState() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+}
+
+// ---------- UI Init ----------
+
+safeSetValue("riotId", state.riotId);
+safeSetValue("region", state.region);
+safeSetValue("seasonStart", state.seasonStart);
+applyUIPrefs();
+applyTheme(getCurrentTheme());
+applyStaticTranslations();
+
+function applyLanguageChange() {
+  applyStaticTranslations();
+  renderGrid();
+  if (metaData) renderMeta(metaData);
+  renderTop30TrioSection();
+  renderExternalTrioSection();
+  if (currentDetailChamp && !document.getElementById("champDetail").classList.contains("hidden")) {
+    openChampDetail(currentDetailChamp);
+  }
+  if (lastFriendsList) renderFriendsList(lastFriendsList);
+  if (rankingLoadedOnce) {
+    loadRanking(currentRankingMode);
+  }
+  if (viewedPlayerStats) renderPlayerViewGrid();
+}
+
+safeBind("languageSelect", "onchange", (e) => {
+  currentLang = e.target.value === "en" ? "en" : "de";
+  localStorage.setItem(LANG_STORAGE_KEY, currentLang);
+  applyLanguageChange();
+});
+
+safeBind("themeToggle", "onclick", toggleTheme);
+
+const DEFAULT_SEASON_START = "2026-04-29";
+safeBind("resetSeasonStart", "onclick", () => {
+  safeSetValue("seasonStart", DEFAULT_SEASON_START);
+});
+
+safeBind("settingsToggle", "onclick", () => {
+  document.getElementById("settingsPanel").classList.toggle("hidden");
+});
+
+safeBind("friendsToggle", "onclick", () => {
+  document.getElementById("friendsPanel").classList.toggle("hidden");
+});
+
+safeBind("saveSettings", "onclick", async () => {
+  state.riotId = document.getElementById("riotId").value.trim();
+  state.region = document.getElementById("region").value;
+  const newSeasonStart = document.getElementById("seasonStart").value;
+  const seasonStartChanged = newSeasonStart !== state.seasonStart;
+  state.seasonStart = newSeasonStart;
+  saveState();
+  document.getElementById("settingsPanel").classList.add("hidden");
+  showToast("Einstellungen gespeichert, lade Daten...", "info");
+  await registerAndLoad();
+  if (seasonStartChanged) {
+    showToast("Season-Start aktualisiert, Sync läuft im Hintergrund...", "info");
+    await updateSeasonOnServer();
+  }
+  loadMetaData();
+  loadFriends();
+  showToast("Daten aktualisiert ✅", "success", 2500);
+});
+
+safeBind("resetData", "onclick", () => {
+  if (!confirm(t("resetConfirm"))) return;
+  state.wins = {};
+  state.winCounts = {};
+  state.matchHistory = {};
+  state.lastSync = null;
+  saveState();
+  renderGrid();
+  setStatus(t("statusResetDone"));
+});
+
+safeBind("filterInput", "oninput", () => { persistUIPrefs(); renderGrid(); });
+safeBind("onlyMissing", "onchange", () => { persistUIPrefs(); renderGrid(); });
+safeBind("sortMode", "onchange", () => { persistUIPrefs(); renderGrid(); });
+
+// ---------- NEU: Manueller Sync-Button ----------
+safeBind("manualSyncBtn", "onclick", async () => {
+  if (!state.riotId) {
+    showToast("Bitte zuerst Riot-ID in den Einstellungen eintragen.", "warning");
+    return;
+  }
+  const btn = document.getElementById("manualSyncBtn");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "⏳";
+  }
+  const runningToast = showToast("Sync läuft... kann bis zu 60s dauern.", "info", 8000);
+
+  try {
+    const res = await authFetch(serverUrl("/account/me/sync"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ riotId: state.riotId })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      // Bei Rate-Limit (429) liefert der Server retryAt mit - zeigt dem
+      // Nutzer eine konkrete Uhrzeit, ab wann der naechste manuelle
+      // Sync wieder moeglich ist.
+      const retryTime = data.retryAt ? formatRetryTime(data.retryAt) : null;
+      const msg = retryTime ? `${data.error} (wieder möglich um ${retryTime} Uhr)` : (data.error || "Sync fehlgeschlagen");
+      throw new Error(msg);
+    }
+
+    runningToast.dismiss();
+    showToast(`Sync fertig: ${data.newMatchesProcessed} neue(s) Match(es) ✅`, "success");
+    const stats = await fetchStatsFromServer();
+    applyStats(stats);
+  } catch (err) {
+    // "Sync laeuft..." sofort weg, statt noch Sekunden parallel zur
+    // roten Fehlermeldung stehen zu bleiben (z.B. bei Rate-Limit, das
+    // sofort beim ersten Request zurueckkommt).
+    runningToast.dismiss();
+    showToast("Sync-Fehler: " + err.message, "error", 8000);
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "🔄";
+    }
+  }
+});
+
+// ---------- NEU: Tastatur-Shortcuts ----------
+document.addEventListener("keydown", (e) => {
+  const tag = (e.target.tagName || "").toLowerCase();
+  if (tag === "input" || tag === "select" || tag === "textarea") return;
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+
+  switch (e.key) {
+    case "/":
+      e.preventDefault();
+      document.getElementById("filterInput")?.focus();
+      break;
+    case "Escape": {
+      const tooltip = document.getElementById("champTooltip");
+      if (tooltip && !tooltip.classList.contains("hidden")) {
+        tooltip.classList.add("hidden");
+        break;
+      }
+      const detail = document.getElementById("champDetail");
+      if (detail && !detail.classList.contains("hidden")) {
+        detail.classList.add("hidden");
+        const grid = document.getElementById("grid");
+        if (grid) grid.classList.remove("hidden");
+        const t30 = document.getElementById("top30Trio");
+        if (t30) t30.classList.remove("hidden");
+        const extTrio = document.getElementById("externalTrio");
+        if (extTrio) extTrio.classList.remove("hidden");
+        const rp = document.getElementById("rankingPanel");
+        if (rp) rp.classList.remove("hidden");
+        break;
+      }
+      const playerView = document.getElementById("playerViewOverlay");
+      if (playerView && !playerView.classList.contains("hidden")) {
+        playerView.classList.add("hidden");
+        break;
+      }
+      document.getElementById("settingsPanel")?.classList.add("hidden");
+      document.getElementById("friendsPanel")?.classList.add("hidden");
+      break;
+    }
+    case "s":
+    case "S":
+      document.getElementById("settingsPanel")?.classList.toggle("hidden");
+      break;
+    case "f":
+    case "F":
+      document.getElementById("friendsPanel")?.classList.toggle("hidden");
+      break;
+    case "?":
+      showToast("Shortcuts: / = Suche · Esc = Schließen · S = Settings · F = Freunde", "info", 5000);
+      break;
+  }
+});
+
+// ---------- NEU: Mobile Long-Press für Tooltips ----------
+let longPressTimer = null;
+let longPressTarget = null;
+
+document.addEventListener("touchstart", (e) => {
+  if (e.touches.length !== 1) return;
+  const champDiv = e.target.closest?.(".champ");
+  if (!champDiv) return;
+
+  longPressTarget = champDiv;
+  longPressTimer = setTimeout(() => {
+    if (longPressTarget === champDiv) {
+      const touch = e.touches[0];
+      const champName = champDiv.querySelector("span")?.textContent;
+      const champ = championList.find(c => c.name === champName);
+      if (champ) {
+        showChampTooltip({ clientX: touch.clientX, clientY: touch.clientY }, champ);
+        navigator.vibrate?.(30);
+      }
+    }
+  }, 500);
+}, { passive: true });
+
+document.addEventListener("touchend", () => {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+  setTimeout(() => {
+    if (longPressTarget === null) hideChampTooltip();
+  }, 100);
+  longPressTarget = null;
+});
+
+document.addEventListener("touchmove", () => {
+  if (longPressTimer) {
+    clearTimeout(longPressTimer);
+    longPressTimer = null;
+  }
+}, { passive: true });
+
+// ---------- NEU: Auto-Refresh der Stats ----------
+const AUTO_REFRESH_INTERVAL_MS = 5 * 60 * 1000;
+const STALE_THRESHOLD_MS = 6 * 60 * 60 * 1000;
+
+let autoRefreshTimer = null;
+function startAutoRefresh() {
+  if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+  autoRefreshTimer = setInterval(async () => {
+    if (!state.riotId || !state.lastSync) return;
+    if (document.hidden) return;
+    const lastSyncMs = new Date(state.lastSync).getTime();
+    if (Date.now() - lastSyncMs < STALE_THRESHOLD_MS) return;
+
+    console.log("[Auto-Refresh] Stats sind älter als 6h, lade neu...");
+    try {
+      const stats = await fetchStatsFromServer();
+      applyStats(stats);
+      setStatus(t("statusConnected", { time: formatLastSync(stats.lastSync) }));
+    } catch (err) {
+      console.warn("[Auto-Refresh] fehlgeschlagen:", err.message);
+    }
+  }, AUTO_REFRESH_INTERVAL_MS);
+}
+startAutoRefresh();
+
+function setStatus(text) {
+  document.getElementById("statusText").textContent = text;
+}
+
+// ---------- Data Dragon: Champion-Liste ----------
+
+async function loadChampionList() {
+  const versionsRes = await fetch("https://ddragon.leagueoflegends.com/api/versions.json");
+  const versions = await versionsRes.json();
+  const latest = versions[0];
+  ddragonVersion = latest;
+
+  const champRes = await fetch(
+    `https://ddragon.leagueoflegends.com/cdn/${latest}/data/de_DE/champion.json`
+  );
+  const champData = await champRes.json();
+
+  championList = Object.values(champData.data)
+    .map((c) => ({
+      key: c.key,
+      id: c.id,
+      name: c.name,
+      icon: `https://ddragon.leagueoflegends.com/cdn/${latest}/img/champion/${c.image.full}`
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+
+  championByApiName = {};
+  for (const c of championList) {
+    championByApiName[c.id] = c;
+  }
+  championByKey = {};
+  for (const c of championList) {
+    championByKey[c.key] = c;
+  }
+  championByNormName = {};
+  for (const c of championList) {
+    championByNormName[normName(c.id)] = c;
+  }
+}
+
+// ---------- Server-Kommunikation ----------
+
+function serverUrl(path) {
+  return `${state.serverUrl}${path}`;
+}
+
+// GEÄNDERT: nutzt jetzt authFetch statt fetch (für Secret-Header)
+async function registerWithServer() {
+  const res = await authFetch(serverUrl("/register"), {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      riotId: state.riotId,
+      region: state.region,
+      seasonStart: state.seasonStart
+    })
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    const err = new Error(data.error || t("registrationFailed", { status: res.status }));
+    // Bei Rate-Limit (429) liefert der Server retryAfterSeconds/retryAt
+    // mit - wird hier am Error mitgegeben, damit registerAndLoad() dem
+    // Nutzer anzeigen kann, WANN es wieder geht statt nur "spaeter".
+    if (data.retryAt) err.retryAt = data.retryAt;
+    if (data.retryAfterSeconds) err.retryAfterSeconds = data.retryAfterSeconds;
+    throw err;
+  }
+  state.registeredRiotId = state.riotId;
+  saveState();
+  return res.json();
+}
+
+// Formatiert einen ISO-Zeitstempel als lokale Uhrzeit (HH:MM:SS), inkl.
+// "morgen", falls der Reset erst am naechsten Tag liegt.
+function formatRetryTime(retryAt) {
+  try {
+    const d = new Date(retryAt);
+    const now = new Date();
+    const isToday = d.toDateString() === now.toDateString();
+    const time = d.toLocaleTimeString("de-DE", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    return isToday ? time : `${d.toLocaleDateString("de-DE")} ${time}`;
+  } catch {
+    return null;
+  }
+}
+
+async function fetchStatsFromServer() {
+  const encodedId = encodeURIComponent(state.riotId);
+  const res = await authFetch(serverUrl(`/stats/${encodedId}`));
+  if (res.status === 404) {
+    throw new Error(t("rankNotRegistered404"));
+  }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error || t("statsFetchFailed", { status: res.status }));
+  }
+  return res.json();
+}
+
+async function updateSeasonOnServer() {
+  try {
+    const encodedId = encodeURIComponent(state.riotId);
+    const res = await authFetch(serverUrl(`/season/${encodedId}`), {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ seasonStart: state.seasonStart })
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error || t("seasonUpdateFailed", { status: res.status }));
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus(t("statusSeasonUpdateError", { msg: err.message }));
+  }
+}
+
+// ---------- NEU: registerAndLoad mit Lade-Indikator ----------
+async function registerAndLoad() {
+  if (!state.riotId || !state.serverUrl) {
+    setStatus(t("statusEnterRiotIdServer"));
+    document.getElementById("settingsPanel").classList.remove("hidden");
+    return;
+  }
+  // /register ist rate-limitiert (5x/h pro IP) und macht beim Backend
+  // fuer bereits registrierte Riot-IDs ohnehin nichts (siehe db.js
+  // registerUser - existierende Nutzer werden unveraendert
+  // zurueckgegeben). Daher: nur aufrufen, wenn sich die Riot-ID seit
+  // der letzten erfolgreichen Registrierung geaendert hat. Spart das
+  // Limit fuer Faelle wie "nur Settings-Panel erneut speichern" oder
+  // App-Neustart mit unveraenderter ID.
+  const needsRegister = state.riotId !== state.registeredRiotId;
+  try {
+    setStatus(t("statusConnecting"));
+    showLoadingIndicator("Verbinde mit Server...");
+
+    if (needsRegister) {
+      const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("timeout")), 8000)
+      );
+
+      try {
+        await Promise.race([registerWithServer(), timeoutPromise]);
+      } catch (err) {
+        if (err.message === "timeout") {
+          showLoadingIndicator("Server startet (Kaltstart kann 60s dauern)...");
+          await registerWithServer();
+        } else {
+          throw err;
+        }
+      }
+    }
+
+    setStatus(t("statusLoadingStats"));
+    showLoadingIndicator("Lade Stats...");
+    const stats = await fetchStatsFromServer();
+    applyStats(stats);
+    setStatus(t("statusConnected", { time: formatLastSync(stats.lastSync) }));
+    hideLoadingIndicator();
+    showToast("Verbunden ✅", "success", 2000);
+  } catch (err) {
+    console.error(err);
+    hideLoadingIndicator();
+    // Bei Rate-Limit (429) liefert der Server retryAt mit - zeigt dem
+    // Nutzer eine konkrete Uhrzeit statt nur "spaeter erneut versuchen".
+    const retryTime = err.retryAt ? formatRetryTime(err.retryAt) : null;
+    const msg = retryTime ? `${err.message} (wieder möglich um ${retryTime} Uhr)` : err.message;
+    setStatus(t("errorPrefix") + msg);
+    showToast("Verbindung fehlgeschlagen: " + msg, "error", retryTime ? 10000 : 6000);
+  }
+}
+
+function applyStats(stats) {
+  state.wins = stats.wins || {};
+  state.winCounts = stats.winCounts || {};
+  state.matchHistory = stats.matchHistory || {};
+  state.lastSync = stats.lastSync || null;
+  saveState();
+  renderGrid();
+  updateSeasonProgress();
+}
+
+function formatLastSync(lastSync) {
+  return lastSync ? new Date(lastSync).toLocaleString(currentLang === "de" ? "de-DE" : "en-US") : t("neverSynced");
+}
+
+// ---------- NEU: Saison-Fortschrittsbalken ----------
+function updateSeasonProgress() {
+  const bar = document.getElementById("seasonProgress");
+  const fill = document.getElementById("seasonProgressFill");
+  const label = document.getElementById("seasonProgressLabel");
+  const count = document.getElementById("seasonProgressCount");
+  if (!bar || !fill || !label || !count) return;
+
+  const wonCount = Object.keys(state.wins || {}).length;
+  const total = championList.length;
+  const pct = total > 0 ? Math.round((wonCount / total) * 100) : 0;
+
+  bar.style.display = total > 0 ? "flex" : "none";
+  fill.style.width = pct + "%";
+  label.textContent = pct + "%";
+  count.textContent = wonCount + " / " + total;
+}
+
+// ---------- Rendering ----------
+
+const META_TIER_ORDER = ["S+", "S", "A", "B", "C", "D"];
+
+function metaTierBadgeClass(tier) {
+  if (tier === "S+") return "metaTier-splus";
+  if (tier === "S") return "metaTier-s";
+  if (tier === "A") return "metaTier-a";
+  if (tier === "B") return "metaTier-b";
+  if (tier === "C") return "metaTier-c";
+  if (tier === "D") return "metaTier-d";
+  return "metaTier-unknown";
+}
+
+function buildChampDiv(champ, options) {
+  const showScore = options && options.showScore;
+  const winCount = getWinCount(champ.key);
+  const hasWin = winCount > 0;
+  const hasGames = !!(state.matchHistory[champ.key] && state.matchHistory[champ.key].length > 0);
+
+  let status;
+  if (hasWin) status = "won";
+  else if (hasGames) status = "lost";
+  else status = "missing";
+
+  const tierClass = getTierClass(winCount);
+  const tierInfo = communityTierMap[champ.key];
+  const scoreText = showScore && tierInfo && tierInfo.score != null ? tierInfo.score.toFixed(2) : null;
+
+  const div = document.createElement("div");
+  div.className = "champ " + status + (tierClass ? " " + tierClass : "");
+  div.innerHTML = `
+    <img src="${champ.icon}" alt="${champ.name}" />
+    ${hasWin ? `<span class="winBadge">${winCount}</span>` : ""}
+    <span>${champ.name}</span>
+    ${scoreText ? `<span class="champScoreLabel">${scoreText}</span>` : ""}
+  `;
+  div.addEventListener("mouseenter", (e) => showChampTooltip(e, champ));
+  div.addEventListener("mousemove", positionTooltip);
+  div.addEventListener("mouseleave", hideChampTooltip);
+  div.addEventListener("click", () => openChampDetail(champ));
+  return { div, hasWin };
+}
+
+function renderGrid() {
+  const grid = document.getElementById("grid");
+  const filterText = document.getElementById("filterInput").value.toLowerCase();
+  const onlyMissing = document.getElementById("onlyMissing").checked;
+  const sortMode = document.getElementById("sortMode").value;
+
+  grid.innerHTML = "";
+  let wonCount = 0;
+
+  let visible = championList.filter((c) => c.name.toLowerCase().includes(filterText));
+
+  if (sortMode === "wins") {
+    visible = visible.slice().sort((a, b) => {
+      const diff = getWinCount(b.key) - getWinCount(a.key);
+      return diff !== 0 ? diff : a.name.localeCompare(b.name);
+    });
+  }
+
+  if (sortMode === "tier") {
+    const groups = {};
+    for (const tier of META_TIER_ORDER) groups[tier] = [];
+    groups.unknown = [];
+
+    for (const champ of visible) {
+      const winCount = getWinCount(champ.key);
+      const hasWin = winCount > 0;
+      if (onlyMissing && hasWin) continue;
+      const tierInfo = communityTierMap[champ.key];
+      const tier = tierInfo && tierInfo.tier;
+      const bucket = tier && groups[tier] ? tier : "unknown";
+      groups[bucket].push(champ);
+      if (hasWin) wonCount++;
+    }
+    for (const tier of META_TIER_ORDER) {
+      groups[tier].sort((a, b) => {
+        const scoreA = (communityTierMap[a.key] && communityTierMap[a.key].score) || 0;
+        const scoreB = (communityTierMap[b.key] && communityTierMap[b.key].score) || 0;
+        return scoreB - scoreA || a.name.localeCompare(b.name);
+      });
+    }
+    groups.unknown.sort((a, b) => a.name.localeCompare(b.name));
+
+    const orderedTiers = [...META_TIER_ORDER, "unknown"];
+    for (const tier of orderedTiers) {
+      const champs = groups[tier];
+      if (!champs.length) continue;
+
+      const header = document.createElement("div");
+      header.className = "tierSectionHeader";
+      header.innerHTML = `
+        <span class="metaTierBadge ${metaTierBadgeClass(tier)}">${tier === "unknown" ? "?" : tier}</span>
+        <span class="tierSectionLabel">${tier === "unknown" ? t("tierUnknown") : t("tierSectionStufe")}</span>
+        <span class="tierSectionCount">${champs.length}</span>
+      `;
+      grid.appendChild(header);
+
+      const subGrid = document.createElement("div");
+      subGrid.className = "tierSectionGrid";
+      for (const champ of champs) {
+        const { div } = buildChampDiv(champ, { showScore: true });
+        subGrid.appendChild(div);
+      }
+      grid.appendChild(subGrid);
+    }
+
+    document.getElementById("summaryText").textContent =
+      t("summaryWon", { won: wonCount, total: championList.length });
+    updateOverallStats();
+    updateSeasonProgress();
+    return;
+  }
+
+  for (const champ of visible) {
+    const winCount = getWinCount(champ.key);
+    const hasWin = winCount > 0;
+    if (hasWin) wonCount++;
+    if (onlyMissing && hasWin) continue;
+
+    const { div } = buildChampDiv(champ);
+    grid.appendChild(div);
+  }
+
+  document.getElementById("summaryText").textContent =
+    t("summaryWon", { won: wonCount, total: championList.length });
+
+  updateOverallStats();
+  updateSeasonProgress();
+}
+
+function updateOverallStats() {
+  let totalGames = 0;
+  let totalWins = 0;
+  for (const champKey in state.matchHistory) {
+    const games = state.matchHistory[champKey] || [];
+    totalGames += games.length;
+    totalWins += games.filter((g) => g.placement === 1).length;
+  }
+  const totalLosses = totalGames - totalWins;
+  document.getElementById("overallStatsText").textContent =
+    t("overallStats", { games: totalGames, wins: totalWins, losses: totalLosses });
+}
+
+function showChampTooltip(e, champ) {
+  const tooltip = document.getElementById("champTooltip");
+  const history = (state.matchHistory[champ.key] || [])
+    .slice()
+    .sort((a, b) => b.date - a.date);
+
+  let html = `<div class="tooltipTitle">${champ.name}</div>`;
+
+  if (history.length === 0) {
+    html += `<div class="tooltipEmpty">${t("tooltipNoGames")}</div>`;
+  } else {
+    html += `<div class="tooltipCount">${t("tooltipGamesCount", { count: history.length })}</div>`;
+    html += `<ul class="tooltipList">`;
+    const dateLocale = currentLang === "de" ? "de-DE" : "en-US";
+    for (const g of history) {
+      const isWin = g.placement === 1;
+      const dateStr = new Date(g.date).toLocaleDateString(dateLocale, { day: "2-digit", month: "2-digit" });
+      const placementText = currentLang === "de" ? `${g.placement}. Platz` : `${ordinal(g.placement)} place`;
+      const placementBadge = `<span class="placementBadge ${isWin ? "placementWin" : "placementLose"}">${placementText}</span>`;
+      const mates = g.teammates && g.teammates.length
+        ? g.teammates.map((m) => {
+            const champData = championByApiName[m.champion];
+            const icon = champData
+              ? `<img src="${champData.icon}" alt="${champData.name}" />`
+              : "";
+            return `<span class="tooltipMate">${icon}${m.summoner}</span>`;
+          }).join("")
+        : "?";
+      html += `<li class="${isWin ? "tooltipWin" : "tooltipLose"}">
+        <div class="tooltipDate">${dateStr} ${placementBadge}</div>
+        <div class="tooltipMates">${mates}</div>
+      </li>`;
+    }
+    html += `</ul>`;
+  }
+
+  tooltip.innerHTML = html;
+  tooltip.classList.remove("hidden");
+  positionTooltip(e);
+}
+
+function positionTooltip(e) {
+  const tooltip = document.getElementById("champTooltip");
+  const offset = 14;
+  let x = e.clientX + offset;
+  let y = e.clientY + offset;
+  const rect = tooltip.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
+  if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
+  tooltip.style.left = x + "px";
+  tooltip.style.top = y + "px";
+}
+
+function hideChampTooltip() {
+  document.getElementById("champTooltip").classList.add("hidden");
+}
+
+function formatSeasonStart() {
+  return state.seasonStart
+    ? new Date(state.seasonStart).toLocaleDateString("de-DE")
+    : "Season-Start";
+}
+
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+async function loadMetaData() {
+  try {
+    const res = await authFetch(serverUrl("/meta"));
+    if (!res.ok) return;
+    const data = await res.json();
+    metaData = data;
+    renderTop30TrioSection();
+  } catch (err) {
+    console.error("Meta-Daten konnten nicht geladen werden:", err);
+  }
+}
+
+// ---------- Champion-Detailansicht (Klick auf eine Kachel im Grid) ----------
+// Zeigt zu einem einzelnen Champion: beste Trio-Partner (aus den bereits
+// geladenen /meta-Daten, gleiche Quelle wie die Tages-Meta-Box), sowie
+// beste Items/Augments, falls der Server dafuer Daten liefert
+// (data.championBuilds, siehe Server-Doku). Reine Arena-Daten - ARAM
+// wird hier bewusst nicht beruecksichtigt.
+
+// Findet alle Trio-Kombinationen aus den Meta-Daten, in denen der
+// uebergebene Champion vorkommt (egal ob als "champion" oder "partner"),
+// und gibt jeweils die beiden anderen Champions + Tier/Winrate zurueck.
+function getBestPartners(champ) {
+  if (!metaData || !metaData.trioCombos) return [];
+  const target = normName(champ.id);
+  const results = [];
+  for (const combo of metaData.trioCombos) {
+    const allNames = [combo.champion, ...(combo.partners || [])];
+    if (!allNames.some((n) => normName(n) === target)) continue;
+    const others = allNames.filter((n) => normName(n) !== target);
+    results.push({ partners: others, tier: combo.tier, winRate: combo.winRate });
+  }
+  // Beste zuerst: hoehere Winrate vor niedrigerer.
+  results.sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
+  return results;
+}
+
+// Loest einen Anzeigenamen (z.B. "Cho'Gath") ueber den normalisierten
+// Index wieder auf ein echtes Champion-Objekt (mit Icon) auf, damit die
+// Partnerliste mit Bild statt nur Text dargestellt werden kann.
+function resolveChampByName(displayName) {
+  return championByNormName[normName(displayName)] || null;
+}
+
+function getChampBuild(champ) {
+  if (!metaData || !metaData.championBuilds) return null;
+  return metaData.championBuilds[normName(champ.id)] || null;
+}
+
+let currentDetailChamp = null; // zuletzt geoeffneter Champion, fuer den Rueckweg von der Item-/Augment-Ansicht
+
+// ---- Linke Spalte: beste Trio-Partner fuer den aktuellen Champion ----
+function renderBestPartnersColumn(champ) {
+  const partners = getBestPartners(champ);
+  let html = `<div class="detailSection"><h3>${t("champDetailBestPartners")}</h3>`;
+  if (partners.length === 0) {
+    html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
+  } else {
+    html += `<ul class="detailPartnerList">`;
+    for (const p of partners) {
+      const partnerHtml = p.partners.map((name) => {
+        const c = resolveChampByName(name);
+        const icon = c ? `<img src="${c.icon}" alt="${c.name}" />` : "";
+        return `<span class="detailPartner">${icon}${c ? c.name : name}</span>`;
+      }).join("");
+      const winRateText = typeof p.winRate === "number" ? `${p.winRate.toFixed(1)}%` : "";
+      html += `
+        <li>
+          <span class="metaTier">${p.tier || ""}</span>
+          <span class="detailPartnerGroup">${partnerHtml}</span>
+          <span class="detailWinRate">${winRateText}</span>
+        </li>
+      `;
+    }
+    html += `</ul>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+// ---- Eigene, IMMER sichtbare Section: globale Top-30-Trio-Compositions
+// nach Winrate (oberhalb des Grids, NICHT Teil der Champion-Detailansicht).
+// Wird einmal nach jedem /meta-Laden sowie bei Sprachwechsel neu gerendert.
+function renderTop30TrioSection() {
+  const section = document.getElementById("top30Trio");
+  if (!section) return;
+  const combos = (metaData && metaData.trioCombos) ? metaData.trioCombos.slice() : [];
+
+  let html = `<h3>${t("topTrioHeading")}</h3>`;
+  if (combos.length === 0) {
+    html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
+  } else {
+    combos.sort((a, b) => (b.winRate || 0) - (a.winRate || 0));
+    html += `<ul class="detailTrioList">`;
+    combos.slice(0, 30).forEach((c, i) => {
+      const names = [c.champion, ...(c.partners || [])];
+      const iconsHtml = names.map((n) => {
+        const champ = championByNormName[normName(n)];
+        return champ
+          ? `<img src="${champ.icon}" alt="${n}" class="trioChampIcon" />`
+          : `<span class="dbIconFallback trioChampIconFallback">${n.slice(0, 2).toUpperCase()}</span>`;
+      }).join("");
+      const comboTitle = names.join("+");
+      const winRateText = typeof c.winRate === "number" ? `${c.winRate.toFixed(1)}%` : "";
+      html += `
+        <li>
+          <span class="detailTrioRank">${i + 1}.</span>
+          <span class="metaTier">${c.tier || ""}</span>
+          <span class="detailTrioNames trioIconGroup" title="${comboTitle}">${iconsHtml}</span>
+          <span class="detailWinRate">${winRateText}</span>
+        </li>
+      `;
+    });
+    html += `</ul>`;
+  }
+  section.innerHTML = html;
+}
+
+// ---- Externe Meta-Trios, getrennt von den eigenen
+// gespielten Trios oben. Eigene Collection "externalTrioMeta" im
+// Backend, eigener Endpoint /community-meta-trios. Wird einmal beim
+// Start geladen (kein automatisches Re-Fetch, da sich diese Daten nur
+// per manuellem Re-Import aendern, nicht durch eigene Matches).
+let externalTrioData = null;
+
+async function loadExternalTrioMeta() {
+  try {
+    const res = await authFetch(serverUrl("/community-meta-trios?limit=30"));
+    if (!res.ok) return;
+    externalTrioData = await res.json();
+    renderExternalTrioSection();
+  } catch (err) {
+    console.error("[ExternalTrioMeta] Laden fehlgeschlagen:", err);
+  }
+}
+
+function renderExternalTrioSection() {
+  const section = document.getElementById("externalTrio");
+  if (!section) return;
+  const combos = Array.isArray(externalTrioData) ? externalTrioData : [];
+
+  let html = `<h3>${t("externalTrioHeading")}</h3>`;
+  if (combos.length === 0) {
+    html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
+  } else {
+    html += `<ul class="detailTrioList">`;
+    combos.slice(0, 30).forEach((c, i) => {
+      const names = c.champions || [];
+      const iconsHtml = names.map((n) => {
+        const champ = championByNormName[normName(n)];
+        return champ
+          ? `<img src="${champ.icon}" alt="${n}" class="trioChampIcon" />`
+          : `<span class="dbIconFallback trioChampIconFallback">${n.slice(0, 2).toUpperCase()}</span>`;
+      }).join("");
+      // Gemeinsamer Tooltip auf der ganzen Gruppe statt pro Icon einzeln -
+      // zeigt beim Hover die komplette Trio-Kombo, z.B. "Master Yi+Taric+Yumi".
+      const comboTitle = names.join("+");
+      const winRateText = typeof c.winRate === "number" ? `${c.winRate.toFixed(1)}%` : "";
+      html += `
+        <li>
+          <span class="detailTrioRank">${i + 1}.</span>
+          <span class="detailTrioNames trioIconGroup" title="${comboTitle}">${iconsHtml}</span>
+          <span class="detailWinRate">${winRateText}</span>
+        </li>
+      `;
+    });
+    html += `</ul>`;
+  }
+  section.innerHTML = html;
+}
+
+// ============================================================
+// Items & Augments Browser (eigenes Vollbild-Modal)
+// ============================================================
+// Daten kommen einmalig importiert aus /arena-augments + /arena-items
+// (kein Live-CDragon-Request). Lazy geladen, erst beim ersten Oeffnen
+// des Modals - nicht beim App-Start, um die Erstladezeit nicht zu
+// belasten.
+let arenaAugmentsData = null;
+let arenaItemsData = null;
+let iaTooltipEl = null;
+let iaSelectedEntry = null; // { entry, kind: "augment"|"item" } oder null
+let iaAugmentByApiName = {};
+let iaItemByName = {};
+let iaSearchTerm = "";
+let iaEditMode = false;
+let iaEditingAnchor = null; // { entry, kind } - die Entitaet, die aktuell bearbeitet wird
+let iaEditingPartnerIds = new Set(); // "type:key" der aktuellen Synergie-Partner des Ankers
+let iaEditSearchTerm = ""; // Suchbegriff im Synergie-Editor-Grid
+let iaCategoryFilter = ""; // "" = alle, sonst Key aus IA_CATEGORIES
+let iaPresetMode = false;
+let iaPresetSearchTerm = "";
+let iaPresetSelectedEntries = new Map(); // iaEntityId -> {type, key, name, icon, tier}
+let iaEditingPresetId = null; // _id des Presets im Bearbeiten-Modus, null = Neuanlage
+let iaPresetsCache = null; // alle existierenden Presets vom Server
+
+// Inhaltliche Kategorien per Stichwort-Abgleich (DE+EN) gegen Name +
+// Beschreibung eines Augments/Items. Bewusst simple Substring-Suche
+// statt echter NLP - reicht fuer "zeig mir alles mit Heilung" o.ae.
+// und ist sofort nachvollziehbar/erweiterbar.
+const IA_CATEGORIES = {
+  healing: {
+    labelDe: "Heilung", labelEn: "Healing",
+    keywords: ["heal", "lifesteal", "omnivamp", "regenerat", "heilen", "heilung", "lebensraub", "lebensentzug"]
+  },
+  damage: {
+    labelDe: "Schaden", labelEn: "Damage",
+    keywords: ["damage", "schaden", "ability power", "attack damage", "fähigkeitsstärke", "angriffsschaden"]
+  },
+  health: {
+    labelDe: "Leben", labelEn: "Health",
+    keywords: ["health", "max hp", "leben", "lebenspunkte", "gesundheit"]
+  },
+  resistance: {
+    labelDe: "Resistenzen", labelEn: "Resistances",
+    keywords: ["armor", "magic resist", "rüstung", "resistenz", "magieresistenz"]
+  },
+  movement: {
+    labelDe: "Tempo/Bewegung", labelEn: "Movement/Haste",
+    keywords: ["move speed", "ability haste", "dash", "slow", "bewegungstempo", "fähigkeitstempo", "verlangsam"]
+  },
+  shield: {
+    labelDe: "Schild", labelEn: "Shield",
+    keywords: ["shield", "schild"]
+  },
+  crit: {
+    labelDe: "Crit", labelEn: "Crit",
+    keywords: ["critical strike", "crit chance", "kritisch", "krit"]
+  },
+  attackSpeed: {
+    labelDe: "Angriffstempo", labelEn: "Attack Speed",
+    keywords: ["attack speed", "angriffstempo"]
+  },
+  utility: {
+    labelDe: "Utility", labelEn: "Utility",
+    keywords: ["cooldown", "mana", "abklingzeit"]
+  },
+  cc: {
+    labelDe: "CC", labelEn: "CC",
+    keywords: [
+      "stun", "betäub", "root", "wurzel", "snare", "fessel", "knock up", "knockup", "hochschleuder",
+      "knockback", "zurückstoß", "fear", "furcht", "charm", "bezauber", "taunt", "verspott",
+      "silence", "zum schweigen", "suppress", "unterdrück", "polymorph", "verwandl",
+      "immobiliz", "festsetz", "bewegungsunfähig", "slow", "verlangsam",
+      "crowd control", "kontrollierten gegner", "stunned enemy", "immobilized enemy"
+    ]
+  }
+};
+
+function iaEntryCategories(entry, name, desc) {
+  const haystack = normName(`${name} ${desc}`);
+  return Object.keys(IA_CATEGORIES).filter((key) =>
+    IA_CATEGORIES[key].keywords.some((kw) => haystack.includes(normName(kw)))
+  );
+}
+
+async function loadArenaItemsAugments() {
+  if (arenaAugmentsData && arenaItemsData) return true;
+  try {
+    const [augRes, itemRes] = await Promise.all([
+      authFetch(serverUrl("/arena-augments")),
+      authFetch(serverUrl("/arena-items"))
+    ]);
+    if (!augRes.ok || !itemRes.ok) throw new Error("HTTP " + augRes.status + "/" + itemRes.status);
+    arenaAugmentsData = await augRes.json();
+    arenaItemsData = await itemRes.json();
+    iaAugmentByApiName = {};
+    for (const a of arenaAugmentsData) iaAugmentByApiName[a.apiName] = a;
+    iaItemByName = {};
+    for (const i of arenaItemsData) {
+      iaItemByName[normName(i.name.de)] = i;
+      iaItemByName[normName(i.name.en)] = i;
+    }
+    return true;
+  } catch (err) {
+    console.error("[ItemsAugments] Laden fehlgeschlagen:", err);
+    return false;
+  }
+}
+
+function openItemsAugmentsModal() {
+  document.getElementById("itemsAugmentsOverlay").classList.remove("hidden");
+  const searchInput = document.getElementById("iaSearchInput");
+  if (searchInput) searchInput.value = "";
+  iaSearchTerm = "";
+  renderItemsAugmentsModal();
+  loadArenaItemsAugments().then((ok) => {
+    if (ok) renderItemsAugmentsModal();
+    else {
+      document.getElementById("iaAugmentsList").innerHTML = `<p class="detailEmpty">${t("iaLoadError")}</p>`;
+    }
+  });
+}
+
+function closeItemsAugmentsModal() {
+  document.getElementById("itemsAugmentsOverlay").classList.add("hidden");
+  hideIaTooltip();
+  backToItemsAugmentsBrowse();
+}
+
+const IA_AUGMENT_TIERS = ["silver", "gold", "prismatic"];
+const IA_ITEM_TIERS = ["quest", "boots", "legendary", "prismatic", "anvil", "juice"];
+
+function iaEntryName(entry) {
+  return (entry.name && entry.name[currentLang]) || (entry.name && entry.name.de) || "";
+}
+function iaEntryDesc(entry) {
+  return (entry.desc && entry.desc[currentLang]) || (entry.desc && entry.desc.de) || "";
+}
+
+// Baut die kompakte Entitaets-Referenz, die die generische Synergie-API
+// erwartet/zurueckgibt. key = apiName bei Augments, EN-Name bei Items
+// (stabiler als der jeweils aktuell angezeigte Sprachname).
+function iaEntityRef(entry, kind) {
+  return {
+    type: kind,
+    key: kind === "augment" ? (entry.apiName || entry.name?.en || entry.name?.de) : (entry.name?.en || entry.name?.de),
+    name: entry.name,
+    icon: entry.icon || null,
+    tier: entry.tier
+  };
+}
+function iaEntityId(ref) {
+  return `${ref.type}:${ref.key}`;
+}
+
+function renderIaTierGroup(entries, tier, kind) {
+  const tierEntries = entries.filter((e) => e.tier === tier);
+  if (tierEntries.length === 0) return "";
+  const label = t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1));
+  let html = `<div class="iaTierGroup"><div class="iaTierLabel tier-${tier}" data-tier-toggle>${label} (${tierEntries.length})</div><div class="iaGrid">`;
+  for (const e of tierEntries) {
+    const name = iaEntryName(e);
+    const cls = ["iaTile"];
+    const dataAttr = kind === "augment" ? ` data-augment="${e.apiName}"` : ` data-item="${name}"`;
+    if (e.icon) {
+      html += `<div class="${cls.join(" ")}"${dataAttr} data-kind="${kind}" data-idx="${entries.indexOf(e)}" data-name="${name}">
+        <img src="${e.icon}" alt="${name}" loading="lazy" />
+      </div>`;
+    } else {
+      html += `<div class="${cls.join(" ")} fallback"${dataAttr} data-kind="${kind}" data-idx="${entries.indexOf(e)}" data-name="${name}">${name.slice(0, 3)}</div>`;
+    }
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+function renderItemsAugmentsModal() {
+  const augList = document.getElementById("iaAugmentsList");
+  const itemList = document.getElementById("iaItemsList");
+  if (!augList || !itemList) return;
+
+  const term = normName(iaSearchTerm);
+  const filterByTerm = (e) => {
+    const name = iaEntryName(e);
+    const desc = iaEntryDesc(e);
+    const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
+    const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
+    return matchesTerm && matchesCategory;
+  };
+
+  const augments = (arenaAugmentsData || []).filter(filterByTerm);
+  const items = (arenaItemsData || []).filter(filterByTerm);
+
+  augList.innerHTML = augments.length
+    ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("")
+    : `<p class="detailEmpty">–</p>`;
+  itemList.innerHTML = items.length
+    ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("")
+    : `<p class="detailEmpty">–</p>`;
+
+  bindIaTileEvents(augList, augments);
+  bindIaTileEvents(itemList, items);
+}
+
+function bindIaTileEvents(container, entries, kindFilter) {
+  container.querySelectorAll(".iaTile").forEach((tile) => {
+    const kind = tile.dataset.kind;
+    if (kindFilter && kind !== kindFilter) return;
+    const idx = parseInt(tile.dataset.idx, 10);
+    const entry = entries[idx];
+    if (!entry) return;
+    tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
+    tile.addEventListener("mousemove", positionIaTooltip);
+    tile.addEventListener("mouseleave", hideIaTooltip);
+    tile.addEventListener("click", () => {
+      if (iaEditMode) {
+        startEditingEntity(entry, kind);
+        return;
+      }
+      selectEntryForFilter(entry, kind);
+    });
+  });
+}
+
+// Klick auf ein Augment ODER Item: blendet die normale Browse-Ansicht
+// aus und zeigt nur noch das ausgewaehlte Element (gross, mit Name +
+// Beschreibung) plus die dazu passenden Synergie-Treffer, sortiert
+// nach deren Tier. Erneuter Klick auf dasselbe Element -> zurueck zur
+// normalen Ansicht.
+async function selectEntryForFilter(entry, kind) {
+  const sameEntrySelected = iaSelectedEntry &&
+    iaSelectedEntry.kind === kind &&
+    iaEntryName(iaSelectedEntry.entry) === iaEntryName(entry) &&
+    (kind !== "augment" || iaSelectedEntry.entry.apiName === entry.apiName);
+  if (sameEntrySelected) {
+    backToItemsAugmentsBrowse();
+    return;
+  }
+
+  iaSelectedEntry = { entry, kind };
+  hideIaTooltip();
+  document.getElementById("itemsAugmentsBody").classList.add("hidden");
+  document.getElementById("iaSearchInput").classList.add("hidden");
+  document.getElementById("iaDetailView").classList.remove("hidden");
+  document.getElementById("itemsAugmentsClearFilter").classList.remove("hidden");
+
+  renderIaSelectedCard(entry);
+  renderIaSynergyResults(null, true); // Lade-Zustand
+
+  try {
+    const ref = iaEntityRef(entry, kind);
+    const res = await authFetch(serverUrl(`/synergy/${ref.type}/${encodeURIComponent(ref.key)}`));
+    const partners = res.ok ? await res.json() : [];
+    renderIaSynergyResults(partners, false);
+  } catch (err) {
+    console.error("[ItemsAugments] Synergie-Lookup fehlgeschlagen:", err);
+    renderIaSynergyResults([], false);
+  }
+}
+
+function backToItemsAugmentsBrowse() {
+  iaSelectedEntry = null;
+  document.getElementById("itemsAugmentsBody").classList.remove("hidden");
+  document.getElementById("iaSearchInput").classList.remove("hidden");
+  document.getElementById("iaDetailView").classList.add("hidden");
+  document.getElementById("itemsAugmentsClearFilter").classList.add("hidden");
+}
+
+// ============================================================
+// Zugriffsschutz: Synergie-Editor und Preset-Erstellung nur mit Code
+// Der Code wird serverseitig geprueft (siehe editAuth.js im Backend) -
+// im Frontend steht kein Code, nur das nach Erfolg ausgestellte,
+// zeitlich begrenzte Token (12h, in sessionStorage).
+// ============================================================
+async function requireIaCode(callback) {
+  if (getIaEditToken()) { callback(); return; }
+  const input = window.prompt(t("iaCodePrompt"));
+  if (input === null) return; // Abbruch
+  try {
+    const res = await fetch(serverUrl("/auth/edit-code"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: input })
+    });
+    if (!res.ok) {
+      alert(t("iaCodeWrong"));
+      return;
+    }
+    const data = await res.json();
+    if (!data.token) {
+      alert(t("iaCodeWrong"));
+      return;
+    }
+    setIaEditToken(data.token);
+    callback();
+  } catch (err) {
+    console.error("[ItemsAugments] Code-Pruefung fehlgeschlagen:", err);
+    alert(t("iaCodeWrong"));
+  }
+}
+
+// ============================================================
+// Synergie-Editor (Browser-UI statt manueller MongoDB-Eingriffe)
+// ============================================================
+function toggleIaEditMode() {
+  if (!iaEditMode && !getIaEditToken()) { requireIaCode(toggleIaEditMode); return; }
+  iaEditMode = !iaEditMode;
+  const btn = document.getElementById("iaEditModeBtn");
+  if (btn) {
+    btn.classList.toggle("active", iaEditMode);
+    btn.textContent = iaEditMode ? t("iaEditModeBtnActive") : t("iaEditModeBtn");
+  }
+  if (iaEditMode) {
+    if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
+    backToItemsAugmentsBrowse(); // Detail-/Filteransicht verlassen, falls offen
+    document.getElementById("itemsAugmentsBody").classList.remove("hidden");
+    document.getElementById("iaEditView").classList.add("hidden");
+    iaEditingAnchor = null;
+  } else {
+    cancelIaEdit();
+  }
+}
+
+// Anker fuer den Editor setzen - kann JEDES Augment oder Item sein.
+// Zeigt darunter ALLE anderen Augments+Items zum An-/Abklicken; jede
+// Verbindung ist sofort in beide Richtungen sichtbar (siehe db.js).
+async function startEditingEntity(entry, kind) {
+  iaEditingAnchor = { entry, kind };
+  iaEditingPartnerIds = new Set();
+  iaEditSearchTerm = "";
+  const editSearchInput = document.getElementById("iaEditSearchInput");
+  if (editSearchInput) editSearchInput.value = "";
+  document.getElementById("itemsAugmentsBody").classList.add("hidden");
+  document.getElementById("iaSearchInput").classList.add("hidden");
+  document.getElementById("iaEditView").classList.remove("hidden");
+  hideIaTooltip();
+
+  const card = document.getElementById("iaEditSelectedCard");
+  const name = iaEntryName(entry);
+  card.innerHTML = `
+    ${entry.icon ? `<img src="${entry.icon}" alt="${name}" />` : ""}
+    <span class="iaSelectedName">${name}</span>
+  `;
+  document.getElementById("iaEditStatus").textContent = "";
+  renderIaEditTargetGrid();
+
+  // Bestehende Verbindungen laden, damit man nicht von Null anfaengt.
+  try {
+    const ref = iaEntityRef(entry, kind);
+    const res = await authFetch(serverUrl(`/synergy/${ref.type}/${encodeURIComponent(ref.key)}`));
+    const partners = res.ok ? await res.json() : [];
+    iaEditingPartnerIds = new Set(partners.map(iaEntityId));
+  } catch (err) {
+    console.error("[ItemsAugments-Editor] Laden fehlgeschlagen:", err);
+  }
+  renderIaEditTargetGrid();
+}
+
+// Zeigt ALLE Augments + Items als Ziel-Grid (Anker selbst ausgenommen).
+function renderIaEditTargetGrid() {
+  const grid = document.getElementById("iaEditItemsGrid");
+  if (!grid) return;
+  if (!iaEditingAnchor) {
+    grid.innerHTML = `<p class="detailEmpty">${t("iaEditHintChooseAugment")}</p>`;
+    return;
+  }
+  const anchorRef = iaEntityRef(iaEditingAnchor.entry, iaEditingAnchor.kind);
+  const anchorId = iaEntityId(anchorRef);
+
+  const term = normName(iaEditSearchTerm);
+  const filterByTerm = (e) => {
+    const name = iaEntryName(e);
+    const desc = iaEntryDesc(e);
+    const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
+    const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
+    return matchesTerm && matchesCategory;
+  };
+
+  const augments = (arenaAugmentsData || [])
+    .filter((a) => iaEntityId(iaEntityRef(a, "augment")) !== anchorId)
+    .filter(filterByTerm);
+  const items = (arenaItemsData || [])
+    .filter((i) => iaEntityId(iaEntityRef(i, "item")) !== anchorId)
+    .filter(filterByTerm);
+
+  let html = `<h4>${t("iaAugmentsHeading")}</h4>` +
+    IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
+  html += `<h4>${t("iaItemsHeading")}</h4>` +
+    IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
+  grid.innerHTML = html;
+
+  markIaEditTiles(grid, augments, "augment");
+  markIaEditTiles(grid, items, "item");
+}
+
+// Markiert Kacheln als verbunden (gruener Rahmen + "✕") oder nicht
+// (Standard-Rahmen + "+") und bindet den Klick auf sofortiges
+// Hinzufuegen/Entfernen ueber die Synergie-API.
+function markIaEditTiles(container, entries, kindFilter) {
+  container.querySelectorAll(".iaTile").forEach((tile) => {
+    if (tile.dataset.kind !== kindFilter) return;
+    const idx = parseInt(tile.dataset.idx, 10);
+    const entry = entries[idx];
+    if (!entry) return;
+    const ref = iaEntityRef(entry, kindFilter);
+    const id = iaEntityId(ref);
+    const isLinked = iaEditingPartnerIds.has(id);
+
+    tile.classList.toggle("synergySelected", isLinked);
+    if (!tile.querySelector(".iaEditBadge")) {
+      const badge = document.createElement("span");
+      badge.className = "iaEditBadge";
+      tile.appendChild(badge);
+    }
+    tile.querySelector(".iaEditBadge").textContent = isLinked ? "✕" : "+";
+
+    tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kindFilter));
+    tile.addEventListener("mousemove", positionIaTooltip);
+    tile.addEventListener("mouseleave", hideIaTooltip);
+    tile.onclick = () => toggleIaEditPartner(entry, kindFilter, ref, id, isLinked);
+  });
+}
+
+// Fuegt sofort hinzu bzw. entfernt sofort - kein separater "Speichern"-
+// Schritt mehr noetig, jeder Klick wirkt direkt (optimistisches Update,
+// bei Fehler wird zurueckgerollt).
+async function toggleIaEditPartner(entry, kind, ref, id, wasLinked) {
+  const anchorRef = iaEntityRef(iaEditingAnchor.entry, iaEditingAnchor.kind);
+  const statusEl = document.getElementById("iaEditStatus");
+
+  if (wasLinked) iaEditingPartnerIds.delete(id);
+  else iaEditingPartnerIds.add(id);
+  renderIaEditTargetGrid();
+
+  try {
+    const res = await authFetch(serverUrl(`/synergy/${wasLinked ? "remove" : "add"}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ a: anchorRef, b: ref })
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    statusEl.textContent = wasLinked ? t("iaEditRemoved") : t("iaEditAdded");
+    statusEl.style.color = "#4ade80";
+  } catch (err) {
+    console.error("[ItemsAugments-Editor] Speichern fehlgeschlagen:", err);
+    // Zurueckrollen, da der Server-Aufruf fehlgeschlagen ist.
+    if (wasLinked) iaEditingPartnerIds.add(id);
+    else iaEditingPartnerIds.delete(id);
+    renderIaEditTargetGrid();
+    statusEl.textContent = t("iaEditSaveError");
+    statusEl.style.color = "#f87171";
+  }
+}
+
+// Entfernt ALLE aktuellen Verbindungen des Ankers (einzeln ueber die
+// API, damit auch serverseitig wirklich jede Kante geloescht wird).
+async function clearIaEditSelection() {
+  if (!iaEditingAnchor) return;
+  const anchorRef = iaEntityRef(iaEditingAnchor.entry, iaEditingAnchor.kind);
+  const statusEl = document.getElementById("iaEditStatus");
+  const allByApiName = {};
+  for (const a of arenaAugmentsData || []) allByApiName[iaEntityId(iaEntityRef(a, "augment"))] = iaEntityRef(a, "augment");
+  for (const i of arenaItemsData || []) allByApiName[iaEntityId(iaEntityRef(i, "item"))] = iaEntityRef(i, "item");
+
+  const idsToRemove = [...iaEditingPartnerIds];
+  for (const id of idsToRemove) {
+    const ref = allByApiName[id];
+    if (!ref) continue;
+    try {
+      await authFetch(serverUrl("/synergy/remove"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ a: anchorRef, b: ref })
+      });
+    } catch (err) {
+      console.error("[ItemsAugments-Editor] Entfernen fehlgeschlagen:", err);
+    }
+  }
+  iaEditingPartnerIds = new Set();
+  renderIaEditTargetGrid();
+  statusEl.textContent = t("iaEditAllRemoved");
+  statusEl.style.color = "#4ade80";
+}
+
+function cancelIaEdit() {
+  iaEditingAnchor = null;
+  iaEditingPartnerIds = new Set();
+  document.getElementById("itemsAugmentsBody").classList.remove("hidden");
+  document.getElementById("iaSearchInput").classList.remove("hidden");
+  document.getElementById("iaEditView").classList.add("hidden");
+}
+
+// ============================================================
+// Presets ("Tank", "Full Autocast", "Onhit Atkspeed", ...) - eine
+// benannte, champion-unabhaengige Sammlung von Augments/Items.
+// Mehrfachauswahl statt Einzel-Anker wie beim Synergie-Editor: jede
+// Kachel laesst sich an-/abklicken, "Speichern" legt das Preset mit
+// allen aktuell markierten Eintraegen an.
+// ============================================================
+async function loadPresets(force) {
+  if (iaPresetsCache && !force) return iaPresetsCache;
+  try {
+    const res = await authFetch(serverUrl("/presets"));
+    iaPresetsCache = res.ok ? await res.json() : [];
+  } catch (err) {
+    console.error("[Presets] Laden fehlgeschlagen:", err);
+    iaPresetsCache = [];
+  }
+  return iaPresetsCache;
+}
+
+function toggleIaPresetMode() {
+  if (!iaPresetMode && !getIaEditToken()) { requireIaCode(toggleIaPresetMode); return; }
+  iaPresetMode = !iaPresetMode;
+  const btn = document.getElementById("iaPresetModeBtn");
+  if (btn) btn.classList.toggle("active", iaPresetMode);
+  if (iaPresetMode) {
+    if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
+    backToItemsAugmentsBrowse();
+    cancelIaEdit();
+    startCreatingPreset();
+  } else {
+    cancelIaPreset();
+  }
+}
+
+async function startCreatingPreset() {
+  iaPresetSelectedEntries = new Map();
+  iaEditingPresetId = null;
+  iaPresetSearchTerm = "";
+  const nameInput = document.getElementById("iaPresetNameInput");
+  if (nameInput) nameInput.value = "";
+  const searchInput = document.getElementById("iaPresetSearchInput");
+  if (searchInput) searchInput.value = "";
+  document.getElementById("iaPresetStatus").textContent = "";
+  document.getElementById("itemsAugmentsBody").classList.add("hidden");
+  document.getElementById("iaSearchInput").classList.add("hidden");
+  document.getElementById("iaPresetView").classList.remove("hidden");
+  updateIaPresetSaveLabel();
+  populateIaCategoryDropdown(document.getElementById("iaPresetCategoryFilter"));
+  await renderIaPresetExistingList();
+  renderIaPresetGrid();
+}
+
+function updateIaPresetSaveLabel() {
+  const btn = document.getElementById("iaPresetSave");
+  if (!btn) return;
+  btn.textContent = iaEditingPresetId ? t("iaPresetUpdate") : t("iaPresetSave");
+}
+
+async function startEditingPreset(preset) {
+  iaEditingPresetId = preset._id;
+  iaPresetSelectedEntries = new Map();
+  (preset.entries || []).forEach((entry) => {
+    const id = iaEntityId(entry);
+    iaPresetSelectedEntries.set(id, entry);
+  });
+  const nameInput = document.getElementById("iaPresetNameInput");
+  if (nameInput) nameInput.value = preset.name || "";
+  document.getElementById("iaPresetStatus").textContent = "";
+  updateIaPresetSaveLabel();
+  renderIaPresetGrid();
+}
+
+function cancelIaPreset() {
+  iaPresetSelectedEntries = new Map();
+  iaEditingPresetId = null;
+  document.getElementById("itemsAugmentsBody").classList.remove("hidden");
+  document.getElementById("iaSearchInput").classList.remove("hidden");
+  document.getElementById("iaPresetView").classList.add("hidden");
+}
+
+async function renderIaPresetExistingList() {
+  const ul = document.getElementById("iaPresetExistingList");
+  if (!ul) return;
+  const presets = await loadPresets();
+  if (!presets.length) {
+    ul.innerHTML = `<li class="iaPresetEmpty">${t("iaPresetNoneYet")}</li>`;
+    return;
+  }
+  ul.innerHTML = presets.map((p) => `
+    <li data-preset-id="${p._id}">
+      <span class="iaPresetListName iaPresetListNameClickable" data-preset-id="${p._id}" title="${t("iaPresetEdit")}">${p.name}${p.createdBy ? ` <span class="iaPresetListCreator">${t("iaPresetByLabel")} ${p.createdBy}</span>` : ""}</span>
+      <span class="iaPresetListCount">${(p.entries || []).length}</span>
+      <button class="iaPresetDeleteBtn" data-preset-id="${p._id}" title="${t("iaPresetDelete")}">✕</button>
+    </li>
+  `).join("");
+  ul.querySelectorAll(".iaPresetListNameClickable").forEach((el) => {
+    el.onclick = () => {
+      const id = el.dataset.presetId;
+      const preset = presets.find((p) => p._id === id);
+      if (preset) startEditingPreset(preset);
+    };
+  });
+  ul.querySelectorAll(".iaPresetDeleteBtn").forEach((btn) => {
+    btn.onclick = async (ev) => {
+      ev.stopPropagation();
+      const id = btn.dataset.presetId;
+      try {
+        const res = await authFetch(serverUrl(`/presets/${id}`), { method: "DELETE" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (iaEditingPresetId === id) {
+          iaEditingPresetId = null;
+          iaPresetSelectedEntries = new Map();
+          document.getElementById("iaPresetNameInput").value = "";
+          updateIaPresetSaveLabel();
+          renderIaPresetGrid();
+        }
+        await loadPresets(true);
+        renderIaPresetExistingList();
+      } catch (err) {
+        console.error("[Presets] Löschen fehlgeschlagen:", err);
+      }
+    };
+  });
+}
+
+function renderIaPresetGrid() {
+  const grid = document.getElementById("iaPresetItemsGrid");
+  if (!grid) return;
+  const term = normName(iaPresetSearchTerm);
+  const filterByTerm = (e) => {
+    const name = iaEntryName(e);
+    const desc = iaEntryDesc(e);
+    const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
+    const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
+    return matchesTerm && matchesCategory;
+  };
+  const augments = (arenaAugmentsData || []).filter(filterByTerm);
+  const items = (arenaItemsData || []).filter(filterByTerm);
+
+  let html = `<h4>${t("iaAugmentsHeading")}</h4>` +
+    IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
+  html += `<h4>${t("iaItemsHeading")}</h4>` +
+    IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
+  grid.innerHTML = html;
+
+  markIaPresetTiles(grid, augments, "augment");
+  markIaPresetTiles(grid, items, "item");
+}
+
+function markIaPresetTiles(container, entries, kindFilter) {
+  container.querySelectorAll(".iaTile").forEach((tile) => {
+    if (tile.dataset.kind !== kindFilter) return;
+    const idx = parseInt(tile.dataset.idx, 10);
+    const entry = entries[idx];
+    if (!entry) return;
+    const ref = iaEntityRef(entry, kindFilter);
+    const id = iaEntityId(ref);
+    const isSelected = iaPresetSelectedEntries.has(id);
+
+    tile.classList.toggle("selected", isSelected);
+    tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kindFilter));
+    tile.addEventListener("mousemove", positionIaTooltip);
+    tile.addEventListener("mouseleave", hideIaTooltip);
+    tile.onclick = () => {
+      if (iaPresetSelectedEntries.has(id)) iaPresetSelectedEntries.delete(id);
+      else iaPresetSelectedEntries.set(id, ref);
+      renderIaPresetGrid();
+    };
+  });
+}
+
+async function saveIaPreset() {
+  const nameInput = document.getElementById("iaPresetNameInput");
+  const statusEl = document.getElementById("iaPresetStatus");
+  const name = (nameInput?.value || "").trim();
+  if (!name) {
+    statusEl.textContent = t("iaPresetNameRequired");
+    statusEl.style.color = "#f87171";
+    return;
+  }
+  if (iaPresetSelectedEntries.size === 0) {
+    statusEl.textContent = t("iaPresetEntriesRequired");
+    statusEl.style.color = "#f87171";
+    return;
+  }
+  try {
+    const entries = [...iaPresetSelectedEntries.values()];
+    const isEdit = !!iaEditingPresetId;
+    const res = await authFetch(
+      serverUrl(isEdit ? `/presets/${iaEditingPresetId}` : "/presets"),
+      {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, entries })
+      }
+    );
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    statusEl.textContent = isEdit ? t("iaPresetUpdated") : t("iaPresetSaved");
+    statusEl.style.color = "#4ade80";
+    await loadPresets(true);
+    await renderIaPresetExistingList();
+    iaPresetSelectedEntries = new Map();
+    iaEditingPresetId = null;
+    nameInput.value = "";
+    updateIaPresetSaveLabel();
+    renderIaPresetGrid();
+  } catch (err) {
+    console.error("[Presets] Speichern fehlgeschlagen:", err);
+    statusEl.textContent = t("iaEditSaveError");
+    statusEl.style.color = "#f87171";
+  }
+}
+
+function renderIaSelectedCard(entry) {
+  const card = document.getElementById("iaSelectedCard");
+  if (!card) return;
+  const name = iaEntryName(entry);
+  const desc = iaEntryDesc(entry);
+  const priceHtml = typeof entry.priceTotal === "number"
+    ? `<div class="iaSelectedPrice">💰 ${entry.priceTotal}${typeof entry.price === "number" && entry.price !== entry.priceTotal ? ` (Komponente: ${entry.price})` : ""}</div>`
+    : "";
+  card.innerHTML = `
+    ${entry.icon ? `<img src="${entry.icon}" alt="${name}" />` : ""}
+    <div class="iaSelectedInfo">
+      <div class="iaSelectedName">${name}</div>
+      ${priceHtml}
+      <div class="iaSelectedDesc">${desc || ""}</div>
+    </div>
+  `;
+}
+
+function renderIaSynergyResults(partners, loading) {
+  const container = document.getElementById("iaSynergyResults");
+  if (!container) return;
+  if (loading) {
+    container.innerHTML = `<p class="detailEmpty">…</p>`;
+    return;
+  }
+  if (!partners || partners.length === 0) {
+    container.innerHTML = `<p class="detailEmpty">${t("iaNoSynergyYet")}</p>`;
+    return;
+  }
+  const augPartners = partners.filter((p) => p.type === "augment");
+  const itemPartners = partners.filter((p) => p.type === "item");
+  let html = "";
+  if (augPartners.length) {
+    html += `<h4>${t("iaAugmentsHeading")}</h4>` +
+      IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augPartners, tier, "augment")).join("");
+  }
+  if (itemPartners.length) {
+    html += `<h4>${t("iaItemsHeading")}</h4>` +
+      IA_ITEM_TIERS.map((tier) => renderIaTierGroup(itemPartners, tier, "item")).join("");
+  }
+  container.innerHTML = html;
+  if (augPartners.length) bindIaTileEvents(container, augPartners, "augment");
+  if (itemPartners.length) bindIaTileEvents(container, itemPartners, "item");
+}
+
+function showIaTooltip(e, entry, kind) {
+  if (!iaTooltipEl) {
+    iaTooltipEl = document.createElement("div");
+    iaTooltipEl.className = "iaTooltip hidden";
+    document.body.appendChild(iaTooltipEl);
+  }
+  // Falls "entry" nur eine Partner-Referenz ohne Beschreibung ist (z.B.
+  // aus den Synergie-Ergebnissen), volle Daten aus den lokalen Listen
+  // nachladen, damit der Tooltip trotzdem die Beschreibung zeigt.
+  let full = entry;
+  if (!entry.desc && kind) {
+    if (kind === "augment" && entry.apiName) full = iaAugmentByApiName[entry.apiName] || entry;
+    if (kind === "item") full = iaItemByName[normName(entry.name?.[currentLang] || entry.name?.de || "")] || entry;
+  }
+  const name = iaEntryName(full);
+  const desc = iaEntryDesc(full);
+  const priceHtml = typeof full.priceTotal === "number"
+    ? `<div class="iaTooltipPrice">💰 ${full.priceTotal}${typeof full.price === "number" && full.price !== full.priceTotal ? ` (Komponente: ${full.price})` : ""}</div>`
+    : "";
+  iaTooltipEl.innerHTML = `
+    <div class="iaTooltipTitle">${name}</div>
+    ${priceHtml}
+    <div class="iaTooltipDesc">${desc || ""}</div>
+  `;
+  iaTooltipEl.classList.remove("hidden");
+  positionIaTooltip(e);
+}
+
+function positionIaTooltip(e) {
+  if (!iaTooltipEl) return;
+  const offset = 16;
+  let x = e.clientX + offset;
+  let y = e.clientY + offset;
+  const rect = iaTooltipEl.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
+  if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
+  iaTooltipEl.style.left = x + "px";
+  iaTooltipEl.style.top = y + "px";
+}
+
+function hideIaTooltip() {
+  if (iaTooltipEl) iaTooltipEl.classList.add("hidden");
+}
+
+safeBind("openItemsAugmentsBtn", "onclick", openItemsAugmentsModal);
+safeBind("itemsAugmentsClose", "onclick", closeItemsAugmentsModal);
+safeBind("itemsAugmentsClearFilter", "onclick", backToItemsAugmentsBrowse);
+safeBind("iaEditModeBtn", "onclick", toggleIaEditMode);
+safeBind("iaPresetModeBtn", "onclick", toggleIaPresetMode);
+safeBind("iaPresetSave", "onclick", saveIaPreset);
+safeBind("iaPresetCancel", "onclick", () => { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); });
+safeBind("iaPresetSearchInput", "oninput", (e) => {
+  iaPresetSearchTerm = e.target.value;
+  renderIaPresetGrid();
+});
+safeBind("iaPresetCategoryFilter", "onchange", onIaCategoryChange);
+safeBind("iaEditClearAll", "onclick", clearIaEditSelection);
+safeBind("iaEditCancel", "onclick", cancelIaEdit);
+safeBind("iaSearchInput", "oninput", (e) => {
+  iaSearchTerm = e.target.value;
+  renderItemsAugmentsModal();
+});
+safeBind("iaEditSearchInput", "oninput", (e) => {
+  iaEditSearchTerm = e.target.value;
+  renderIaEditTargetGrid();
+});
+
+// Kategorie-Dropdowns (Heilung/Schaden/Leben/Resistenzen/CC/...) befuellen.
+// Beide Dropdowns (Hauptsuche + Editor) teilen sich denselben Filter-State
+// "iaCategoryFilter" und werden beim Aendern synchron gehalten, damit die
+// Auswahl nicht verloren geht, wenn man zwischen Browse- und Editor-Ansicht
+// wechselt.
+function populateIaCategoryDropdown(selectEl) {
+  if (!selectEl) return;
+  selectEl.innerHTML = `<option value="">${t("iaCategoryAll")}</option>` +
+    Object.keys(IA_CATEGORIES).map((key) => {
+      const cat = IA_CATEGORIES[key];
+      const label = currentLang === "de" ? cat.labelDe : cat.labelEn;
+      return `<option value="${key}">${label}</option>`;
+    }).join("");
+  selectEl.value = iaCategoryFilter;
+}
+function onIaCategoryChange(e) {
+  iaCategoryFilter = e.target.value;
+  const main = document.getElementById("iaCategoryFilter");
+  const edit = document.getElementById("iaEditCategoryFilter");
+  const preset = document.getElementById("iaPresetCategoryFilter");
+  if (main && main !== e.target) main.value = iaCategoryFilter;
+  if (edit && edit !== e.target) edit.value = iaCategoryFilter;
+  if (preset && preset !== e.target) preset.value = iaCategoryFilter;
+  renderItemsAugmentsModal();
+  if (iaEditingAnchor) renderIaEditTargetGrid();
+  if (iaPresetMode) renderIaPresetGrid();
+}
+populateIaCategoryDropdown(document.getElementById("iaCategoryFilter"));
+populateIaCategoryDropdown(document.getElementById("iaEditCategoryFilter"));
+safeBind("iaCategoryFilter", "onchange", onIaCategoryChange);
+safeBind("iaEditCategoryFilter", "onchange", onIaCategoryChange);
+
+// Ein-/Ausklappen der Tier-Abschnitte (Silber/Gold/Prismatic/Legendary/...).
+// Delegierter Listener auf dem Modal-Container statt auf den einzelnen
+// Labels - die werden bei jeder Suche/jedem Render neu erzeugt, ein
+// direkt gebundener Listener wuerde sonst nach dem ersten Render verloren
+// gehen. Der Aufklapp-Zustand selbst wird bewusst nicht gespeichert -
+// jede neue Filterung/Suche startet wieder mit allen Abschnitten offen.
+document.getElementById("itemsAugmentsOverlay")?.addEventListener("click", (e) => {
+  const label = e.target.closest("[data-tier-toggle]");
+  if (!label) return;
+  label.closest(".iaTierGroup")?.classList.toggle("collapsed");
+});
+
+
+// Liefert die Icon-URL fuer einen Item-Namen, falls der Server eine
+// itemIconMap mitliefert (normalisierter Name -> URL). Kein Icon
+// vorhanden -> null, dann faellt die Darstellung auf reinen Text zurueck.
+function getItemIcon(name) {
+  if (!metaData || !metaData.itemIconMap) return null;
+  return metaData.itemIconMap[normName(name)] || null;
+}
+
+// Rendert ein einzelnes Item/Augment-Tag - mit Icon, falls vorhanden
+// (kompakt), sonst als Text-Pille wie bisher.
+function renderItemTag(name, clickable, type) {
+  const icon = getItemIcon(name);
+  const cls = clickable ? "detailTagList-item clickableTag" : "detailTagList-item";
+  const dataAttrs = clickable ? ` data-name="${name}" data-type="${type}"` : "";
+  if (icon) {
+    return `<li class="${cls}"${dataAttrs} title="${name}"><img src="${icon}" alt="${name}" /></li>`;
+  }
+  return `<li class="${cls}"${dataAttrs}>${name}</li>`;
+}
+
+function renderBestItemsColumn(champ) {
+  const build = getChampBuild(champ);
+  let html = `<div class="detailSection"><h3>${t("champDetailBestItems")}</h3>`;
+  if (build && build.bestItems && build.bestItems.length) {
+    html += `<ul class="detailTagList">` +
+      build.bestItems.map((i) => renderItemTag(i, true, "item")).join("") +
+      `</ul>`;
+  } else {
+    html += `<p class="detailEmpty">${t("champDetailNoBuild")}</p>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+// ---- Rechte Spalte: beste Augments fuer den Champion (klickbar) ----
+function renderBestAugmentsColumn(champ) {
+  const build = getChampBuild(champ);
+  let html = `<div class="detailSection"><h3>${t("champDetailBestAugments")}</h3>`;
+  if (build && build.bestAugments && build.bestAugments.length) {
+    html += `<ul class="detailTagList">` +
+      build.bestAugments.map((a) => `<li class="clickableTag" data-name="${a}" data-type="augment">${a}</li>`).join("") +
+      `</ul>`;
+  } else {
+    html += `<p class="detailEmpty">${t("champDetailNoBuild")}</p>`;
+  }
+  if (build && build.statCheckNote) {
+    html += `<div class="detailStatCheck">${t("champDetailStatCheck")}: ${build.statCheckNote}</div>`;
+  }
+  return html;
+}
+
+// ---- Skill-Reihenfolge: direkt unter Champion-Icon/Name, volle Breite ----
+function renderSkillOrderBlock(champ) {
+  const build = getChampBuild(champ);
+  if (build && build.skillOrder && build.skillOrder.length) {
+    return `<div class="detailSkillOrder"><span class="detailSkillOrderLabel">${t("champDetailSkillOrder")}</span> ${build.skillOrder.join(" → ")}</div>`;
+  }
+  return `<div class="detailSkillOrder"><span class="detailSkillOrderLabel">${t("champDetailSkillOrder")}</span> <span class="detailEmptyInline">${t("champDetailNoSkillOrder")}</span></div>`;
+}
+
+// ---- Taktiken: ein paar Spieltipps fuer den Champion in Arena, volle Breite ----
+function renderTacticsBlock(champ) {
+  const build = getChampBuild(champ);
+  let html = `<div class="detailSection detailTactics"><h3>${t("champDetailTactics")}</h3>`;
+  if (build && build.tacticsNotes && build.tacticsNotes.length) {
+    html += `<ul class="detailTacticsList">` + build.tacticsNotes.map((tip) => `<li>${tip}</li>`).join("") + `</ul>`;
+  } else {
+    html += `<p class="detailEmpty">${t("champDetailNoTactics")}</p>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+// ---- KI-Empfehlung (Standalone-Agent, "itemMeta"-Collection) ----
+// REIN LESEND: zeigt nur an, was der Agent lokal schon generiert hat.
+// Kein Eingabefeld, kein Button, der eine neue Generierung ausloest -
+// App-Nutzer koennen hierueber NICHTS anfragen oder Kosten verursachen.
+function renderAiMetaPlaceholder() {
+  return `<div class="detailSection" id="aiMetaSection"><h3>${t("champDetailAiHeading")}</h3><p class="detailEmpty">...</p></div>`;
+}
+
+function confidenceLabel(confidence) {
+  if (confidence === "high") return t("champDetailAiConfidenceHigh");
+  if (confidence === "medium") return t("champDetailAiConfidenceMedium");
+  return t("champDetailAiConfidenceLow");
+}
+
+// ---- Standard-Datenbank (Collection "communityMeta", handgepflegte Stats) ----
+// REIN LESEND, genau wie die bestehende KI-Empfehlung - kein Eingabefeld.
+function renderCommunityDbPlaceholder() {
+  return `<div class="detailSection" id="communityDbSection"><h3>${t("communityDbHeading")}</h3><p class="detailEmpty">...</p></div>`;
+}
+
+function renderStatCard(label, value) {
+  if (value === undefined || value === null || value === "") return "";
+  return `<div class="dbStatCard"><div class="dbStatValue">${value}</div><div class="dbStatLabel">${label}</div></div>`;
+}
+
+// Loest einen Champion-Namen (aus synergies/strongAgainst) ueber die schon
+// vorhandene championByNormName-Lookup-Tabelle (aus loadChampionList) auf -
+// kein zusaetzlicher Request noetig, dieselbe Tabelle nutzt auch der Rest
+// der App fuer Trio-/Synergie-Anzeigen.
+function championIconUrlByName(name) {
+  const c = championByNormName ? championByNormName[normName(name)] : null;
+  return c ? c.icon : null;
+}
+
+// Icon-Fallback fuer die neuen DB-Reihen (Augments/Items/Champions): EIN
+// Icon pro Eintrag (anders als die Mehrfach-Kandidaten-Kette der KI-Tags),
+// bei Ladefehler wird einfach auf eine Kuerzel-Badge ohne Bild umgeschaltet.
+function bindDbIconFallbacks(container) {
+  container.querySelectorAll(".dbIconRow img, .dbSkillIcon img").forEach((img) => {
+    img.addEventListener("error", () => {
+      const candidates = JSON.parse(img.dataset.candidates || "[]");
+      const nextIndex = Number(img.dataset.iconIndex || "0") + 1;
+      if (nextIndex < candidates.length) {
+        img.dataset.iconIndex = String(nextIndex);
+        img.src = candidates[nextIndex];
+        return;
+      }
+      const li = img.closest(".dbIconRow") || img.closest(".dbSkillIcon");
+      const span = document.createElement("span");
+      span.className = "dbIconFallback";
+      span.textContent = (img.alt || "?").slice(0, 2).toUpperCase();
+      img.replaceWith(span);
+      if (li) li.classList.add("dbIconRow-broken");
+    });
+  });
+}
+
+// Icon + NAME (sichtbar, nicht nur per Tooltip) + optionaler Prozentwert -
+// genau das vom Nutzer gewuenschte Format fuer Augments/Items. Items
+// koennen mehrere Icon-URL-Kandidaten haben (zwei CDragon-Konventionen) -
+// schlaegt die erste fehl, probiert bindDbIconFallbacks automatisch die
+// naechste, bevor es auf den Buchstaben-Fallback zurueckfaellt.
+function renderIconNameRow(entry, percentLabel) {
+  const safeName = (entry.name || "").replace(/"/g, "&quot;");
+  const candidates = (entry.iconCandidates && entry.iconCandidates.length ? entry.iconCandidates : [entry.icon]).filter(Boolean);
+  const iconHtml = candidates.length
+    ? `<img src="${candidates[0]}" alt="${safeName}" data-candidates='${JSON.stringify(candidates).replace(/'/g, "&#39;")}' data-icon-index="0" />`
+    : `<span class="dbIconFallback">${safeName.slice(0, 2).toUpperCase()}</span>`;
+  return `<li class="dbIconRow">
+    <span class="dbIconRow-icon">${iconHtml}</span>
+    <span class="dbIconRow-name">${entry.name}</span>
+    ${percentLabel ? `<span class="dbIconRow-pct">${percentLabel}</span>` : ""}
+  </li>`;
+}
+
+// Gleiche Optik wie renderIconNameRow, aber Icon kommt aus der ddragon-
+// Champion-Liste (synergies/strongAgainst enthalten nur Champion-Namen,
+// keine eigenen Icon-URLs von uns - die brauchen wir hier auch nicht, da
+// die App den Champion-Icon-Katalog schon vollstaendig im Speicher hat).
+function renderChampionIconRow(entry) {
+  const icon = championIconUrlByName(entry.name);
+  const iconHtml = icon
+    ? `<img src="${icon}" alt="${entry.name}" />`
+    : `<span class="dbIconFallback">${entry.name.slice(0, 2).toUpperCase()}</span>`;
+  const top3 = entry.top3_pct != null ? `${entry.top3_pct}%` : "";
+  const diff = entry.diff ? `<span class="dbDiffTag">${entry.diff}</span>` : "";
+  return `<li class="dbIconRow">
+    <span class="dbIconRow-icon">${iconHtml}</span>
+    <span class="dbIconRow-name">${entry.name}</span>
+    ${top3 ? `<span class="dbIconRow-pct">${top3}${diff}</span>` : ""}
+  </li>`;
+}
+
+// Vier getrennte "Spielstile" (Anvil-Stufen) als Tabs, damit man die
+// Augment-Empfehlung gezielt nach Silber/Gold/Prismatic/Gesamt umschalten
+// kann statt einer langen vermischten Liste - angelehnt an die Tab-Logik
+// von metasrc, aber eigenstaendig umgesetzt (eigene Klassen/Optik).
+const AUGMENT_TABS = [
+  { key: "overall", labelKey: "communityDbAugmentsOverall", field: "augmentsOverall" },
+  { key: "silver", labelKey: "communityDbAugmentsSilver", field: "augmentsSilver" },
+  { key: "gold", labelKey: "communityDbAugmentsGold", field: "augmentsGold" },
+  { key: "prismatic", labelKey: "communityDbAugmentsPrismatic", field: "augmentsPrismatic" },
+];
+
+function renderAugmentTabs(build) {
+  const tabsHtml = AUGMENT_TABS.map(
+    (tab, i) => `<button class="dbTabBtn${i === 0 ? " active" : ""}" data-augtab="${tab.key}">${t(tab.labelKey)}</button>`
+  ).join("");
+
+  const panelsHtml = AUGMENT_TABS.map((tab, i) => {
+    const list = build[tab.field] || [];
+    const content = list.length
+      ? `<ul class="dbIconList" data-augpanel-list="${tab.key}">` +
+        list.map((a) => renderIconNameRow(a, a.pickPct != null ? `${a.pickPct}%` : "")).join("") +
+        `</ul>`
+      : `<p class="detailEmpty">${t("communityDbNoBuildDetails")}</p>`;
+    return `<div class="dbTabPanel${i === 0 ? "" : " hidden"}" data-augpanel="${tab.key}">${content}</div>`;
+  }).join("");
+
+  return `<div class="dbTabBar">${tabsHtml}</div>${panelsHtml}`;
+}
+
+function bindAugmentTabs(section, build) {
+  section.querySelectorAll(".dbTabBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const key = btn.dataset.augtab;
+      section.querySelectorAll(".dbTabBtn").forEach((b) => b.classList.toggle("active", b === btn));
+      section.querySelectorAll(".dbTabPanel").forEach((p) => p.classList.toggle("hidden", p.dataset.augpanel !== key));
+    });
+  });
+
+  for (const tab of AUGMENT_TABS) {
+    const list = build[tab.field] || [];
+    const panel = section.querySelector(`[data-augpanel-list="${tab.key}"]`);
+    if (panel) bindAiTagTooltips(panel, ".dbIconRow", list);
+  }
+}
+
+function renderCommunityDbContent(data) {
+  if (!data) {
+    return `<h3>${t("communityDbHeading")}</h3><p class="detailEmpty">${t("communityDbNone")}</p>`;
+  }
+
+  let html = `<div class="dbHeaderRow">
+    <span class="metaTierBadge ${metaTierBadgeClass(data.tier)}">${data.tier || "?"}</span>
+    <h3 style="margin:0;">${t("communityDbHeading")}</h3>
+  </div>`;
+
+  const statCards = [
+    renderStatCard(t("communityDbWinrate"), data.winPct != null ? `${data.winPct}%` : null),
+    renderStatCard(t("communityDbTop3"), data.top3Pct != null ? `${data.top3Pct}%` : null),
+    renderStatCard(t("communityDbPickRate"), data.pickPct != null ? `${data.pickPct}%` : null),
+    renderStatCard(t("communityDbBanRate"), data.banPct != null ? `${data.banPct}%` : null),
+    renderStatCard(t("communityDbKda"), data.kda),
+    renderStatCard(t("communityDbAvgPlace"), data.avgPlace),
+    renderStatCard(t("communityDbGames"), data.games),
+  ].filter(Boolean);
+
+  if (statCards.length) {
+    html += `<div class="dbStatGrid">${statCards.join("")}</div>`;
+  }
+
+  if (!data.hasBuildDetails || !data.build) {
+    html += `<p class="detailEmpty" style="margin-top:8px;">${t("communityDbNoBuildDetails")}</p>`;
+    return html;
+  }
+
+  const build = data.build;
+
+  html += `<div class="dbTwoCol">`;
+
+  html += `<div>`;
+  html += `<p class="detailSkillOrderLabel">${t("communityDbAugmentsHeading")}</p>`;
+  html += renderAugmentTabs(build);
+
+  if (build.itemNamesFromIntro && build.itemNamesFromIntro.length) {
+    html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbItems")}</p><ul class="dbIconList" data-itemlist="1">` +
+      build.itemNamesFromIntro.map((i) => renderIconNameRow(i, "")).join("") + `</ul>`;
+  }
+  html += `</div>`;
+
+  html += `<div>`;
+  if (build.synergies && build.synergies.length) {
+    html += `<p class="detailSkillOrderLabel">${t("communityDbSynergies")}</p><ul class="dbIconList" data-synergylist="1">` +
+      build.synergies.map((s) => renderChampionIconRow(s)).join("") + `</ul>`;
+  }
+  if (build.strongAgainst && build.strongAgainst.length) {
+    html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbStrongAgainst")}</p><ul class="dbIconList" data-stronglist="1">` +
+      build.strongAgainst.map((s) => renderChampionIconRow(s)).join("") + `</ul>`;
+  }
+  if (build.skillOrder && build.skillOrder.priority) {
+    html += `<p class="detailSkillOrderLabel" style="margin-top:10px;">${t("communityDbSkillOrder")}</p>`;
+    html += renderSkillOrderIcons(build.skillOrder);
+  }
+  html += `</div>`;
+
+  html += `</div>`;
+  return html;
+}
+
+// Skill-Reihenfolge als Icon-Reihe (Q/W/E/R-Bilder statt nur Buchstaben),
+// mit Hover-Tooltip (Faehigkeitsname + Beschreibung DE/EN). Fehlt das
+// Icon (Sync noch nicht gelaufen), wird der Buchstabe als Fallback gezeigt.
+function renderSkillOrderIcons(skillOrder) {
+  const icons = skillOrder.icons;
+  if (!icons || !icons.length) {
+    return `<div class="detailSkillOrder">${skillOrder.priority}</div>`;
+  }
+  const rows = icons.map((s, i) => {
+    const iconHtml = s.icon
+      ? `<img src="${s.icon}" alt="${s.key}" />`
+      : `<span class="dbIconFallback">${s.key}</span>`;
+    const arrow = i < icons.length - 1 ? `<span class="dbSkillArrow">&gt;</span>` : "";
+    return `<span class="dbSkillIcon" data-skillkey="${s.key}">${iconHtml}</span>${arrow}`;
+  }).join("");
+  return `<div class="dbSkillOrderRow" data-skillorder="1">${rows}</div>`;
+}
+
+function bindSkillOrderTooltips(section, build) {
+  if (!build.skillOrder || !build.skillOrder.icons) return;
+  const row = section.querySelector("[data-skillorder]");
+  if (!row) return;
+  bindAiTagTooltips(row, ".dbSkillIcon", build.skillOrder.icons);
+}
+
+// Hover-Info fuer Champion-Icon-Zeilen (Synergien/Stark-gegen): hier gibt
+// es keine CDragon-Beschreibung, sondern Zahlen (Top-3%, Differenz, Spiele) -
+// deshalb eigene kleine Tooltip-Funktion statt des Text-basierten
+// showAiTagTooltip, aber mit demselben #champTooltip-Element.
+function championStatsTooltipText(entry) {
+  const parts = [];
+  if (entry.top3_pct != null) parts.push(`${t("communityDbTop3")}: ${entry.top3_pct}%`);
+  if (entry.diff) parts.push(`${t("communityDbDiff")}: ${entry.diff}`);
+  if (entry.games) parts.push(`${t("communityDbGames")}: ${entry.games}`);
+  return parts.join(" · ");
+}
+function bindChampionStatTooltips(container, selector, entries) {
+  const items = container.querySelectorAll(selector);
+  items.forEach((li, i) => {
+    const entry = entries[i];
+    if (!entry) return;
+    const show = (e) => {
+      const tooltip = document.getElementById("champTooltip");
+      const bodyText = championStatsTooltipText(entry);
+      tooltip.innerHTML = `<div class="tooltipTitle">${entry.name}</div>` +
+        (bodyText ? `<div class="tooltipCount">${bodyText}</div>` : "");
+      tooltip.classList.remove("hidden");
+      positionTooltip(e);
+    };
+    li.addEventListener("mouseenter", show);
+    li.addEventListener("mousemove", positionTooltip);
+    li.addEventListener("mouseleave", hideChampTooltip);
+  });
+}
+
+function bindCommunityDbInteractions(section, data) {
+  bindDbIconFallbacks(section);
+  if (!data || !data.build) return;
+  const build = data.build;
+  bindAugmentTabs(section, build);
+
+  const itemList = section.querySelector("[data-itemlist]");
+  if (itemList && build.itemNamesFromIntro) bindAiTagTooltips(itemList, ".dbIconRow", build.itemNamesFromIntro);
+
+  const synergyList = section.querySelector("[data-synergylist]");
+  if (synergyList && build.synergies) bindChampionStatTooltips(synergyList, ".dbIconRow", build.synergies);
+
+  const strongList = section.querySelector("[data-stronglist]");
+  if (strongList && build.strongAgainst) bindChampionStatTooltips(strongList, ".dbIconRow", build.strongAgainst);
+
+  bindSkillOrderTooltips(section, build);
+}
+
+async function loadCommunityDbSection(champ) {
+  const section = document.getElementById("communityDbSection");
+  if (!section) return;
+  try {
+    const res = await authFetch(serverUrl(`/community-meta/${champ.key}`));
+    if (!res.ok) {
+      section.innerHTML = renderCommunityDbContent(null);
+      return;
+    }
+    const data = await res.json();
+    section.innerHTML = renderCommunityDbContent(data);
+    bindCommunityDbInteractions(section, data);
+  } catch {
+    section.innerHTML = renderCommunityDbContent(null);
+  }
+}
+
+// ---- KI-Analyse der Standard-Datenbank (Collection "communityAiMeta") ----
+// Erscheint UNTER der Standard-Datenbank-Sektion, getrennte eigene KI-Quelle
+// (NICHT zu verwechseln mit der bestehenden "itemMeta"-KI-Empfehlung oben,
+// die auf eigenen Match-Daten basiert statt auf der Community-Datenbank).
+function renderCommunityAiPlaceholder() {
+  return `<div class="detailSection" id="communityAiSection"><h3>${t("communityAiHeading")}</h3><p class="detailEmpty">...</p></div>`;
+}
+
+function renderCommunityAiContent(data) {
+  if (!data) {
+    return `<h3>${t("communityAiHeading")}</h3><p class="detailEmpty">${t("communityAiNone")}</p>`;
+  }
+
+  let html = `<h3>${t("communityAiHeading")}</h3>`;
+  html += `<p class="detailEmpty" style="margin-bottom:8px;">${confidenceLabel(data.confidence)}</p>`;
+
+  if (data.summary) {
+    html += `<p class="detailEmpty">${data.summary}</p>`;
+  }
+  if (data.strengths && data.strengths.length) {
+    html += `<p class="detailSkillOrderLabel">${t("communityAiStrengths")}</p><ul class="detailTacticsList">` +
+      data.strengths.map((s) => `<li>${s}</li>`).join("") + `</ul>`;
+  }
+  if (data.recommendedAugments && data.recommendedAugments.length) {
+    html += `<p class="detailSkillOrderLabel">${t("communityAiAugments")}</p><ul class="dbIconList" data-airecaugs="1">` +
+      data.recommendedAugments.map((a) => renderIconNameRow(a, "")).join("") + `</ul>`;
+    html += `<ul class="detailTacticsList" style="margin-top:4px;">` +
+      data.recommendedAugments.map((a) => `<li><strong>${a.name}:</strong> ${a.reason}</li>`).join("") + `</ul>`;
+  }
+  if (data.synergyNote) {
+    html += `<p class="detailSkillOrderLabel">${t("communityAiSynergy")}</p><p class="detailEmpty">${data.synergyNote}</p>`;
+  }
+  if (data.weaknessNote) {
+    html += `<p class="detailSkillOrderLabel">${t("communityAiWeakness")}</p><p class="detailEmpty">${data.weaknessNote}</p>`;
+  }
+  return html;
+}
+
+function bindCommunityAiInteractions(section, data) {
+  bindDbIconFallbacks(section);
+  if (data && data.recommendedAugments && data.recommendedAugments.length) {
+    const list = section.querySelector("[data-airecaugs]");
+    if (list) bindAiTagTooltips(list, ".dbIconRow", data.recommendedAugments);
+  }
+}
+
+async function loadCommunityAiSection(champ) {
+  const section = document.getElementById("communityAiSection");
+  if (!section) return;
+  try {
+    const res = await authFetch(serverUrl(`/community-meta-ai/${champ.key}`));
+    if (!res.ok) {
+      section.innerHTML = renderCommunityAiContent(null);
+      return;
+    }
+    const data = await res.json();
+    section.innerHTML = renderCommunityAiContent(data);
+    bindCommunityAiInteractions(section, data);
+  } catch {
+    section.innerHTML = renderCommunityAiContent(null);
+  }
+}
+
+// Rendert ein einzelnes Tag der KI-Empfehlung: NUR Icon, kein Text.
+// "icon" kann entweder ein einzelner String sein (Augments, 1 URL-
+// Konvention reicht) oder ein Array von Kandidaten-URLs (Items/Spells,
+// 2 verschiedene CDragon-Pfad-Konventionen werden nacheinander probiert,
+// bevor auf Text zurueckgefallen wird). Tooltip-Inhalt (Name + offizielle
+// Spielbeschreibung) wird NICHT mehr ueber das native title-Attribut
+// gezeigt, sondern ueber das bestehende #champTooltip-System der App -
+// deutlich sichtbarer als der unauffaellige Browser-Standard-Tooltip.
+function renderAiTag(entry) {
+  const candidates = Array.isArray(entry.icon) ? entry.icon.filter(Boolean) : entry.icon ? [entry.icon] : [];
+  const safeName = entry.name.replace(/"/g, "&quot;");
+
+  if (candidates.length > 0) {
+    return `<li class="detailTagList-item aiTagItem" data-fallback-name="${safeName}" data-icon-index="0">` +
+      `<img src="${candidates[0]}" alt="${safeName}" data-candidates='${JSON.stringify(candidates).replace(/'/g, "&#39;")}' />` +
+      `</li>`;
+  }
+  return `<li class="detailTagList-item aiTagItem">${entry.name}</li>`;
+}
+
+// Bindet pro KI-Tag: (1) Icon-Fallback-Kette - bei Ladefehler wird die
+// naechste Kandidaten-URL probiert, erst nach allen Versuchen Text-
+// Fallback; (2) Hover -> zeigt Name + offizielle Beschreibung im
+// bestehenden #champTooltip-Element der App, in der aktuell aktiven
+// Sprache (currentLang).
+function bindAiTagFallbacks(container) {
+  container.querySelectorAll(".aiTagItem").forEach((li) => {
+    const img = li.querySelector("img");
+    if (img) {
+      img.addEventListener("error", () => {
+        const candidates = JSON.parse(img.dataset.candidates || "[]");
+        const nextIndex = Number(li.dataset.iconIndex || "0") + 1;
+        if (nextIndex < candidates.length) {
+          li.dataset.iconIndex = String(nextIndex);
+          img.src = candidates[nextIndex];
+        } else {
+          li.textContent = li.dataset.fallbackName || img.alt || "";
+        }
+      });
+    }
+  });
+}
+
+// Generischer Tooltip-Trigger fuer KI-Tags, nutzt dasselbe #champTooltip-
+// Element wie die Champion-Grid-Hovers. "entry" ist das Original-Objekt
+// (mit .name und .tooltip = {en, de}), wird per Closure mitgegeben statt
+// aus dem DOM gelesen - umgeht jegliche HTML-Escaping-Probleme.
+function showAiTagTooltip(e, entry) {
+  const tooltip = document.getElementById("champTooltip");
+  const bodyText = entry.tooltip ? (entry.tooltip[currentLang] || entry.tooltip.en || "") : "";
+  tooltip.innerHTML = `<div class="tooltipTitle">${entry.name}</div>` +
+    (bodyText ? `<div class="tooltipCount">${bodyText}</div>` : "");
+  tooltip.classList.remove("hidden");
+  positionTooltip(e);
+}
+
+// Bindet die Hover-Tooltips fuer eine Liste von KI-Tag-Elementen + ihre
+// Original-Datenobjekte (Reihenfolge MUSS der Render-Reihenfolge
+// entsprechen - wird direkt nach dem jeweiligen renderAiTag-Aufruf genutzt).
+function bindAiTagTooltips(container, selector, entries) {
+  const items = container.querySelectorAll(selector);
+  items.forEach((li, i) => {
+    const entry = entries[i];
+    if (!entry) return;
+    li.addEventListener("mouseenter", (e) => showAiTagTooltip(e, entry));
+    li.addEventListener("mousemove", positionTooltip);
+    li.addEventListener("mouseleave", hideChampTooltip);
+  });
+}
+
+function renderAiMetaContent(aiMeta) {
+  if (!aiMeta) {
+    return `<h3>${t("champDetailAiHeading")}</h3><p class="detailEmpty">${t("champDetailAiNone")}</p>`;
+  }
+
+  let html = `<h3>${t("champDetailAiHeading")}</h3>`;
+  html += `<p class="detailEmpty" style="margin-bottom:8px;">${confidenceLabel(aiMeta.confidence)} (${aiMeta.sampleSize || 0} Spiele)</p>`;
+
+  if (aiMeta.coreItems && aiMeta.coreItems.length) {
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiCore")}</p><ul class="detailTagList" data-ai-group="coreItems">` +
+      aiMeta.coreItems.map(renderAiTag).join("") + `</ul>`;
+  }
+  if (aiMeta.situationalItems && aiMeta.situationalItems.length) {
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiSituational")}</p><ul class="detailTagList" data-ai-group="situationalItems">` +
+      aiMeta.situationalItems.map(renderAiTag).join("") + `</ul>`;
+  }
+  if (aiMeta.recommendedAugments && aiMeta.recommendedAugments.length) {
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiAugments")}</p><ul class="detailTagList" data-ai-group="recommendedAugments">` +
+      aiMeta.recommendedAugments.map(renderAiTag).join("") + `</ul>`;
+  }
+  if (aiMeta.recommendedSummonerSpells && aiMeta.recommendedSummonerSpells.length) {
+    html += `<p class="detailSkillOrderLabel">${t("champDetailAiSpells")}</p><ul class="detailTagList" data-ai-group="recommendedSummonerSpells">` +
+      aiMeta.recommendedSummonerSpells.map(renderAiTag).join("") + `</ul>`;
+  }
+  if (aiMeta.buildPathSummary) {
+    html += `<p class="detailEmpty" style="margin-top:8px;">${aiMeta.buildPathSummary}</p>`;
+  }
+  return html;
+}
+
+// Bindet fuer jede der 4 Kategorien Icon-Fallback + Hover-Tooltip -
+// getrennt pro Gruppe (data-ai-group), damit die Reihenfolge der
+// Original-Datenobjekte garantiert zur Render-Reihenfolge passt.
+function bindAiMetaInteractions(container, aiMeta) {
+  bindAiTagFallbacks(container);
+  const groups = {
+    coreItems: aiMeta.coreItems,
+    situationalItems: aiMeta.situationalItems,
+    recommendedAugments: aiMeta.recommendedAugments,
+    recommendedSummonerSpells: aiMeta.recommendedSummonerSpells,
+  };
+  for (const [groupName, entries] of Object.entries(groups)) {
+    if (!entries || !entries.length) continue;
+    const list = container.querySelector(`[data-ai-group="${groupName}"]`);
+    if (list) bindAiTagTooltips(list, ".aiTagItem", entries);
+  }
+}
+
+// Laedt die KI-Empfehlung asynchron NACH dem ersten Rendern der
+// Detailansicht (champ.key = numerische Champion-ID, passend zur
+// itemMeta-Collection). Schlaegt der Request fehl (z.B. Server down),
+// wird einfach "keine Daten" angezeigt statt eines Fehlers.
+async function loadAiMetaSection(champ) {
+  const section = document.getElementById("aiMetaSection");
+  if (!section) return;
+  try {
+    const res = await authFetch(serverUrl(`/meta-ai/${champ.key}`));
+    if (!res.ok) {
+      section.innerHTML = renderAiMetaContent(null);
+      return;
+    }
+    const aiMeta = await res.json();
+    section.innerHTML = renderAiMetaContent(aiMeta);
+    bindAiMetaInteractions(section, aiMeta);
+  } catch {
+    section.innerHTML = renderAiMetaContent(null);
+  }
+}
+
+function openChampDetail(champ) {
+  currentDetailChamp = champ;
+  hideChampTooltip();
+  document.getElementById("grid").classList.add("hidden");
+  document.getElementById("top30Trio").classList.add("hidden");
+  document.getElementById("externalTrio").classList.add("hidden");
+  document.getElementById("rankingPanel").classList.add("hidden");
+  openChampBuildsPanel(champ);
+  const detail = document.getElementById("champDetail");
+  detail.classList.remove("hidden");
+
+  detail.innerHTML = `
+    <div class="detailHeader">
+      <button class="backArrowBtn" id="champDetailBackBtn" title="${t("backToGridTitle")}">${t("backArrow")}</button>
+      <img src="${champ.icon}" alt="${champ.name}" />
+      <h2>${champ.name}</h2>
+    </div>
+    <div class="detailSection" id="champPresetsSection">
+      <h3 class="champPresetsToggle collapsed" id="champPresetsToggle" data-i18n="champPresetsHeading">Schnellsuchen</h3>
+      <div id="champPresetsBody" class="hidden">
+        <div id="champPresetPills"><p class="detailEmpty">...</p></div>
+        <div id="champPresetEntries"></div>
+      </div>
+    </div>
+    ${renderCommunityDbPlaceholder()}
+    ${renderCommunityAiPlaceholder()}
+  `;
+
+  document.getElementById("champDetailBackBtn").addEventListener("click", closeChampDetail);
+  document.getElementById("champPresetsToggle").addEventListener("click", () => {
+    document.getElementById("champPresetsBody").classList.toggle("hidden");
+    document.getElementById("champPresetsToggle").classList.toggle("collapsed");
+  });
+  detail.querySelectorAll(".clickableTag").forEach((li) => {
+    li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
+  });
+  loadChampPresetPicker(champ);
+  loadCommunityDbSection(champ);
+  loadCommunityAiSection(champ);
+}
+
+// ---------- Champion-Seite: reine Anzeige/Auswahl der GLOBALEN Presets ----------
+// Kein Zuweisen/Speichern mehr pro Champion - nur Klick zum Anzeigen.
+// Presets selbst werden weiterhin ausschliesslich im Editor (Items &
+// Augments -> "+ Preset") erstellt/verwaltet.
+
+let champPresetSelectedId = null;
+
+async function loadChampPresetPicker(champ) {
+  const pillsEl = document.getElementById("champPresetPills");
+  if (!pillsEl) return;
+  champPresetSelectedId = null;
+  try {
+    const presets = await loadPresets();
+    renderChampPresetPills(presets);
+    document.getElementById("champPresetEntries").innerHTML = "";
+  } catch (err) {
+    console.error("[ChampPresets] Laden fehlgeschlagen:", err);
+    pillsEl.innerHTML = `<p class="detailEmpty">${t("iaLoadError")}</p>`;
+  }
+}
+
+function renderChampPresetPills(presets) {
+  const pillsEl = document.getElementById("champPresetPills");
+  if (!pillsEl) return;
+  if (!presets.length) {
+    pillsEl.innerHTML = `<p class="detailEmpty">${t("champPresetsNoneGlobal")}</p>`;
+    return;
+  }
+  pillsEl.innerHTML = presets.map((p) => `
+    <button class="champPresetPill${p._id === champPresetSelectedId ? " active" : ""}" data-preset-id="${p._id}">
+      ${p.name}${p.createdBy ? ` <span class="champPresetPillCreator">${t("iaPresetByLabel")} ${p.createdBy}</span>` : ""}
+    </button>
+  `).join("");
+  pillsEl.querySelectorAll(".champPresetPill").forEach((btn) => {
+    btn.onclick = () => {
+      const preset = presets.find((p) => p._id === btn.dataset.presetId);
+      if (!preset) return;
+      // Klick auf das bereits aktive Preset schliesst es wieder.
+      champPresetSelectedId = champPresetSelectedId === preset._id ? null : preset._id;
+      renderChampPresetPills(presets);
+      renderChampPresetEntries(champPresetSelectedId ? preset : null);
+    };
+  });
+}
+
+// Zeigt NUR das angeklickte Preset (alle anderen verschwinden aus der
+// Auswahl-Anzeige automatisch, da renderChampPresetPills() neu rendert) -
+// Preset-Name als Ueberschrift, Eintraege gruppiert nach Tier wie gewohnt.
+function renderChampPresetEntries(preset) {
+  const container = document.getElementById("champPresetEntries");
+  if (!container) return;
+  if (!preset) {
+    container.innerHTML = "";
+    return;
+  }
+  const entries = preset.entries || [];
+  const augments = entries.filter((e) => e.type === "augment");
+  const items = entries.filter((e) => e.type === "item");
+
+  let html = `<h4 class="champPresetActiveName">${preset.name}</h4>`;
+  if (augments.length) {
+    html += `<div class="champPresetKindLabel">${t("iaAugmentsHeading")}</div>` +
+      IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
+  }
+  if (items.length) {
+    html += `<div class="champPresetKindLabel">${t("iaItemsHeading")}</div>` +
+      IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
+  }
+  container.innerHTML = html;
+
+  // Nur Hover-Tooltip noetig (kein Klick-Verhalten auf der Champion-Seite).
+  container.querySelectorAll(".iaTile").forEach((tile) => {
+    const kind = tile.dataset.kind;
+    const idx = parseInt(tile.dataset.idx, 10);
+    const entry = (kind === "augment" ? augments : items)[idx];
+    if (!entry) return;
+    tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
+    tile.addEventListener("mousemove", positionIaTooltip);
+    tile.addEventListener("mouseleave", hideIaTooltip);
+  });
+}
+
+
+// Vierte Ebene: ersetzt die komplette Detailansicht durch eine einzelne,
+// volle Breite nutzende Synergie-Ansicht. Rueckweg fuehrt zurueck zur
+// zuletzt geoeffneten Champion-Ansicht (nicht zum Grid).
+
+function getSynergyMap(type) {
+  if (!metaData) return {};
+  return type === "item" ? (metaData.itemSynergyMap || {}) : (metaData.augmentSynergyMap || {});
+}
+
+function getSynergiesFor(name, type) {
+  const map = getSynergyMap(type);
+  const key = normName(name);
+  for (const k in map) {
+    if (normName(k) === key) return map[k];
+  }
+  return null;
+}
+
+function openItemOrAugmentDetail(name, type) {
+  const synergy = getSynergiesFor(name, type);
+  const heading = type === "item" ? t("itemDetailHeading") : t("augmentDetailHeading");
+  const detail = document.getElementById("champDetail");
+
+  let html = `
+    <div class="detailHeader">
+      <button class="backArrowBtn" id="itemDetailBackBtn" title="${t("backToChampTitle")}">${t("backArrow")}</button>
+      <h2>${name}</h2>
+    </div>
+    <div class="detailSection"><h3>${heading} · ${t("detailSynergyHeading")}</h3>`;
+
+  if (synergy && synergy.with && synergy.with.length) {
+    html += `<ul class="detailTagList">` +
+      synergy.with.map((n) => renderItemTag(n, false)).join("") +
+      `</ul>`;
+    if (synergy.note) {
+      html += `<p class="detailEmpty" style="margin-top:6px;">${synergy.note}</p>`;
+    }
+  } else {
+    html += `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
+  }
+  html += `</div>`;
+
+  detail.innerHTML = html;
+  document.getElementById("itemDetailBackBtn").addEventListener("click", () => openChampDetail(currentDetailChamp));
+}
+
+function closeChampDetail() {
+  document.getElementById("champDetail").classList.add("hidden");
+  document.getElementById("champBuildsPanel").classList.add("hidden");
+  document.getElementById("grid").classList.remove("hidden");
+  document.getElementById("top30Trio").classList.remove("hidden");
+  document.getElementById("externalTrio").classList.remove("hidden");
+  document.getElementById("rankingPanel").classList.remove("hidden");
+}
+
+// ============================================================
+// Champion-Builds
+// ============================================================
+let buildEditorChamp = null;
+let buildEditorId = null;
+let buildAugmentEntries = []; // [{entry, round, rating, note}] — entry = volle Augment/Item-Daten
+let buildItemEntries = [];
+let buildPickerType = null;   // "augment" | "item"
+let buildSkillSequence = [];  // ["Q","W","E","Q",...]
+let buildTeammates = [];      // [{key, name, icon}]
+
+// ---- Skill-Order ----
+function renderBuildSkillSequence() {
+  const el = document.getElementById("buildSkillSequence");
+  if (!el) return;
+  el.innerHTML = buildSkillSequence.map(s => `<span class="skillBadge skill-${s}">${s}</span>`).join("");
+}
+safeBind("buildSkillUndo", "onclick", () => { buildSkillSequence.pop(); renderBuildSkillSequence(); });
+safeBind("buildSkillReset", "onclick", () => { buildSkillSequence = []; renderBuildSkillSequence(); });
+document.addEventListener("click", (e) => {
+  if (e.target.classList.contains("buildSkillBtn")) {
+    buildSkillSequence.push(e.target.dataset.skill);
+    renderBuildSkillSequence();
+  }
+});
+
+// ---- Teammate Champion-Picker ----
+function renderBuildTeammates() {
+  const el = document.getElementById("buildTeammateList");
+  if (!el) return;
+  el.innerHTML = buildTeammates.map((c, i) => `
+    <div class="buildTeammateChip">
+      <img src="${c.icon}" alt="${c.name}" />
+      <span class="buildTeammateChipName">${c.name}</span>
+      <button class="buildTeammateChipRemove" data-idx="${i}">✕</button>
+    </div>`).join("");
+  el.querySelectorAll(".buildTeammateChipRemove").forEach(btn => {
+    btn.addEventListener("click", () => { buildTeammates.splice(parseInt(btn.dataset.idx), 1); renderBuildTeammates(); });
+  });
+}
+
+function openChampPicker() {
+  renderChampPickerGrid("");
+  document.getElementById("buildChampPickerOverlay").classList.remove("hidden");
+  document.getElementById("buildChampPickerSearch").value = "";
+  document.getElementById("buildChampPickerSearch").focus();
+}
+
+function renderChampPickerGrid(term) {
+  const grid = document.getElementById("buildChampPickerGrid");
+  const q = term.toLowerCase();
+  const champs = (championList || []).filter(c => !q || c.name.toLowerCase().includes(q));
+  grid.innerHTML = champs.map(c => `
+    <div class="buildChampPickerTile" data-key="${c.key}">
+      <img src="${c.icon}" alt="${c.name}" />
+      <span>${c.name}</span>
+    </div>`).join("");
+  grid.querySelectorAll(".buildChampPickerTile").forEach(tile => {
+    tile.addEventListener("click", () => {
+      const champ = champs.find(c => c.key === tile.dataset.key);
+      if (champ && !buildTeammates.find(t => t.key === champ.key)) {
+        buildTeammates.push({ key: champ.key, name: champ.name, icon: champ.icon });
+        renderBuildTeammates();
+      }
+      document.getElementById("buildChampPickerOverlay").classList.add("hidden");
+    });
+  });
+}
+
+safeBind("buildAddTeammateBtn", "onclick", openChampPicker);
+safeBind("buildChampPickerClose", "onclick", () => document.getElementById("buildChampPickerOverlay").classList.add("hidden"));
+safeBind("buildChampPickerSearch", "oninput", (e) => renderChampPickerGrid(e.target.value));
+
+const RATINGS = ["S", "A", "B", "C", "D"];
+
+function openChampBuildsPanel(champ) {
+  buildEditorChamp = champ;
+  const panel = document.getElementById("champBuildsPanel");
+  panel.classList.remove("hidden");
+  loadChampBuilds(champ.key);
+}
+
+async function loadChampBuilds(championKey) {
+  const list = document.getElementById("champBuildsList");
+  list.innerHTML = `<p style="font-size:11px;color:#9c8882;padding:4px 0">Lade...</p>`;
+  try {
+    const res = await authFetch(serverUrl(`/builds/${encodeURIComponent(championKey)}`));
+    const builds = await res.json();
+    renderChampBuildsList(builds);
+  } catch {
+    list.innerHTML = `<p style="font-size:11px;color:#f87171;padding:4px 0">Fehler beim Laden.</p>`;
+  }
+}
+
+function renderChampBuildsList(builds) {
+  const list = document.getElementById("champBuildsList");
+  if (!builds.length) {
+    list.innerHTML = `<p style="font-size:11px;color:#6a4a44;padding:4px 0">Noch keine Builds – leg den ersten an!</p>`;
+    return;
+  }
+  list.innerHTML = builds.map((b) => {
+    const isMine = state.riotId && b.riotId === state.riotId;
+    return `<div class="buildCard" data-id="${b._id}">
+      <span class="buildCardName" title="${b.name}">${b.name}</span>
+      <span class="buildCardCreator">${b.riotId.split("#")[0]}</span>
+      ${isMine ? `<span class="buildCardMine">✎</span><button class="buildCardDelete" data-id="${b._id}" title="Löschen">✕</button>` : ""}
+    </div>`;
+  }).join("");
+  list.querySelectorAll(".buildCard").forEach((card) => {
+    card.addEventListener("click", async (e) => {
+      if (e.target.classList.contains("buildCardDelete")) return;
+      const build = builds.find((b) => String(b._id) === card.dataset.id);
+      if (build) openBuildViewer(build);
+    });
+  });
+  list.querySelectorAll(".buildCardDelete").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      if (!confirm("Build wirklich löschen?")) return;
+      if (!getIaEditToken()) { requireIaCode(() => btn.click()); return; }
+      try {
+        await authFetch(serverUrl(`/builds/${btn.dataset.id}`), {
+          method: "DELETE", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ riotId: state.riotId })
+        });
+        loadChampBuilds(buildEditorChamp.key);
+      } catch { alert("Fehler beim Löschen."); }
+    });
+  });
+}
+
+// --- Picker ---
+async function openBuildPicker(type) {
+  buildPickerType = type;
+  document.getElementById("buildPickerTitle").textContent = type === "augment" ? "Augment wählen" : "Item wählen";
+  document.getElementById("buildPickerSearch").value = "";
+  document.getElementById("buildPickerList").innerHTML = `<p style="font-size:12px;color:#9c8882;padding:8px">Lade...</p>`;
+  document.getElementById("buildPickerOverlay").classList.remove("hidden");
+  await loadArenaItemsAugments();
+  renderBuildPickerList("");
+  document.getElementById("buildPickerSearch").focus();
+}
+
+function renderBuildPickerList(term) {
+  const list = document.getElementById("buildPickerList");
+  const norm = (s) => (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const q = norm(term);
+  const source = buildPickerType === "augment" ? (arenaAugmentsData || []) : (arenaItemsData || []);
+  const filtered = q ? source.filter(e => {
+    const name = iaEntryName(e);
+    const desc = iaEntryDesc(e);
+    return norm(name).includes(q) || norm(desc).includes(q);
+  }) : source;
+
+  if (!filtered.length) { list.innerHTML = `<p style="font-size:12px;color:#6a4a44;padding:8px">Keine Treffer.</p>`; return; }
+
+  // Nach Tier gruppieren
+  const tiers = buildPickerType === "augment" ? ["prismatic","gold","silver"] : ["prismatic","legendary"];
+  let html = "";
+  tiers.forEach(tier => {
+    const group = filtered.filter(e => e.tier === tier);
+    if (!group.length) return;
+    const label = { prismatic:"Prismatic", gold:"Gold", silver:"Silver", legendary:"Legendary" }[tier] || tier;
+    html += `<div class="buildPickerSectionHeader">${label} (${group.length})</div>`;
+    group.forEach((e, idx) => {
+      const name = iaEntryName(e);
+      const desc = iaEntryDesc(e);
+      const icon = e.icon ? `<img src="${e.icon}" alt="${name}" />` : `<div class="buildPickerItemIcon">${name.slice(0,2)}</div>`;
+      html += `<div class="buildPickerItem" data-tier="${tier}" data-idx="${source.indexOf(e)}">
+        ${icon}
+        <div class="buildPickerItemInfo">
+          <div class="buildPickerItemName">${name}</div>
+          ${desc ? `<div class="buildPickerItemDesc">${desc}</div>` : ""}
+        </div>
+        <span class="buildPickerTierLabel tier-${tier}">${label}</span>
+      </div>`;
+    });
+  });
+  list.innerHTML = html;
+  list.querySelectorAll(".buildPickerItem").forEach((item) => {
+    item.addEventListener("click", () => {
+      const idx = parseInt(item.dataset.idx);
+      const entry = source[idx];
+      if (!entry) return;
+      if (buildPickerType === "augment") buildAugmentEntries.push({ entry, round: null, rating: null, note: "" });
+      else buildItemEntries.push({ entry, round: null, rating: null, note: "" });
+      document.getElementById("buildPickerOverlay").classList.add("hidden");
+      buildPickerType === "augment" ? renderBuildEditorAugments() : renderBuildEditorItems();
+    });
+  });
+}
+
+safeBind("buildPickerSearch", "oninput", (e) => renderBuildPickerList(e.target.value));
+safeBind("buildPickerClose", "onclick", () => document.getElementById("buildPickerOverlay").classList.add("hidden"));
+
+// --- Entry-Rendering ---
+function renderBuildEntryRow(e, idx, type) {
+  const list = type === "augment" ? buildAugmentEntries : buildItemEntries;
+  const name = iaEntryName(e.entry);
+  const icon = e.entry.icon ? `<img class="buildEntryIcon" src="${e.entry.icon}" alt="${name}" />` : `<div class="buildEntryIconFallback">${name.slice(0,2)}</div>`;
+  const ratingOpts = `<option value="">–</option>` + RATINGS.map(r => `<option value="${r}" ${e.rating === r ? "selected" : ""}>${r}-Tier</option>`).join("");
+  const roundOpts = `<option value="">–</option>` + [1,2,3,4,5,6].map(r => `<option value="${r}" ${e.round == r ? "selected" : ""}>Runde ${r}</option>`).join("");
+  return `<div class="buildEntryRow" data-idx="${idx}" data-type="${type}">
+    ${icon}
+    <div class="buildEntryMain">
+      <span class="buildEntryName">${name}</span>
+      <div class="buildEntryOptional">
+        <select class="beEntryRating">${ratingOpts}</select>
+        <select class="beEntryRound">${roundOpts}</select>
+        <input type="text" class="beEntryNote" value="${(e.note||"").replace(/"/g,"&quot;")}" placeholder="Notiz (optional)..." />
+      </div>
+    </div>
+    <button class="buildRemoveEntryBtn" data-idx="${idx}" data-type="${type}">✕</button>
+  </div>`;
+}
+
+function renderBuildEditorAugments() {
+  const c = document.getElementById("buildAugmentRows");
+  c.innerHTML = buildAugmentEntries.map((e, i) => renderBuildEntryRow(e, i, "augment")).join("");
+  bindBuildEditorRowEvents(c, "augment");
+}
+function renderBuildEditorItems() {
+  const c = document.getElementById("buildItemRows");
+  c.innerHTML = buildItemEntries.map((e, i) => renderBuildEntryRow(e, i, "item")).join("");
+  bindBuildEditorRowEvents(c, "item");
+}
+function bindBuildEditorRowEvents(container, type) {
+  const list = type === "augment" ? buildAugmentEntries : buildItemEntries;
+  container.querySelectorAll(".buildRemoveEntryBtn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      list.splice(parseInt(btn.dataset.idx), 1);
+      type === "augment" ? renderBuildEditorAugments() : renderBuildEditorItems();
+    });
+  });
+  container.querySelectorAll(".buildEntryRow").forEach((row) => {
+    const idx = parseInt(row.dataset.idx);
+    row.querySelector(".beEntryRating").addEventListener("change", (e) => { list[idx].rating = e.target.value || null; });
+    row.querySelector(".beEntryRound").addEventListener("change", (e) => { list[idx].round = e.target.value ? parseInt(e.target.value) : null; });
+    row.querySelector(".beEntryNote").addEventListener("input", (e) => { list[idx].note = e.target.value; });
+  });
+}
+
+// Konvertiert interne entries (mit vollem entry-Objekt) in speicherbare DB-Form
+function serializeBuildEntries(entries) {
+  return entries.map(e => {
+    const name = iaEntryName(e.entry);
+    const ref = { name, icon: e.entry.icon || null, tier: e.entry.tier };
+    if (e.rating) ref.rating = e.rating;
+    if (e.round) ref.round = e.round;
+    if (e.note && e.note.trim()) ref.note = e.note.trim();
+    return ref;
+  });
+}
+
+// --- Build Editor öffnen ---
+function openBuildEditor(champ, existingBuild = null) {
+  buildEditorChamp = champ;
+  buildEditorId = existingBuild ? String(existingBuild._id) : null;
+
+  // Bestehende Builds: DB-Form → interne Form (entry als Dummy mit name/icon/tier)
+  const toInternal = (dbEntry) => ({
+    entry: { name: typeof dbEntry.name === "string" ? { de: dbEntry.name, en: dbEntry.name } : dbEntry.name, icon: dbEntry.icon, tier: dbEntry.tier },
+    round: dbEntry.round || null, rating: dbEntry.rating || null, note: dbEntry.note || ""
+  });
+  buildAugmentEntries = existingBuild ? (existingBuild.augments || []).map(toInternal) : [];
+  buildItemEntries = existingBuild ? (existingBuild.items || []).map(toInternal) : [];
+  buildSkillSequence = existingBuild ? (existingBuild.skillOrder || []) : [];
+  buildTeammates = existingBuild ? (existingBuild.teammates || []) : [];
+
+  document.getElementById("buildEditorTitle").textContent = existingBuild ? "Build bearbeiten" : `Build für ${champ.name}`;
+  document.getElementById("buildNameInput").value = existingBuild?.name || "";
+  document.getElementById("buildNotesInput").value = existingBuild?.notes || "";
+  document.getElementById("buildEditorStatus").textContent = "";
+  renderBuildEditorAugments();
+  renderBuildEditorItems();
+  renderBuildSkillSequence();
+  renderBuildTeammates();
+  document.getElementById("buildEditorOverlay").classList.remove("hidden");
+}
+
+safeBind("buildAddAugmentBtn", "onclick", async () => openBuildPicker("augment"));
+safeBind("buildAddItemBtn", "onclick", async () => openBuildPicker("item"));
+safeBind("buildEditorClose", "onclick", () => document.getElementById("buildEditorOverlay").classList.add("hidden"));
+safeBind("buildEditorCancelBtn", "onclick", () => document.getElementById("buildEditorOverlay").classList.add("hidden"));
+safeBind("openBuildEditorBtn", "onclick", () => {
+  if (!state.riotId) { alert("Bitte erst deine Riot-ID in den Einstellungen eintragen."); return; }
+  openBuildEditor(buildEditorChamp);
+});
+
+safeBind("buildEditorSaveBtn", "onclick", async () => {
+  if (!state.riotId) { alert("Riot-ID fehlt."); return; }
+  const name = document.getElementById("buildNameInput").value.trim();
+  const notes = document.getElementById("buildNotesInput").value.trim();
+  const statusEl = document.getElementById("buildEditorStatus");
+  if (!name) { statusEl.textContent = "Bitte einen Namen eingeben."; statusEl.style.color = "#f87171"; return; }
+  if (!getIaEditToken()) { requireIaCode(() => document.getElementById("buildEditorSaveBtn").click()); return; }
+  try {
+    const isEdit = !!buildEditorId;
+    const body = { riotId: state.riotId, championKey: buildEditorChamp.key, name,
+      augments: serializeBuildEntries(buildAugmentEntries),
+      items: serializeBuildEntries(buildItemEntries),
+      skillOrder: buildSkillSequence.length ? buildSkillSequence : undefined,
+      teammates: buildTeammates.length ? buildTeammates : undefined,
+      notes };
+    const res = await authFetch(serverUrl(isEdit ? `/builds/${buildEditorId}` : "/builds"), {
+      method: isEdit ? "PUT" : "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) { const d = await res.json(); throw new Error(d.error || "Fehler"); }
+    statusEl.textContent = "✓ Gespeichert!"; statusEl.style.color = "#4ade80";
+    document.getElementById("buildEditorOverlay").classList.add("hidden");
+    loadChampBuilds(buildEditorChamp.key);
+  } catch (err) { statusEl.textContent = err.message; statusEl.style.color = "#f87171"; }
+});
+
+// --- Build Viewer ---
+function openBuildViewer(build) {
+  document.getElementById("buildViewTitle").textContent = build.name;
+  const isMine = state.riotId && build.riotId === state.riotId;
+  const saveBtn = document.getElementById("buildViewSaveForMe");
+  saveBtn.classList.toggle("hidden", isMine);
+  saveBtn.textContent = "📥 Für mich speichern"; saveBtn.disabled = false;
+
+  let html = "";
+  const entryHtml = (e) => {
+    const name = typeof e.name === "object" ? (e.name[currentLang] || e.name.de || e.name.en || "–") : (e.name || "–");
+    const icon = e.icon ? `<img class="buildEntryIcon" src="${e.icon}" alt="${name}" style="width:30px;height:30px" />` : "";
+    let meta = [];
+    if (e.rating) meta.push(`<span class="buildViewEntryRating ${`rating-${e.rating}`}">${e.rating}</span>`);
+    if (e.round) meta.push(`<span class="buildViewEntryRound">Runde ${e.round}</span>`);
+    return `<div class="buildViewEntry">${icon}<span class="buildViewEntryName">${name}</span>${meta.join("")}</div>
+      ${e.note ? `<p class="buildViewEntryNote" style="margin:0 0 4px 42px">${e.note}</p>` : ""}`;
+  };
+
+  if (build.augments?.length) {
+    html += `<div class="buildViewSection"><h4>Augments</h4>${build.augments.map(entryHtml).join("")}</div>`;
+  }
+  if (build.items?.length) {
+    html += `<div class="buildViewSection"><h4>Items</h4>${build.items.map(entryHtml).join("")}</div>`;
+  }
+  if (build.skillOrder?.length) {
+    const badges = build.skillOrder.map(s => `<span class="skillBadge skill-${s}">${s}</span>`).join("");
+    html += `<div class="buildViewSection"><h4>Skill-Reihenfolge</h4><div class="buildViewSkillSequence">${badges}</div></div>`;
+  }
+  if (build.teammates?.length) {
+    const chips = build.teammates.map(t => `<div class="buildViewTeammate"><img src="${t.icon}" alt="${t.name}" /><span>${t.name}</span></div>`).join("");
+    html += `<div class="buildViewSection"><h4>Lieblings-Teammates</h4><div class="buildViewTeammates">${chips}</div></div>`;
+  }
+  if (build.notes) html += `<div class="buildViewSection"><h4>Notizen</h4><div class="buildViewNotes">${build.notes}</div></div>`;
+  html += `<p class="buildViewCreator">Erstellt von ${build.riotId}</p>`;
+  document.getElementById("buildViewBody").innerHTML = html;
+
+  saveBtn.onclick = async () => {
+    if (!state.riotId) { alert("Riot-ID fehlt."); return; }
+    if (!getIaEditToken()) { requireIaCode(() => saveBtn.click()); return; }
+    try {
+      const body = { riotId: state.riotId, championKey: build.championKey,
+        name: `${build.name} (von ${build.riotId.split("#")[0]})`,
+        augments: build.augments, items: build.items, notes: build.notes };
+      const res = await authFetch(serverUrl("/builds"), { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      if (!res.ok) throw new Error();
+      saveBtn.textContent = "✓ Gespeichert!"; saveBtn.disabled = true;
+      loadChampBuilds(buildEditorChamp.key);
+    } catch { alert("Fehler beim Speichern."); }
+  };
+  document.getElementById("buildViewOverlay").classList.remove("hidden");
+}
+
+safeBind("buildViewClose", "onclick", () => document.getElementById("buildViewOverlay").classList.add("hidden"));
+
+
+
+
+
+// ---------- Freunde ----------
+
+async function loadFriends() {
+  if (!state.riotId || !state.serverUrl) return;
+  try {
+    const res = await authFetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
+    if (!res.ok) return;
+    const data = await res.json();
+    lastFriendsList = data.friends || [];
+    renderFriendsList(lastFriendsList);
+  } catch (err) {
+    console.error("Freunde konnten nicht geladen werden:", err);
+  }
+}
+
+function renderFriendsList(friends) {
+  lastFriendsList = friends;
+  const list = document.getElementById("friendsList");
+  list.innerHTML = "";
+  if (friends.length === 0) {
+    list.innerHTML = `<li class="friendEmpty">${t("friendEmpty")}</li>`;
+    return;
+  }
+  for (const friendId of friends) {
+    const li = document.createElement("li");
+    li.innerHTML = `<span>${friendId}</span><button class="removeFriendBtn" title="${t("removeFriendTitle")}">✕</button>`;
+    li.querySelector(".removeFriendBtn").onclick = () => removeFriend(friendId);
+    list.appendChild(li);
+  }
+}
+
+async function addFriend(friendRiotIdParam) {
+  const input = document.getElementById("friendIdInput");
+  const friendRiotId = friendRiotIdParam || input.value.trim();
+  if (!friendRiotId) return;
+  if (!state.riotId) {
+    setStatus(t("statusAddFriendNeedRiotId"));
+    return;
+  }
+  try {
+    const res = await authFetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ friendRiotId })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || t("friendAddFailed"));
+    if (!friendRiotIdParam) input.value = "";
+    renderFriendsList(data.friends || []);
+    if (currentRankingMode === "friends") loadRanking("friends");
+    return data.friends || [];
+  } catch (err) {
+    console.error(err);
+    setStatus(t("errorPrefix") + err.message);
+    return null;
+  }
+}
+
+async function removeFriend(friendRiotId) {
+  try {
+    const res = await fetch(
+      serverUrl(`/friends/${encodeURIComponent(state.riotId)}/${encodeURIComponent(friendRiotId)}`),
+      { method: "DELETE" }
+    );
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || t("friendRemoveFailed"));
+    renderFriendsList(data.friends || []);
+    if (currentRankingMode === "friends") loadRanking("friends");
+  } catch (err) {
+    console.error(err);
+    setStatus(t("errorPrefix") + err.message);
+  }
+}
+
+safeBind("addFriendBtn", "onclick", addFriend);
+safeBind("friendIdInput", "addEventListener", { event: "keydown", fn: (e) => {
+  if (e.key === "Enter") addFriend();
+} });
+
+// ---------- Ranking ----------
+
+let currentRankingMode = "global";
+let currentRankingCategory = "champions"; // "champions" | "totalWins" | "bestChampion"
+let rankingLoadedOnce = false;
+
+function ensureRankingLoaded() {
+  if (rankingLoadedOnce) return;
+  rankingLoadedOnce = true;
+  loadRanking("global");
+}
+
+safeBind("rankingTabGlobal", "onclick", () => loadRanking("global"));
+safeBind("rankingTabFriends", "onclick", () => loadRanking("friends"));
+
+function bindRankCategoryTab(id, category) {
+  safeBind(id, "onclick", () => {
+    currentRankingCategory = category;
+    document.getElementById("rankCatChampions").classList.toggle("active", category === "champions");
+    document.getElementById("rankCatTotalWins").classList.toggle("active", category === "totalWins");
+    document.getElementById("rankCatBestChamp").classList.toggle("active", category === "bestChampion");
+    document.getElementById("rankCatWinRate").classList.toggle("active", category === "winRate");
+    loadRanking(currentRankingMode);
+  });
+}
+bindRankCategoryTab("rankCatChampions", "champions");
+bindRankCategoryTab("rankCatTotalWins", "totalWins");
+bindRankCategoryTab("rankCatBestChamp", "bestChampion");
+bindRankCategoryTab("rankCatWinRate", "winRate");
+
+async function loadRanking(mode) {
+  currentRankingMode = mode;
+  document.getElementById("rankingTabGlobal").classList.toggle("active", mode === "global");
+  document.getElementById("rankingTabFriends").classList.toggle("active", mode === "friends");
+
+  const list = document.getElementById("rankingList");
+  list.innerHTML = `<li class="rankEmpty">${t("rankLoading")}</li>`;
+
+  if (mode === "friends" && !state.riotId) {
+    list.innerHTML = `<li class="rankEmpty">${t("rankNeedOwnId")}</li>`;
+    return;
+  }
+
+  try {
+    const basePath = mode === "global"
+      ? "/ranking/global"
+      : `/ranking/friends/${encodeURIComponent(state.riotId)}`;
+    const path = `${basePath}?sort=${currentRankingCategory}`;
+    const res = await authFetch(serverUrl(path));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || t("rankLoadFailed"));
+    renderRanking(data.ranking || []);
+  } catch (err) {
+    console.error(err);
+    list.innerHTML = `<li class="rankEmpty">${t("errorPrefix")}${err.message}</li>`;
+  }
+}
+
+// Riot speichert nur die grobe Routing-Region (europe/americas/asia/sea),
+// op.gg braucht aber den genauen Plattform-Code. Bestmögliche Annahme
+// pro Kontinent - bei Nutzern auf einem anderen Server innerhalb dieser
+// Gruppe (z.B. EUNE statt EUW) zeigt der Link auf den naheliegendsten.
+const OPGG_REGION_MAP = { europe: "euw", americas: "na", asia: "kr", sea: "oce" };
+
+// Eigenes kleines Balkendiagramm-Icon fuer den op.gg-Link statt eines
+// externen Hotlinks auf op.gg's favicon (das zuverlaessig 404'te). Kann
+// dadurch nie "kaputt" aussehen, da nichts nachgeladen werden muss.
+const OPGG_ICON_SVG = `<svg viewBox="0 0 16 16" width="14" height="14" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="1" y="9" width="3" height="6" rx="0.5" fill="#ff7a3c"/>
+  <rect x="6.5" y="5" width="3" height="10" rx="0.5" fill="#ffb37a"/>
+  <rect x="12" y="1" width="3" height="14" rx="0.5" fill="#ff7a3c"/>
+</svg>`;
+
+function buildOpggUrl(riotId, region) {
+  const platform = OPGG_REGION_MAP[region] || "euw";
+  const [name, tag] = riotId.split("#");
+  if (!name || !tag) return null;
+  return `https://www.op.gg/summoners/${platform}/${encodeURIComponent(name)}-${encodeURIComponent(tag)}`;
+}
+
+// Spezieller Spass-Fall: dieser Account bekommt eine "schlechte" Holz-/
+// Braun-Farbe, ausser er schafft es selbst auf einen Podiumsplatz - dann
+// gilt fuer ihn ganz normal die Gold/Silber/Bronze-Farbe wie fuer alle.
+const RUNNING_GAG_RIOTID = "xlizardx#4747";
+
+function renderRanking(ranking) {
+  const list = document.getElementById("rankingList");
+  list.innerHTML = "";
+  if (ranking.length === 0) {
+    list.innerHTML = `<li class="rankEmpty">${t("rankEmptyData")}</li>`;
+    return;
+  }
+  ranking.forEach((entry, i) => {
+    const li = document.createElement("li");
+    li.classList.add("clickable");
+    if (entry.riotId === state.riotId) li.classList.add("me");
+
+    // Podium-Farbe nach Platzierung (0-indiziert: 0=Gold, 1=Silber, 2=Bronze).
+    const podiumClass = i === 0 ? "rank-gold" : i === 1 ? "rank-silver" : i === 2 ? "rank-bronze" : "";
+    const isLizard = entry.riotId.toLowerCase() === RUNNING_GAG_RIOTID;
+    if (podiumClass) {
+      li.classList.add(podiumClass);
+    } else if (isLizard) {
+      // Nicht in den Top 3 UND der running gag - schlechte Holzfarbe.
+      li.classList.add("rank-lizard");
+    }
+
+    const opggUrl = buildOpggUrl(entry.riotId, entry.region);
+    // Echtes In-Game-Profilicon des Spielers, wenn vorhanden (wird beim
+    // Sync mitgespeichert). Fehlt es (z.B. weil der Nutzer noch nicht
+    // seit dem Update neu gesynct wurde) oder schlaegt das Laden fehl,
+    // wird IMMER ein echtes League-Profilicon angezeigt (Standard-Icon
+    // 29), NIE mehr das op.gg-Logo - alle Spieler sollen optisch
+    // gleich aussehen wie in League selbst, nicht wie auf op.gg.
+    const DEFAULT_PROFILE_ICON_ID = 29;
+    const iconId = entry.profileIconId || DEFAULT_PROFILE_ICON_ID;
+    const profileIconUrl = ddragonVersion
+      ? `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/profileicon/${iconId}.png`
+      : null;
+    const fallbackIconUrl = ddragonVersion
+      ? `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/profileicon/${DEFAULT_PROFILE_ICON_ID}.png`
+      : "";
+    const iconImg = profileIconUrl
+      ? `<img src="${profileIconUrl}" alt="${entry.riotId}" onerror="this.onerror=null;this.src='${fallbackIconUrl}';" />`
+      : "";
+    const opggLink = opggUrl
+      ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}">${iconImg}</a>`
+      : "";
+
+    // Je nach gewaehlter Kategorie wird ein anderer Wert angezeigt.
+    // In allen Kategorien wird zusaetzlich die Winrate vorangestellt
+    // (sofern genug Spiele vorhanden).
+    const winRateSpan = typeof entry.winRate === "number" && entry.totalGames >= 5
+      ? `<span class="rankWinRate">${entry.winRate.toFixed(1)}%</span>`
+      : "";
+    let valueHtml;
+    if (currentRankingCategory === "totalWins") {
+      valueHtml = `${winRateSpan}<span class="rankWins">${entry.totalWins} Wins</span>`;
+    } else if (currentRankingCategory === "bestChampion") {
+      const champ = entry.bestChampionKey ? championByKey[entry.bestChampionKey] : null;
+      const champIcon = champ
+        ? `<img src="${champ.icon}" alt="${champ.name}" title="${champ.name}" class="rankBestChampIcon" />`
+        : "";
+      valueHtml = `${champIcon}${winRateSpan}<span class="rankWins">${entry.bestChampionWins} Wins</span>`;
+    } else if (currentRankingCategory === "winRate") {
+      const wrDisplay = typeof entry.winRate === "number" && entry.totalGames >= 5
+        ? `<span class="rankWinRateBig">${entry.winRate.toFixed(1)}%</span><span class="rankWins">${entry.totalWins}W</span>`
+        : `<span class="rankWins rankWinRateTooFew">–</span>`;
+      valueHtml = wrDisplay;
+    } else {
+      valueHtml = `${winRateSpan}<span class="rankWins">${entry.championsWon} Champs</span>`;
+    }
+
+    li.innerHTML = `
+      <span class="rankNum">${i + 1}.</span>
+      ${opggLink}
+      <span class="rankName">${entry.riotId}</span>
+      ${valueHtml}
+    `;
+    li.title = t("progressTitle");
+    li.addEventListener("click", () => openPlayerView(entry.riotId));
+    const linkEl = li.querySelector(".opggLink");
+    if (linkEl) linkEl.addEventListener("click", (e) => e.stopPropagation());
+    list.appendChild(li);
+  });
+}
+
+// ---------- Spieler-Fortschrittsansicht (Klick auf Ranking-Eintrag) ----------
+// Holt die OEFFENTLICHEN Stats eines beliebigen registrierten Nutzers
+// ueber denselben /stats/:riotId-Endpunkt, den die App auch fuer den
+// eigenen Account nutzt - kein Login noetig, identisch zur bestehenden
+// Datenschutz-Logik (jeder kann gezielt eine Riot-ID abrufen).
+let viewedPlayerStats = null;
+
+async function openPlayerView(riotId) {
+  const overlay = document.getElementById("playerViewOverlay");
+  const nameEl = document.getElementById("playerViewName");
+  const summaryEl = document.getElementById("playerViewSummary");
+  const gridEl = document.getElementById("playerViewGrid");
+  const addFriendBtnEl = document.getElementById("playerViewAddFriend");
+
+  nameEl.textContent = riotId;
+  summaryEl.textContent = t("rankLoading");
+  gridEl.innerHTML = "";
+  overlay.classList.remove("hidden");
+
+  // Bei sich selbst macht ein Freund-Button keinen Sinn - ausblenden.
+  if (riotId === state.riotId) {
+    addFriendBtnEl.classList.add("hidden");
+  } else {
+    addFriendBtnEl.classList.remove("hidden");
+    await updatePlayerViewFriendButton(riotId);
+  }
+
+  try {
+    const res = await authFetch(serverUrl(`/stats/${encodeURIComponent(riotId)}`));
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || t("statsLoadFailed"));
+    viewedPlayerStats = data;
+    renderPlayerViewGrid();
+  } catch (err) {
+    console.error(err);
+    summaryEl.textContent = t("errorPrefix") + err.message;
+  }
+}
+
+async function updatePlayerViewFriendButton(riotId) {
+  const btn = document.getElementById("playerViewAddFriend");
+  btn.classList.remove("already");
+  btn.textContent = t("addFriendBtnShort");
+  btn.disabled = false;
+  try {
+    const res = await authFetch(serverUrl(`/friends/${encodeURIComponent(state.riotId)}`));
+    if (!res.ok) return;
+    const data = await res.json();
+    const alreadyFriend = (data.friends || []).some(
+      (f) => f.toLowerCase() === riotId.toLowerCase()
+    );
+    if (alreadyFriend) {
+      btn.classList.add("already");
+      btn.textContent = t("friendAlready");
+      btn.disabled = true;
+    }
+  } catch (err) {
+    console.error("Freund-Status konnte nicht geprüft werden:", err);
+  }
+}
+
+safeBind("playerViewAddFriend", "onclick", async () => {
+  const riotId = document.getElementById("playerViewName").textContent;
+  const btn = document.getElementById("playerViewAddFriend");
+  btn.disabled = true;
+  btn.textContent = "...";
+  const friends = await addFriend(riotId);
+  if (friends) {
+    btn.classList.add("already");
+    btn.textContent = t("friendAlready");
+  } else {
+    btn.disabled = false;
+    btn.textContent = t("addFriendBtnShort");
+  }
+});
+
+function renderPlayerViewGrid() {
+  if (!viewedPlayerStats) return;
+  const gridEl = document.getElementById("playerViewGrid");
+  const summaryEl = document.getElementById("playerViewSummary");
+  const filterText = document.getElementById("playerViewFilter").value.toLowerCase();
+
+  const winCounts = viewedPlayerStats.winCounts || {};
+  const matchHistory = viewedPlayerStats.matchHistory || {};
+
+  gridEl.innerHTML = "";
+  let wonCount = 0;
+
+  const visible = championList.filter((c) => c.name.toLowerCase().includes(filterText));
+
+  for (const champ of visible) {
+    const winCount = winCounts[champ.key] || 0;
+    const hasWin = winCount > 0;
+    const hasGames = !!(matchHistory[champ.key] && matchHistory[champ.key].length > 0);
+    if (hasWin) wonCount++;
+
+    let status;
+    if (hasWin) status = "won";
+    else if (hasGames) status = "lost";
+    else status = "missing";
+
+    const tierClass = getTierClass(winCount);
+
+    const div = document.createElement("div");
+    div.className = "champ " + status + (tierClass ? " " + tierClass : "");
+    div.innerHTML = `
+      <img src="${champ.icon}" alt="${champ.name}" />
+      ${hasWin ? `<span class="winBadge">${winCount}</span>` : ""}
+      <span>${champ.name}</span>
+    `;
+    gridEl.appendChild(div);
+  }
+
+  let totalGames = 0;
+  let totalWins = 0;
+  for (const champKey in matchHistory) {
+    const games = matchHistory[champKey] || [];
+    totalGames += games.length;
+    totalWins += games.filter((g) => g.placement === 1).length;
+  }
+
+  summaryEl.textContent =
+    t("playerViewSummary", { won: wonCount, total: championList.length, games: totalGames, wins: totalWins }) +
+    (viewedPlayerStats.lastSync ? t("playerViewLastSync", { time: formatLastSync(viewedPlayerStats.lastSync) }) : "");
+}
+
+safeBind("playerViewClose", "onclick", () => {
+  document.getElementById("playerViewOverlay").classList.add("hidden");
+  viewedPlayerStats = null;
+});
+
+safeBind("playerViewFilter", "oninput", renderPlayerViewGrid);
+
+// ---------- Start ----------
+
+(async function init() {
+  setStatus(t("statusLoadingChampList"));
+  await loadChampionList();
+  await loadCommunityTierMap();
+  renderGrid();
+  loadMetaData();
+  loadExternalTrioMeta();
+  ensureRankingLoaded();
+
+  if (state.riotId && state.serverUrl) {
+    await registerAndLoad();
+    loadFriends();
+  } else {
+    setStatus(t("statusReadyFillSettings"));
+    document.getElementById("settingsPanel").classList.remove("hidden");
+  }
+})();

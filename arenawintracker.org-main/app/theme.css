@@ -1,0 +1,199 @@
+/* ============================================================
+   theme.css – Dark/Light-Theme-Toggle für Arena Win Tracker
+   ============================================================
+   Strategie: ein data-theme-Attribut auf <html> setzen
+   ("dark" oder "light"). CSS-Variablen accordingly umschalten.
+
+   Die bestehende app.css setzt alles auf dunkle Farben hardcoded.
+   Diese Datei definiert die Variablen-Namen + Light-Overrides und
+   muss NACH app.css geladen werden (siehe index.html).
+*/
+
+:root {
+  /* Dark (Default) - identisch mit bestehendem Look */
+  --awt-bg:           #0b0707;
+  --awt-bg-elevated:  #1a1212;
+  --awt-bg-input:     #16100d;
+  --awt-border:       #3a2620;
+  --awt-border-strong:#5a463a;
+  --awt-text:         #f5ece6;
+  --awt-text-muted:   #b3a39c;
+  --awt-text-bright:  #ffb37a;
+  --awt-accent:       #ff7a3c;
+  --awt-accent-hover: #ff9159;
+  --awt-danger:       #9c2330;
+  --awt-danger-hover: #c43b4a;
+  --awt-warn:         #9e6a03;
+  --awt-shadow:       rgba(0,0,0,0.4);
+  --awt-tile-bg:      #16100d;
+  --awt-tile-bg-hover:#221715;
+}
+
+html[data-theme="light"] {
+  --awt-bg:           #fafafa;
+  --awt-bg-elevated:  #ffffff;
+  --awt-bg-input:     #ffffff;
+  --awt-border:       #d0d7de;
+  --awt-border-strong:#afb8c1;
+  --awt-text:         #1f2328;
+  --awt-text-muted:   #656d76;
+  --awt-text-bright:  #cf3a00;
+  --awt-accent:       #d97706;
+  --awt-accent-hover: #f59e0b;
+  --awt-danger:       #cf222e;
+  --awt-danger-hover: #e5534b;
+  --awt-warn:         #9a6700;
+  --awt-shadow:       rgba(140,149,159,0.2);
+  --awt-tile-bg:      #f6f8fa;
+  --awt-tile-bg-hover:#eaeef2;
+}
+
+/* Theme-Toggle-Button oben rechts */
+#themeToggle {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: 1px solid var(--awt-border);
+  color: var(--awt-text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 5px;
+  transition: background 0.15s;
+}
+#themeToggle:hover {
+  background: var(--awt-bg-elevated);
+  color: var(--awt-text);
+}
+
+/* Manueller Sync-Button oben rechts neben Settings */
+#manualSyncBtn {
+  -webkit-app-region: no-drag;
+  background: none;
+  border: 1px solid var(--awt-border);
+  color: var(--awt-text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 5px;
+  transition: background 0.15s, transform 0.4s;
+}
+#manualSyncBtn:hover:not(:disabled) {
+  background: var(--awt-bg-elevated);
+  transform: rotate(90deg);
+  color: var(--awt-text);
+}
+#manualSyncBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Body-Background etc. - Variablen nutzen statt hardcoded */
+html, body {
+  background-color: var(--awt-bg) !important;
+  color: var(--awt-text) !important;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+/* Alle wichtigen Elemente ziehen die Variablen */
+#app, header, section, .tierSectionHeader, #playerViewBox,
+#settingsPanel, #friendsPanel, #metaSection, .metaCol {
+  background: var(--awt-bg-elevated) !important;
+  color: var(--awt-text) !important;
+  border-color: var(--awt-border) !important;
+}
+
+input, select, textarea {
+  background: var(--awt-bg-input) !important;
+  color: var(--awt-text) !important;
+  border-color: var(--awt-border) !important;
+}
+
+button {
+  background: var(--awt-accent) !important;
+  color: var(--awt-bg) !important;
+  border-color: var(--awt-accent) !important;
+}
+button:hover {
+  background: var(--awt-accent-hover) !important;
+}
+button.danger {
+  background: var(--awt-danger) !important;
+  color: #fff !important;
+}
+button.danger:hover {
+  background: var(--awt-danger-hover) !important;
+}
+
+a { color: var(--awt-accent-hover) !important; }
+
+header h1 { color: var(--awt-text-bright) !important; }
+#summaryText { color: var(--awt-text-bright) !important; }
+.metaTier { color: var(--awt-text-bright) !important; }
+.metaName { color: var(--awt-text) !important; }
+.metaPartners { color: var(--awt-text-muted) !important; }
+
+/* Champion-Kacheln - Status-Farben */
+.champ {
+  background: var(--awt-tile-bg) !important;
+  border-color: var(--awt-border) !important;
+  color: var(--awt-text) !important;
+}
+.champ:hover {
+  background: var(--awt-tile-bg-hover) !important;
+}
+.champ.won {
+  border-color: var(--awt-accent) !important;
+}
+.champ.lost {
+  opacity: 0.6;
+}
+
+/* Tooltips */
+#champTooltip {
+  background: var(--awt-bg-elevated) !important;
+  border: 1px solid var(--awt-border-strong) !important;
+  color: var(--awt-text) !important;
+  box-shadow: 0 4px 16px var(--awt-shadow) !important;
+}
+
+/* Saison-Fortschrittsbalken */
+.seasonProgress {
+  margin: 8px 0 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--awt-text-muted);
+  width: 100%;
+}
+.seasonProgressBar {
+  flex: 1;
+  height: 6px;
+  background: var(--awt-tile-bg);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+  border: 1px solid var(--awt-border);
+}
+.seasonProgressFill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--awt-accent) 0%, var(--awt-accent-hover) 100%);
+  transition: width 0.4s ease;
+  border-radius: 3px;
+}
+.seasonProgressLabel {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+  color: var(--awt-text-bright);
+  font-weight: 600;
+}
+
+/* Toast-Container oben rechts */
+#toastContainer {
+  z-index: 99999;
+}
+
+/* Lade-Indikator (Kaltstart) */
+#kaltstartLoader {
+  font-family: "Segoe UI", Arial, sans-serif;
+}
