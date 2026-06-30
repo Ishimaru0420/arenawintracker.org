@@ -8,7 +8,7 @@
   <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
   <link rel="stylesheet" href="theme.css?v=1" />
   <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=20" />
+  <link rel="stylesheet" href="app.css?v=39" />
 
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
@@ -27,10 +27,6 @@
   </style>
 </head>
 <body>
-  <div id="langPanel">
-    <button id="langToggle" title="Language / Sprache">DE</button>
-  </div>
-
   <div id="app">
 
     <header>
@@ -60,6 +56,12 @@
     </section>
 
     <section id="settingsPanel" class="hidden">
+      <label><span data-i18n="languageLabel">Sprache</span>
+        <select id="languageSelect">
+          <option value="de">Deutsch</option>
+          <option value="en">English</option>
+        </select>
+      </label>
       <label><span data-i18n="riotIdLabel">Riot ID (Name#Tag)</span>
         <input id="riotId" type="text" placeholder="z.B. Glitch#EUW" data-i18n-placeholder="riotIdPlaceholder" />
       </label>
@@ -123,6 +125,7 @@
           <button id="rankCatChampions" class="rankCatTab active" data-i18n="rankCatChampions">Champions</button>
           <button id="rankCatTotalWins" class="rankCatTab" data-i18n="rankCatTotalWins">Gesamt-Wins</button>
           <button id="rankCatBestChamp" class="rankCatTab" data-i18n="rankCatBestChamp">Bester Champ</button>
+          <button id="rankCatWinRate" class="rankCatTab" data-i18n="rankCatWinRate">Winrate</button>
         </div>
         <ol id="rankingList"></ol>
         <p class="rankingUpdateNote" data-i18n="rankingUpdateNote">🕕 Update alle 6 Std.</p>
@@ -133,11 +136,80 @@
       <section id="champDetail" class="hidden"></section>
 
       <section id="top30Trio"></section>
-      <section id="externalTrio"></section>
+      <div id="rightSidebarCol">
+        <button id="openItemsAugmentsBtn" data-i18n="openItemsAugmentsBtn">📦 Items &amp; Augments</button>
+        <section id="externalTrio"></section>
+      </div>
     </div>
 
     <div id="champTooltip" class="hidden"></div>
 
+  </div>
+
+  <div id="itemsAugmentsOverlay" class="hidden">
+    <div id="itemsAugmentsBox">
+      <div id="itemsAugmentsHeader">
+        <h2 data-i18n="itemsAugmentsHeading">Arena Items &amp; Augments</h2>
+        <div class="playerViewHeaderBtns">
+          <button id="iaEditModeBtn" data-i18n="iaEditModeBtn">✏️ Synergien bearbeiten</button>
+          <button id="iaPresetModeBtn" data-i18n="iaPresetModeBtn">🔍 Schnellsuche</button>
+          <button id="itemsAugmentsClearFilter" class="hidden" data-i18n="itemsAugmentsClearFilter">Filter zurücksetzen</button>
+          <button id="itemsAugmentsClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
+        </div>
+      </div>
+      <p id="itemsAugmentsHint" data-i18n="itemsAugmentsHint">Auf ein Augment oder Item klicken, um nur dazu passende Treffer zu sehen.</p>
+      <div id="iaSearchRow">
+        <input id="iaSearchInput" type="text" placeholder="Augment oder Item suchen..." data-i18n-placeholder="iaSearchPlaceholder" />
+      </div>
+      <div id="itemsAugmentsBody">
+        <section id="iaAugmentsCol">
+          <h3 data-i18n="iaAugmentsHeading">Augments</h3>
+          <div id="iaAugmentsList"></div>
+        </section>
+        <section id="iaItemsCol">
+          <h3 data-i18n="iaItemsHeading">Items</h3>
+          <div id="iaItemsList"></div>
+        </section>
+      </div>
+      <div id="iaDetailView" class="hidden">
+        <div id="iaSelectedCard"></div>
+        <div id="iaSynergyResults"></div>
+      </div>
+      <div id="iaPresetView" class="hidden">
+        <div id="iaPresetExisting">
+          <h4 data-i18n="iaPresetExistingHeading">Bestehende Presets</h4>
+          <ul id="iaPresetExistingList"></ul>
+        </div>
+        <p class="iaEditHintLike" data-i18n="iaPresetHint">Name vergeben, dann Augments/Items unten anklicken zum Hinzufügen/Entfernen. "Speichern" legt das Preset an.</p>
+        <div id="iaPresetNameRow">
+          <input id="iaPresetNameInput" type="text" placeholder="Preset-Name (z.B. Tank, Full Autocast, Onhit Atkspeed)..." data-i18n-placeholder="iaPresetNamePlaceholder" />
+        </div>
+        <div id="iaPresetSearchRow">
+          <input id="iaPresetSearchInput" type="text" placeholder="Augment oder Item suchen..." data-i18n-placeholder="iaSearchPlaceholder" />
+          <select id="iaPresetCategoryFilter"></select>
+        </div>
+        <div id="iaPresetItemsGrid"></div>
+        <div id="iaEditActions">
+          <button id="iaPresetSave" data-i18n="iaPresetSave">Speichern</button>
+          <button id="iaPresetCancel" data-i18n="iaEditCancel">Fertig</button>
+          <span id="iaPresetStatus"></span>
+        </div>
+      </div>
+      <div id="iaEditView" class="hidden">
+        <p id="iaEditHint" data-i18n="iaEditHint">Augment oder Item auswählen, dann unten anklicken, um Synergien hinzuzufügen (+) oder zu entfernen (✕). Wirkt automatisch in beide Richtungen.</p>
+        <div id="iaEditSelectedCard"></div>
+        <div id="iaEditSearchRow">
+          <input id="iaEditSearchInput" type="text" placeholder="Augment oder Item suchen..." data-i18n-placeholder="iaSearchPlaceholder" />
+          <select id="iaEditCategoryFilter"></select>
+        </div>
+        <div id="iaEditItemsGrid"></div>
+        <div id="iaEditActions">
+          <button id="iaEditClearAll" class="danger" data-i18n="iaEditClearAll">Alle entfernen</button>
+          <button id="iaEditCancel" data-i18n="iaEditCancel">Fertig</button>
+          <span id="iaEditStatus"></span>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div id="playerViewOverlay" class="hidden">
@@ -156,6 +228,6 @@
   </div>
 
   <!-- Cache-Busting: v=20 statt v=19 (externe Meta-Trios ergänzt) -->
-  <script src="app.js?v=25"></script>
+  <script src="app.js?v=47"></script>
 </body>
 </html>

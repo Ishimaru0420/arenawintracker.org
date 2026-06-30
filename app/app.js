@@ -28,10 +28,34 @@ const DEFAULT_SERVER_URL = "https://arena-win-tracker-server.onrender.com";
 // Frueher hier: x-cron-secret-Header-Logik. Entfernt, weil die App nur
 // fuer dich + Freunde gedacht ist und das Secret im Browser ohnehin
 // sichtbar war - kein echter Schutz, nur Reibung. authFetch bleibt als
-// Name erhalten (an allen Call-Sites im Code), ruft aber direkt fetch()
-// auf, damit nicht jede einzelne Stelle umbenannt werden muss.
+// Name erhalten (an allen Call-Sites im Code).
+//
+// NEU: Schickt automatisch das Edit-Token mit (falls vorhanden), damit
+// der Server schreibende Synergie-/Preset-Endpunkte serverseitig
+// pruefen kann (siehe editAuth.js im Backend). Bei 401 wird das lokale
+// Token verworfen, damit beim naechsten Versuch neu nach dem Code
+// gefragt wird.
+const IA_EDIT_TOKEN_KEY = "iaEditToken";
+
+function getIaEditToken() {
+  return sessionStorage.getItem(IA_EDIT_TOKEN_KEY) || "";
+}
+
+function setIaEditToken(token) {
+  if (token) sessionStorage.setItem(IA_EDIT_TOKEN_KEY, token);
+  else sessionStorage.removeItem(IA_EDIT_TOKEN_KEY);
+}
+
 async function authFetch(url, options = {}) {
-  return fetch(url, options);
+  const token = getIaEditToken();
+  if (token) {
+    options = { ...options, headers: { ...(options.headers || {}), "x-edit-token": token } };
+  }
+  const res = await fetch(url, options);
+  if (res.status === 401 && token) {
+    setIaEditToken(""); // Code/Token war falsch oder abgelaufen - neu anfragen lassen
+  }
+  return res;
 }
 
 // ---------- NEU: UI-Prefs persistieren ----------
@@ -200,6 +224,7 @@ const I18N = {
     rankCatChampions: "Champions",
     rankCatTotalWins: "Gesamt-Wins",
     rankCatBestChamp: "Bester Champ",
+    rankCatWinRate: "Winrate",
     friendsToggleTitle: "Freunde verwalten",
     settingsToggleTitle: "Einstellungen",
     webNotice: "Browser-Testversion. Funktioniert identisch zur Overwolf-App, läuft aber als normale Webseite - kein Overwolf nötig.",
@@ -209,6 +234,7 @@ const I18N = {
     registeredUsersHint: "Bereits registrierte Nutzer (anklicken zum Hinzufügen):",
     yourFriendsHint: "Deine Freunde:",
     riotIdLabel: "Riot ID (Name#Tag)",
+    languageLabel: "Sprache",
     riotIdPlaceholder: "z.B. Glitch#EUW",
     regionLabel: "Region",
     seasonStartLabel: "Season-Start (Arena-Reset Datum)",
@@ -234,6 +260,58 @@ const I18N = {
     closeTitle: "Schließen",
     manualSyncTitle: "Jetzt synchronisieren",
     themeToggleTitle: "Theme umschalten",
+    openItemsAugmentsBtn: "📦 Items & Augments",
+    itemsAugmentsHeading: "Arena Items & Augments",
+    itemsAugmentsHint: "Auf ein Augment oder Item klicken, um nur dazu passende Treffer zu sehen.",
+    itemsAugmentsClearFilter: "← Zurück zur Übersicht",
+    iaAugmentsHeading: "Augments",
+    iaItemsHeading: "Items",
+    iaTierSilver: "Silber",
+    iaTierGold: "Gold",
+    iaTierPrismatic: "Prismatic",
+    iaTierBoots: "Stiefel",
+    iaTierLegendary: "Legendary",
+    iaTierQuest: "Quest",
+    iaTierAnvil: "Anvil",
+    iaTierJuice: "Juice",
+    iaNoSynergyYet: "Für dieses Augment gibt es noch keine Synergie-Daten.",
+    iaLoadError: "Items/Augments konnten nicht geladen werden.",
+    iaSearchPlaceholder: "Augment oder Item suchen...",
+    iaCategoryAll: "Alle Kategorien",
+    iaEditModeBtn: "✏️ Synergien bearbeiten",
+    iaEditModeBtnActive: "✓ Bearbeitungsmodus aktiv",
+    iaCodePrompt: "Code eingeben, um Synergien/Presets zu bearbeiten:",
+    iaCodeWrong: "Falscher Code.",
+    iaPresetModeBtn: "🔍 Schnellsuche",
+    iaPresetExistingHeading: "Bestehende Schnellsuchen",
+    iaPresetNoneYet: "Noch keine Schnellsuche angelegt.",
+    iaPresetDelete: "Schnellsuche löschen",
+    iaPresetEdit: "Schnellsuche bearbeiten",
+    iaPresetUpdate: "Aktualisieren",
+    iaPresetUpdated: "Schnellsuche aktualisiert.",
+    iaPresetHint: "Name vergeben, dann Augments/Items unten anklicken zum Hinzufügen/Entfernen. \"Speichern\" legt die Schnellsuche an.",
+    iaPresetNamePlaceholder: "Name (z.B. Tank, Full Autocast, Onhit Atkspeed)...",
+    iaPresetSave: "Speichern",
+    iaPresetNameRequired: "Bitte einen Namen eingeben.",
+    iaPresetEntriesRequired: "Bitte mindestens ein Augment oder Item auswählen.",
+    iaPresetSaved: "Schnellsuche gespeichert.",
+    iaPresetCreatorPlaceholder: "Dein Name...",
+    iaPresetByLabel: "von",
+    champAddPresetBtn: "🔍 Schnellsuche",
+    champPresetsHeading: "Schnellsuchen",
+    champPresetsExplain: "Allgemeine Schnellsuchen, gelten für alle Champions gleich (nicht auf diesen Champion zugeschnitten).",
+    champPresetsNone: "Noch keine Schnellsuche für diesen Champion zugewiesen.",
+    champPresetsNoneGlobal: "Noch keine globalen Schnellsuchen vorhanden - erst im \"🔍 Schnellsuche\"-Editor eins anlegen.",
+    champPresetRemove: "Schnellsuche von diesem Champion entfernen",
+    champPresetPickPrompt: "Welche Schnellsuche zuweisen? Zahl eingeben:",
+    iaEditHint: "Augment oder Item auswählen, dann unten anklicken, um Synergien hinzuzufügen (+) oder zu entfernen (✕). Wirkt automatisch in beide Richtungen.",
+    iaEditHintChooseAugment: "Zuerst links ein Augment oder Item anklicken, um seine Synergien zu bearbeiten.",
+    iaEditClearAll: "Alle entfernen",
+    iaEditCancel: "Fertig",
+    iaEditAdded: "Hinzugefügt ✓",
+    iaEditRemoved: "Entfernt ✓",
+    iaEditAllRemoved: "Alle entfernt ✓",
+    iaEditSaveError: "Speichern fehlgeschlagen.",
 
     statusEnterRiotIdServer: "Bitte Riot-ID und Server-URL eintragen.",
     statusConnecting: "Verbinde mit Server (kann beim ersten Mal bis zu 60s dauern)...",
@@ -340,6 +418,7 @@ const I18N = {
     rankCatChampions: "Champions",
     rankCatTotalWins: "Total wins",
     rankCatBestChamp: "Best champ",
+    rankCatWinRate: "Win rate",
     friendsToggleTitle: "Manage friends",
     settingsToggleTitle: "Settings",
     webNotice: "Browser test version. Works identically to the Overwolf app, but runs as a normal website - no Overwolf needed.",
@@ -349,6 +428,7 @@ const I18N = {
     registeredUsersHint: "Already registered users (click to add):",
     yourFriendsHint: "Your friends:",
     riotIdLabel: "Riot ID (Name#Tag)",
+    languageLabel: "Language",
     riotIdPlaceholder: "e.g. Glitch#EUW",
     regionLabel: "Region",
     seasonStartLabel: "Season start (Arena reset date)",
@@ -374,6 +454,58 @@ const I18N = {
     closeTitle: "Close",
     manualSyncTitle: "Sync now",
     themeToggleTitle: "Toggle theme",
+    openItemsAugmentsBtn: "📦 Items & Augments",
+    itemsAugmentsHeading: "Arena Items & Augments",
+    itemsAugmentsHint: "Click an augment or item to only show matching results.",
+    itemsAugmentsClearFilter: "← Back to overview",
+    iaAugmentsHeading: "Augments",
+    iaItemsHeading: "Items",
+    iaTierSilver: "Silver",
+    iaTierGold: "Gold",
+    iaTierPrismatic: "Prismatic",
+    iaTierBoots: "Boots",
+    iaTierLegendary: "Legendary",
+    iaTierQuest: "Quest",
+    iaTierAnvil: "Anvil",
+    iaTierJuice: "Juice",
+    iaNoSynergyYet: "No synergy data for this augment yet.",
+    iaLoadError: "Could not load items/augments.",
+    iaSearchPlaceholder: "Search augment or item...",
+    iaCategoryAll: "All categories",
+    iaEditModeBtn: "✏️ Edit synergies",
+    iaEditModeBtnActive: "✓ Edit mode active",
+    iaCodePrompt: "Enter code to edit synergies/presets:",
+    iaCodeWrong: "Wrong code.",
+    iaPresetModeBtn: "🔍 Quick Search",
+    iaPresetExistingHeading: "Existing quick searches",
+    iaPresetNoneYet: "No quick searches created yet.",
+    iaPresetDelete: "Delete quick search",
+    iaPresetEdit: "Edit quick search",
+    iaPresetUpdate: "Update",
+    iaPresetUpdated: "Quick search updated.",
+    iaPresetHint: "Give it a name, then click augments/items below to add/remove. \"Save\" creates the quick search.",
+    iaPresetNamePlaceholder: "Name (e.g. Tank, Full Autocast, Onhit Atkspeed)...",
+    iaPresetSave: "Save",
+    iaPresetNameRequired: "Please enter a name.",
+    iaPresetEntriesRequired: "Please select at least one augment or item.",
+    iaPresetSaved: "Quick search saved.",
+    iaPresetCreatorPlaceholder: "Your name...",
+    iaPresetByLabel: "by",
+    champAddPresetBtn: "🔍 Quick Search",
+    champPresetsHeading: "Quick Searches",
+    champPresetsExplain: "General quick searches, the same for every champion (not tailored to this champion).",
+    champPresetsNone: "No quick search assigned to this champion yet.",
+    champPresetsNoneGlobal: "No global quick searches yet - create one first in the \"🔍 Quick Search\" editor.",
+    champPresetRemove: "Remove quick search from this champion",
+    champPresetPickPrompt: "Which quick search to assign? Enter the number:",
+    iaEditHint: "Pick an augment or item, then click below to add (+) or remove (✕) synergies. Works both ways automatically.",
+    iaEditHintChooseAugment: "First click an augment or item on the left to edit its synergies.",
+    iaEditClearAll: "Remove all",
+    iaEditCancel: "Done",
+    iaEditAdded: "Added ✓",
+    iaEditRemoved: "Removed ✓",
+    iaEditAllRemoved: "All removed ✓",
+    iaEditSaveError: "Saving failed.",
 
     statusEnterRiotIdServer: "Please enter Riot ID and server URL.",
     statusConnecting: "Connecting to server (can take up to 60s the first time)...",
@@ -512,7 +644,8 @@ function applyStaticTranslations() {
   document.querySelectorAll("[data-i18n-title]").forEach((el) => {
     el.title = t(el.getAttribute("data-i18n-title"));
   });
-  document.getElementById("langToggle").textContent = currentLang === "de" ? "EN" : "DE";
+  const langSelect = document.getElementById("languageSelect");
+  if (langSelect) langSelect.value = currentLang;
   document.documentElement.lang = currentLang;
 }
 
@@ -603,9 +736,7 @@ applyUIPrefs();
 applyTheme(getCurrentTheme());
 applyStaticTranslations();
 
-safeBind("langToggle", "onclick", () => {
-  currentLang = currentLang === "de" ? "en" : "de";
-  localStorage.setItem(LANG_STORAGE_KEY, currentLang);
+function applyLanguageChange() {
   applyStaticTranslations();
   renderGrid();
   if (metaData) renderMeta(metaData);
@@ -619,6 +750,12 @@ safeBind("langToggle", "onclick", () => {
     loadRanking(currentRankingMode);
   }
   if (viewedPlayerStats) renderPlayerViewGrid();
+}
+
+safeBind("languageSelect", "onchange", (e) => {
+  currentLang = e.target.value === "en" ? "en" : "de";
+  localStorage.setItem(LANG_STORAGE_KEY, currentLang);
+  applyLanguageChange();
 });
 
 safeBind("themeToggle", "onclick", toggleTheme);
@@ -1426,7 +1563,868 @@ function renderExternalTrioSection() {
   section.innerHTML = html;
 }
 
-// ---- Mittlere Spalte: beste Items fuer den Champion (klickbar) ----
+// ============================================================
+// Items & Augments Browser (eigenes Vollbild-Modal)
+// ============================================================
+// Daten kommen einmalig importiert aus /arena-augments + /arena-items
+// (kein Live-CDragon-Request). Lazy geladen, erst beim ersten Oeffnen
+// des Modals - nicht beim App-Start, um die Erstladezeit nicht zu
+// belasten.
+let arenaAugmentsData = null;
+let arenaItemsData = null;
+let iaTooltipEl = null;
+let iaSelectedEntry = null; // { entry, kind: "augment"|"item" } oder null
+let iaAugmentByApiName = {};
+let iaItemByName = {};
+let iaSearchTerm = "";
+let iaEditMode = false;
+let iaEditingAnchor = null; // { entry, kind } - die Entitaet, die aktuell bearbeitet wird
+let iaEditingPartnerIds = new Set(); // "type:key" der aktuellen Synergie-Partner des Ankers
+let iaEditSearchTerm = ""; // Suchbegriff im Synergie-Editor-Grid
+let iaCategoryFilter = ""; // "" = alle, sonst Key aus IA_CATEGORIES
+let iaPresetMode = false;
+let iaPresetSearchTerm = "";
+let iaPresetSelectedEntries = new Map(); // iaEntityId -> {type, key, name, icon, tier}
+let iaEditingPresetId = null; // _id des Presets im Bearbeiten-Modus, null = Neuanlage
+let iaPresetsCache = null; // alle existierenden Presets vom Server
+
+// Inhaltliche Kategorien per Stichwort-Abgleich (DE+EN) gegen Name +
+// Beschreibung eines Augments/Items. Bewusst simple Substring-Suche
+// statt echter NLP - reicht fuer "zeig mir alles mit Heilung" o.ae.
+// und ist sofort nachvollziehbar/erweiterbar.
+const IA_CATEGORIES = {
+  healing: {
+    labelDe: "Heilung", labelEn: "Healing",
+    keywords: ["heal", "lifesteal", "omnivamp", "regenerat", "heilen", "heilung", "lebensraub", "lebensentzug"]
+  },
+  damage: {
+    labelDe: "Schaden", labelEn: "Damage",
+    keywords: ["damage", "schaden", "ability power", "attack damage", "fähigkeitsstärke", "angriffsschaden"]
+  },
+  health: {
+    labelDe: "Leben", labelEn: "Health",
+    keywords: ["health", "max hp", "leben", "lebenspunkte", "gesundheit"]
+  },
+  resistance: {
+    labelDe: "Resistenzen", labelEn: "Resistances",
+    keywords: ["armor", "magic resist", "rüstung", "resistenz", "magieresistenz"]
+  },
+  movement: {
+    labelDe: "Tempo/Bewegung", labelEn: "Movement/Haste",
+    keywords: ["move speed", "ability haste", "dash", "slow", "bewegungstempo", "fähigkeitstempo", "verlangsam"]
+  },
+  shield: {
+    labelDe: "Schild", labelEn: "Shield",
+    keywords: ["shield", "schild"]
+  },
+  crit: {
+    labelDe: "Crit", labelEn: "Crit",
+    keywords: ["critical strike", "crit chance", "kritisch", "krit"]
+  },
+  attackSpeed: {
+    labelDe: "Angriffstempo", labelEn: "Attack Speed",
+    keywords: ["attack speed", "angriffstempo"]
+  },
+  utility: {
+    labelDe: "Utility", labelEn: "Utility",
+    keywords: ["cooldown", "mana", "abklingzeit"]
+  },
+  cc: {
+    labelDe: "CC", labelEn: "CC",
+    keywords: [
+      "stun", "betäub", "root", "wurzel", "snare", "fessel", "knock up", "knockup", "hochschleuder",
+      "knockback", "zurückstoß", "fear", "furcht", "charm", "bezauber", "taunt", "verspott",
+      "silence", "zum schweigen", "suppress", "unterdrück", "polymorph", "verwandl",
+      "immobiliz", "festsetz", "bewegungsunfähig", "slow", "verlangsam",
+      "crowd control", "kontrollierten gegner", "stunned enemy", "immobilized enemy"
+    ]
+  }
+};
+
+function iaEntryCategories(entry, name, desc) {
+  const haystack = normName(`${name} ${desc}`);
+  return Object.keys(IA_CATEGORIES).filter((key) =>
+    IA_CATEGORIES[key].keywords.some((kw) => haystack.includes(normName(kw)))
+  );
+}
+
+async function loadArenaItemsAugments() {
+  if (arenaAugmentsData && arenaItemsData) return true;
+  try {
+    const [augRes, itemRes] = await Promise.all([
+      authFetch(serverUrl("/arena-augments")),
+      authFetch(serverUrl("/arena-items"))
+    ]);
+    if (!augRes.ok || !itemRes.ok) throw new Error("HTTP " + augRes.status + "/" + itemRes.status);
+    arenaAugmentsData = await augRes.json();
+    arenaItemsData = await itemRes.json();
+    iaAugmentByApiName = {};
+    for (const a of arenaAugmentsData) iaAugmentByApiName[a.apiName] = a;
+    iaItemByName = {};
+    for (const i of arenaItemsData) {
+      iaItemByName[normName(i.name.de)] = i;
+      iaItemByName[normName(i.name.en)] = i;
+    }
+    return true;
+  } catch (err) {
+    console.error("[ItemsAugments] Laden fehlgeschlagen:", err);
+    return false;
+  }
+}
+
+function openItemsAugmentsModal() {
+  document.getElementById("itemsAugmentsOverlay").classList.remove("hidden");
+  const searchInput = document.getElementById("iaSearchInput");
+  if (searchInput) searchInput.value = "";
+  iaSearchTerm = "";
+  renderItemsAugmentsModal();
+  loadArenaItemsAugments().then((ok) => {
+    if (ok) renderItemsAugmentsModal();
+    else {
+      document.getElementById("iaAugmentsList").innerHTML = `<p class="detailEmpty">${t("iaLoadError")}</p>`;
+    }
+  });
+}
+
+function closeItemsAugmentsModal() {
+  document.getElementById("itemsAugmentsOverlay").classList.add("hidden");
+  hideIaTooltip();
+  backToItemsAugmentsBrowse();
+}
+
+const IA_AUGMENT_TIERS = ["silver", "gold", "prismatic"];
+const IA_ITEM_TIERS = ["quest", "boots", "legendary", "prismatic", "anvil", "juice"];
+
+function iaEntryName(entry) {
+  return (entry.name && entry.name[currentLang]) || (entry.name && entry.name.de) || "";
+}
+function iaEntryDesc(entry) {
+  return (entry.desc && entry.desc[currentLang]) || (entry.desc && entry.desc.de) || "";
+}
+
+// Baut die kompakte Entitaets-Referenz, die die generische Synergie-API
+// erwartet/zurueckgibt. key = apiName bei Augments, EN-Name bei Items
+// (stabiler als der jeweils aktuell angezeigte Sprachname).
+function iaEntityRef(entry, kind) {
+  return {
+    type: kind,
+    key: kind === "augment" ? entry.apiName : entry.name.en,
+    name: entry.name,
+    icon: entry.icon || null,
+    tier: entry.tier
+  };
+}
+function iaEntityId(ref) {
+  return `${ref.type}:${ref.key}`;
+}
+
+function renderIaTierGroup(entries, tier, kind) {
+  const tierEntries = entries.filter((e) => e.tier === tier);
+  if (tierEntries.length === 0) return "";
+  const label = t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1));
+  let html = `<div class="iaTierGroup"><div class="iaTierLabel tier-${tier}" data-tier-toggle>${label} (${tierEntries.length})</div><div class="iaGrid">`;
+  for (const e of tierEntries) {
+    const name = iaEntryName(e);
+    const cls = ["iaTile"];
+    const dataAttr = kind === "augment" ? ` data-augment="${e.apiName}"` : ` data-item="${name}"`;
+    if (e.icon) {
+      html += `<div class="${cls.join(" ")}"${dataAttr} data-kind="${kind}" data-idx="${entries.indexOf(e)}" data-name="${name}">
+        <img src="${e.icon}" alt="${name}" loading="lazy" />
+      </div>`;
+    } else {
+      html += `<div class="${cls.join(" ")} fallback"${dataAttr} data-kind="${kind}" data-idx="${entries.indexOf(e)}" data-name="${name}">${name.slice(0, 3)}</div>`;
+    }
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+function renderItemsAugmentsModal() {
+  const augList = document.getElementById("iaAugmentsList");
+  const itemList = document.getElementById("iaItemsList");
+  if (!augList || !itemList) return;
+
+  const term = normName(iaSearchTerm);
+  const filterByTerm = (e) => {
+    const name = iaEntryName(e);
+    const desc = iaEntryDesc(e);
+    const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
+    const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
+    return matchesTerm && matchesCategory;
+  };
+
+  const augments = (arenaAugmentsData || []).filter(filterByTerm);
+  const items = (arenaItemsData || []).filter(filterByTerm);
+
+  augList.innerHTML = augments.length
+    ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("")
+    : `<p class="detailEmpty">–</p>`;
+  itemList.innerHTML = items.length
+    ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("")
+    : `<p class="detailEmpty">–</p>`;
+
+  bindIaTileEvents(augList, augments);
+  bindIaTileEvents(itemList, items);
+}
+
+function bindIaTileEvents(container, entries, kindFilter) {
+  container.querySelectorAll(".iaTile").forEach((tile) => {
+    const kind = tile.dataset.kind;
+    if (kindFilter && kind !== kindFilter) return;
+    const idx = parseInt(tile.dataset.idx, 10);
+    const entry = entries[idx];
+    if (!entry) return;
+    tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
+    tile.addEventListener("mousemove", positionIaTooltip);
+    tile.addEventListener("mouseleave", hideIaTooltip);
+    tile.addEventListener("click", () => {
+      if (iaEditMode) {
+        startEditingEntity(entry, kind);
+        return;
+      }
+      selectEntryForFilter(entry, kind);
+    });
+  });
+}
+
+// Klick auf ein Augment ODER Item: blendet die normale Browse-Ansicht
+// aus und zeigt nur noch das ausgewaehlte Element (gross, mit Name +
+// Beschreibung) plus die dazu passenden Synergie-Treffer, sortiert
+// nach deren Tier. Erneuter Klick auf dasselbe Element -> zurueck zur
+// normalen Ansicht.
+async function selectEntryForFilter(entry, kind) {
+  const sameEntrySelected = iaSelectedEntry &&
+    iaSelectedEntry.kind === kind &&
+    iaEntryName(iaSelectedEntry.entry) === iaEntryName(entry) &&
+    (kind !== "augment" || iaSelectedEntry.entry.apiName === entry.apiName);
+  if (sameEntrySelected) {
+    backToItemsAugmentsBrowse();
+    return;
+  }
+
+  iaSelectedEntry = { entry, kind };
+  hideIaTooltip();
+  document.getElementById("itemsAugmentsBody").classList.add("hidden");
+  document.getElementById("iaSearchInput").classList.add("hidden");
+  document.getElementById("iaDetailView").classList.remove("hidden");
+  document.getElementById("itemsAugmentsClearFilter").classList.remove("hidden");
+
+  renderIaSelectedCard(entry);
+  renderIaSynergyResults(null, true); // Lade-Zustand
+
+  try {
+    const ref = iaEntityRef(entry, kind);
+    const res = await authFetch(serverUrl(`/synergy/${ref.type}/${encodeURIComponent(ref.key)}`));
+    const partners = res.ok ? await res.json() : [];
+    renderIaSynergyResults(partners, false);
+  } catch (err) {
+    console.error("[ItemsAugments] Synergie-Lookup fehlgeschlagen:", err);
+    renderIaSynergyResults([], false);
+  }
+}
+
+function backToItemsAugmentsBrowse() {
+  iaSelectedEntry = null;
+  document.getElementById("itemsAugmentsBody").classList.remove("hidden");
+  document.getElementById("iaSearchInput").classList.remove("hidden");
+  document.getElementById("iaDetailView").classList.add("hidden");
+  document.getElementById("itemsAugmentsClearFilter").classList.add("hidden");
+}
+
+// ============================================================
+// Zugriffsschutz: Synergie-Editor und Preset-Erstellung nur mit Code
+// Der Code wird serverseitig geprueft (siehe editAuth.js im Backend) -
+// im Frontend steht kein Code, nur das nach Erfolg ausgestellte,
+// zeitlich begrenzte Token (12h, in sessionStorage).
+// ============================================================
+async function requireIaCode(callback) {
+  if (getIaEditToken()) { callback(); return; }
+  const input = window.prompt(t("iaCodePrompt"));
+  if (input === null) return; // Abbruch
+  try {
+    const res = await fetch(serverUrl("/auth/edit-code"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: input })
+    });
+    if (!res.ok) {
+      alert(t("iaCodeWrong"));
+      return;
+    }
+    const data = await res.json();
+    if (!data.token) {
+      alert(t("iaCodeWrong"));
+      return;
+    }
+    setIaEditToken(data.token);
+    callback();
+  } catch (err) {
+    console.error("[ItemsAugments] Code-Pruefung fehlgeschlagen:", err);
+    alert(t("iaCodeWrong"));
+  }
+}
+
+// ============================================================
+// Synergie-Editor (Browser-UI statt manueller MongoDB-Eingriffe)
+// ============================================================
+function toggleIaEditMode() {
+  if (!iaEditMode && !getIaEditToken()) { requireIaCode(toggleIaEditMode); return; }
+  iaEditMode = !iaEditMode;
+  const btn = document.getElementById("iaEditModeBtn");
+  if (btn) {
+    btn.classList.toggle("active", iaEditMode);
+    btn.textContent = iaEditMode ? t("iaEditModeBtnActive") : t("iaEditModeBtn");
+  }
+  if (iaEditMode) {
+    if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
+    backToItemsAugmentsBrowse(); // Detail-/Filteransicht verlassen, falls offen
+    document.getElementById("itemsAugmentsBody").classList.remove("hidden");
+    document.getElementById("iaEditView").classList.add("hidden");
+    iaEditingAnchor = null;
+  } else {
+    cancelIaEdit();
+  }
+}
+
+// Anker fuer den Editor setzen - kann JEDES Augment oder Item sein.
+// Zeigt darunter ALLE anderen Augments+Items zum An-/Abklicken; jede
+// Verbindung ist sofort in beide Richtungen sichtbar (siehe db.js).
+async function startEditingEntity(entry, kind) {
+  iaEditingAnchor = { entry, kind };
+  iaEditingPartnerIds = new Set();
+  iaEditSearchTerm = "";
+  const editSearchInput = document.getElementById("iaEditSearchInput");
+  if (editSearchInput) editSearchInput.value = "";
+  document.getElementById("itemsAugmentsBody").classList.add("hidden");
+  document.getElementById("iaSearchInput").classList.add("hidden");
+  document.getElementById("iaEditView").classList.remove("hidden");
+  hideIaTooltip();
+
+  const card = document.getElementById("iaEditSelectedCard");
+  const name = iaEntryName(entry);
+  card.innerHTML = `
+    ${entry.icon ? `<img src="${entry.icon}" alt="${name}" />` : ""}
+    <span class="iaSelectedName">${name}</span>
+  `;
+  document.getElementById("iaEditStatus").textContent = "";
+  renderIaEditTargetGrid();
+
+  // Bestehende Verbindungen laden, damit man nicht von Null anfaengt.
+  try {
+    const ref = iaEntityRef(entry, kind);
+    const res = await authFetch(serverUrl(`/synergy/${ref.type}/${encodeURIComponent(ref.key)}`));
+    const partners = res.ok ? await res.json() : [];
+    iaEditingPartnerIds = new Set(partners.map(iaEntityId));
+  } catch (err) {
+    console.error("[ItemsAugments-Editor] Laden fehlgeschlagen:", err);
+  }
+  renderIaEditTargetGrid();
+}
+
+// Zeigt ALLE Augments + Items als Ziel-Grid (Anker selbst ausgenommen).
+function renderIaEditTargetGrid() {
+  const grid = document.getElementById("iaEditItemsGrid");
+  if (!grid) return;
+  if (!iaEditingAnchor) {
+    grid.innerHTML = `<p class="detailEmpty">${t("iaEditHintChooseAugment")}</p>`;
+    return;
+  }
+  const anchorRef = iaEntityRef(iaEditingAnchor.entry, iaEditingAnchor.kind);
+  const anchorId = iaEntityId(anchorRef);
+
+  const term = normName(iaEditSearchTerm);
+  const filterByTerm = (e) => {
+    const name = iaEntryName(e);
+    const desc = iaEntryDesc(e);
+    const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
+    const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
+    return matchesTerm && matchesCategory;
+  };
+
+  const augments = (arenaAugmentsData || [])
+    .filter((a) => iaEntityId(iaEntityRef(a, "augment")) !== anchorId)
+    .filter(filterByTerm);
+  const items = (arenaItemsData || [])
+    .filter((i) => iaEntityId(iaEntityRef(i, "item")) !== anchorId)
+    .filter(filterByTerm);
+
+  let html = `<h4>${t("iaAugmentsHeading")}</h4>` +
+    IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
+  html += `<h4>${t("iaItemsHeading")}</h4>` +
+    IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
+  grid.innerHTML = html;
+
+  markIaEditTiles(grid, augments, "augment");
+  markIaEditTiles(grid, items, "item");
+}
+
+// Markiert Kacheln als verbunden (gruener Rahmen + "✕") oder nicht
+// (Standard-Rahmen + "+") und bindet den Klick auf sofortiges
+// Hinzufuegen/Entfernen ueber die Synergie-API.
+function markIaEditTiles(container, entries, kindFilter) {
+  container.querySelectorAll(".iaTile").forEach((tile) => {
+    if (tile.dataset.kind !== kindFilter) return;
+    const idx = parseInt(tile.dataset.idx, 10);
+    const entry = entries[idx];
+    if (!entry) return;
+    const ref = iaEntityRef(entry, kindFilter);
+    const id = iaEntityId(ref);
+    const isLinked = iaEditingPartnerIds.has(id);
+
+    tile.classList.toggle("synergySelected", isLinked);
+    if (!tile.querySelector(".iaEditBadge")) {
+      const badge = document.createElement("span");
+      badge.className = "iaEditBadge";
+      tile.appendChild(badge);
+    }
+    tile.querySelector(".iaEditBadge").textContent = isLinked ? "✕" : "+";
+
+    tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kindFilter));
+    tile.addEventListener("mousemove", positionIaTooltip);
+    tile.addEventListener("mouseleave", hideIaTooltip);
+    tile.onclick = () => toggleIaEditPartner(entry, kindFilter, ref, id, isLinked);
+  });
+}
+
+// Fuegt sofort hinzu bzw. entfernt sofort - kein separater "Speichern"-
+// Schritt mehr noetig, jeder Klick wirkt direkt (optimistisches Update,
+// bei Fehler wird zurueckgerollt).
+async function toggleIaEditPartner(entry, kind, ref, id, wasLinked) {
+  const anchorRef = iaEntityRef(iaEditingAnchor.entry, iaEditingAnchor.kind);
+  const statusEl = document.getElementById("iaEditStatus");
+
+  if (wasLinked) iaEditingPartnerIds.delete(id);
+  else iaEditingPartnerIds.add(id);
+  renderIaEditTargetGrid();
+
+  try {
+    const res = await authFetch(serverUrl(`/synergy/${wasLinked ? "remove" : "add"}`), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ a: anchorRef, b: ref })
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    statusEl.textContent = wasLinked ? t("iaEditRemoved") : t("iaEditAdded");
+    statusEl.style.color = "#4ade80";
+  } catch (err) {
+    console.error("[ItemsAugments-Editor] Speichern fehlgeschlagen:", err);
+    // Zurueckrollen, da der Server-Aufruf fehlgeschlagen ist.
+    if (wasLinked) iaEditingPartnerIds.add(id);
+    else iaEditingPartnerIds.delete(id);
+    renderIaEditTargetGrid();
+    statusEl.textContent = t("iaEditSaveError");
+    statusEl.style.color = "#f87171";
+  }
+}
+
+// Entfernt ALLE aktuellen Verbindungen des Ankers (einzeln ueber die
+// API, damit auch serverseitig wirklich jede Kante geloescht wird).
+async function clearIaEditSelection() {
+  if (!iaEditingAnchor) return;
+  const anchorRef = iaEntityRef(iaEditingAnchor.entry, iaEditingAnchor.kind);
+  const statusEl = document.getElementById("iaEditStatus");
+  const allByApiName = {};
+  for (const a of arenaAugmentsData || []) allByApiName[iaEntityId(iaEntityRef(a, "augment"))] = iaEntityRef(a, "augment");
+  for (const i of arenaItemsData || []) allByApiName[iaEntityId(iaEntityRef(i, "item"))] = iaEntityRef(i, "item");
+
+  const idsToRemove = [...iaEditingPartnerIds];
+  for (const id of idsToRemove) {
+    const ref = allByApiName[id];
+    if (!ref) continue;
+    try {
+      await authFetch(serverUrl("/synergy/remove"), {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ a: anchorRef, b: ref })
+      });
+    } catch (err) {
+      console.error("[ItemsAugments-Editor] Entfernen fehlgeschlagen:", err);
+    }
+  }
+  iaEditingPartnerIds = new Set();
+  renderIaEditTargetGrid();
+  statusEl.textContent = t("iaEditAllRemoved");
+  statusEl.style.color = "#4ade80";
+}
+
+function cancelIaEdit() {
+  iaEditingAnchor = null;
+  iaEditingPartnerIds = new Set();
+  document.getElementById("itemsAugmentsBody").classList.remove("hidden");
+  document.getElementById("iaSearchInput").classList.remove("hidden");
+  document.getElementById("iaEditView").classList.add("hidden");
+}
+
+// ============================================================
+// Presets ("Tank", "Full Autocast", "Onhit Atkspeed", ...) - eine
+// benannte, champion-unabhaengige Sammlung von Augments/Items.
+// Mehrfachauswahl statt Einzel-Anker wie beim Synergie-Editor: jede
+// Kachel laesst sich an-/abklicken, "Speichern" legt das Preset mit
+// allen aktuell markierten Eintraegen an.
+// ============================================================
+async function loadPresets(force) {
+  if (iaPresetsCache && !force) return iaPresetsCache;
+  try {
+    const res = await authFetch(serverUrl("/presets"));
+    iaPresetsCache = res.ok ? await res.json() : [];
+  } catch (err) {
+    console.error("[Presets] Laden fehlgeschlagen:", err);
+    iaPresetsCache = [];
+  }
+  return iaPresetsCache;
+}
+
+function toggleIaPresetMode() {
+  if (!iaPresetMode && !getIaEditToken()) { requireIaCode(toggleIaPresetMode); return; }
+  iaPresetMode = !iaPresetMode;
+  const btn = document.getElementById("iaPresetModeBtn");
+  if (btn) btn.classList.toggle("active", iaPresetMode);
+  if (iaPresetMode) {
+    if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
+    backToItemsAugmentsBrowse();
+    cancelIaEdit();
+    startCreatingPreset();
+  } else {
+    cancelIaPreset();
+  }
+}
+
+async function startCreatingPreset() {
+  iaPresetSelectedEntries = new Map();
+  iaEditingPresetId = null;
+  iaPresetSearchTerm = "";
+  const nameInput = document.getElementById("iaPresetNameInput");
+  if (nameInput) nameInput.value = "";
+  const searchInput = document.getElementById("iaPresetSearchInput");
+  if (searchInput) searchInput.value = "";
+  document.getElementById("iaPresetStatus").textContent = "";
+  document.getElementById("itemsAugmentsBody").classList.add("hidden");
+  document.getElementById("iaSearchInput").classList.add("hidden");
+  document.getElementById("iaPresetView").classList.remove("hidden");
+  updateIaPresetSaveLabel();
+  populateIaCategoryDropdown(document.getElementById("iaPresetCategoryFilter"));
+  await renderIaPresetExistingList();
+  renderIaPresetGrid();
+}
+
+function updateIaPresetSaveLabel() {
+  const btn = document.getElementById("iaPresetSave");
+  if (!btn) return;
+  btn.textContent = iaEditingPresetId ? t("iaPresetUpdate") : t("iaPresetSave");
+}
+
+async function startEditingPreset(preset) {
+  iaEditingPresetId = preset._id;
+  iaPresetSelectedEntries = new Map();
+  (preset.entries || []).forEach((entry) => {
+    const id = iaEntityId(entry);
+    iaPresetSelectedEntries.set(id, entry);
+  });
+  const nameInput = document.getElementById("iaPresetNameInput");
+  if (nameInput) nameInput.value = preset.name || "";
+  document.getElementById("iaPresetStatus").textContent = "";
+  updateIaPresetSaveLabel();
+  renderIaPresetGrid();
+}
+
+function cancelIaPreset() {
+  iaPresetSelectedEntries = new Map();
+  iaEditingPresetId = null;
+  document.getElementById("itemsAugmentsBody").classList.remove("hidden");
+  document.getElementById("iaSearchInput").classList.remove("hidden");
+  document.getElementById("iaPresetView").classList.add("hidden");
+}
+
+async function renderIaPresetExistingList() {
+  const ul = document.getElementById("iaPresetExistingList");
+  if (!ul) return;
+  const presets = await loadPresets();
+  if (!presets.length) {
+    ul.innerHTML = `<li class="iaPresetEmpty">${t("iaPresetNoneYet")}</li>`;
+    return;
+  }
+  ul.innerHTML = presets.map((p) => `
+    <li data-preset-id="${p._id}">
+      <span class="iaPresetListName iaPresetListNameClickable" data-preset-id="${p._id}" title="${t("iaPresetEdit")}">${p.name}${p.createdBy ? ` <span class="iaPresetListCreator">${t("iaPresetByLabel")} ${p.createdBy}</span>` : ""}</span>
+      <span class="iaPresetListCount">${(p.entries || []).length}</span>
+      <button class="iaPresetDeleteBtn" data-preset-id="${p._id}" title="${t("iaPresetDelete")}">✕</button>
+    </li>
+  `).join("");
+  ul.querySelectorAll(".iaPresetListNameClickable").forEach((el) => {
+    el.onclick = () => {
+      const id = el.dataset.presetId;
+      const preset = presets.find((p) => p._id === id);
+      if (preset) startEditingPreset(preset);
+    };
+  });
+  ul.querySelectorAll(".iaPresetDeleteBtn").forEach((btn) => {
+    btn.onclick = async (ev) => {
+      ev.stopPropagation();
+      const id = btn.dataset.presetId;
+      try {
+        const res = await authFetch(serverUrl(`/presets/${id}`), { method: "DELETE" });
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        if (iaEditingPresetId === id) {
+          iaEditingPresetId = null;
+          iaPresetSelectedEntries = new Map();
+          document.getElementById("iaPresetNameInput").value = "";
+          updateIaPresetSaveLabel();
+          renderIaPresetGrid();
+        }
+        await loadPresets(true);
+        renderIaPresetExistingList();
+      } catch (err) {
+        console.error("[Presets] Löschen fehlgeschlagen:", err);
+      }
+    };
+  });
+}
+
+function renderIaPresetGrid() {
+  const grid = document.getElementById("iaPresetItemsGrid");
+  if (!grid) return;
+  const term = normName(iaPresetSearchTerm);
+  const filterByTerm = (e) => {
+    const name = iaEntryName(e);
+    const desc = iaEntryDesc(e);
+    const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
+    const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
+    return matchesTerm && matchesCategory;
+  };
+  const augments = (arenaAugmentsData || []).filter(filterByTerm);
+  const items = (arenaItemsData || []).filter(filterByTerm);
+
+  let html = `<h4>${t("iaAugmentsHeading")}</h4>` +
+    IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
+  html += `<h4>${t("iaItemsHeading")}</h4>` +
+    IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
+  grid.innerHTML = html;
+
+  markIaPresetTiles(grid, augments, "augment");
+  markIaPresetTiles(grid, items, "item");
+}
+
+function markIaPresetTiles(container, entries, kindFilter) {
+  container.querySelectorAll(".iaTile").forEach((tile) => {
+    if (tile.dataset.kind !== kindFilter) return;
+    const idx = parseInt(tile.dataset.idx, 10);
+    const entry = entries[idx];
+    if (!entry) return;
+    const ref = iaEntityRef(entry, kindFilter);
+    const id = iaEntityId(ref);
+    const isSelected = iaPresetSelectedEntries.has(id);
+
+    tile.classList.toggle("selected", isSelected);
+    tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kindFilter));
+    tile.addEventListener("mousemove", positionIaTooltip);
+    tile.addEventListener("mouseleave", hideIaTooltip);
+    tile.onclick = () => {
+      if (iaPresetSelectedEntries.has(id)) iaPresetSelectedEntries.delete(id);
+      else iaPresetSelectedEntries.set(id, ref);
+      renderIaPresetGrid();
+    };
+  });
+}
+
+async function saveIaPreset() {
+  const nameInput = document.getElementById("iaPresetNameInput");
+  const statusEl = document.getElementById("iaPresetStatus");
+  const name = (nameInput?.value || "").trim();
+  if (!name) {
+    statusEl.textContent = t("iaPresetNameRequired");
+    statusEl.style.color = "#f87171";
+    return;
+  }
+  if (iaPresetSelectedEntries.size === 0) {
+    statusEl.textContent = t("iaPresetEntriesRequired");
+    statusEl.style.color = "#f87171";
+    return;
+  }
+  try {
+    const entries = [...iaPresetSelectedEntries.values()];
+    const isEdit = !!iaEditingPresetId;
+    const res = await authFetch(
+      serverUrl(isEdit ? `/presets/${iaEditingPresetId}` : "/presets"),
+      {
+        method: isEdit ? "PUT" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, entries })
+      }
+    );
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    statusEl.textContent = isEdit ? t("iaPresetUpdated") : t("iaPresetSaved");
+    statusEl.style.color = "#4ade80";
+    await loadPresets(true);
+    await renderIaPresetExistingList();
+    iaPresetSelectedEntries = new Map();
+    iaEditingPresetId = null;
+    nameInput.value = "";
+    updateIaPresetSaveLabel();
+    renderIaPresetGrid();
+  } catch (err) {
+    console.error("[Presets] Speichern fehlgeschlagen:", err);
+    statusEl.textContent = t("iaEditSaveError");
+    statusEl.style.color = "#f87171";
+  }
+}
+
+function renderIaSelectedCard(entry) {
+  const card = document.getElementById("iaSelectedCard");
+  if (!card) return;
+  const name = iaEntryName(entry);
+  const desc = iaEntryDesc(entry);
+  const priceHtml = typeof entry.priceTotal === "number"
+    ? `<div class="iaSelectedPrice">💰 ${entry.priceTotal}${typeof entry.price === "number" && entry.price !== entry.priceTotal ? ` (Komponente: ${entry.price})` : ""}</div>`
+    : "";
+  card.innerHTML = `
+    ${entry.icon ? `<img src="${entry.icon}" alt="${name}" />` : ""}
+    <div class="iaSelectedInfo">
+      <div class="iaSelectedName">${name}</div>
+      ${priceHtml}
+      <div class="iaSelectedDesc">${desc || ""}</div>
+    </div>
+  `;
+}
+
+function renderIaSynergyResults(partners, loading) {
+  const container = document.getElementById("iaSynergyResults");
+  if (!container) return;
+  if (loading) {
+    container.innerHTML = `<p class="detailEmpty">…</p>`;
+    return;
+  }
+  if (!partners || partners.length === 0) {
+    container.innerHTML = `<p class="detailEmpty">${t("iaNoSynergyYet")}</p>`;
+    return;
+  }
+  const augPartners = partners.filter((p) => p.type === "augment");
+  const itemPartners = partners.filter((p) => p.type === "item");
+  let html = "";
+  if (augPartners.length) {
+    html += `<h4>${t("iaAugmentsHeading")}</h4>` +
+      IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augPartners, tier, "augment")).join("");
+  }
+  if (itemPartners.length) {
+    html += `<h4>${t("iaItemsHeading")}</h4>` +
+      IA_ITEM_TIERS.map((tier) => renderIaTierGroup(itemPartners, tier, "item")).join("");
+  }
+  container.innerHTML = html;
+  if (augPartners.length) bindIaTileEvents(container, augPartners, "augment");
+  if (itemPartners.length) bindIaTileEvents(container, itemPartners, "item");
+}
+
+function showIaTooltip(e, entry, kind) {
+  if (!iaTooltipEl) {
+    iaTooltipEl = document.createElement("div");
+    iaTooltipEl.className = "iaTooltip hidden";
+    document.body.appendChild(iaTooltipEl);
+  }
+  // Falls "entry" nur eine Partner-Referenz ohne Beschreibung ist (z.B.
+  // aus den Synergie-Ergebnissen), volle Daten aus den lokalen Listen
+  // nachladen, damit der Tooltip trotzdem die Beschreibung zeigt.
+  let full = entry;
+  if (!entry.desc && kind) {
+    if (kind === "augment" && entry.apiName) full = iaAugmentByApiName[entry.apiName] || entry;
+    if (kind === "item") full = iaItemByName[normName(entry.name?.[currentLang] || entry.name?.de || "")] || entry;
+  }
+  const name = iaEntryName(full);
+  const desc = iaEntryDesc(full);
+  const priceHtml = typeof full.priceTotal === "number"
+    ? `<div class="iaTooltipPrice">💰 ${full.priceTotal}${typeof full.price === "number" && full.price !== full.priceTotal ? ` (Komponente: ${full.price})` : ""}</div>`
+    : "";
+  iaTooltipEl.innerHTML = `
+    <div class="iaTooltipTitle">${name}</div>
+    ${priceHtml}
+    <div class="iaTooltipDesc">${desc || ""}</div>
+  `;
+  iaTooltipEl.classList.remove("hidden");
+  positionIaTooltip(e);
+}
+
+function positionIaTooltip(e) {
+  if (!iaTooltipEl) return;
+  const offset = 16;
+  let x = e.clientX + offset;
+  let y = e.clientY + offset;
+  const rect = iaTooltipEl.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
+  if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
+  iaTooltipEl.style.left = x + "px";
+  iaTooltipEl.style.top = y + "px";
+}
+
+function hideIaTooltip() {
+  if (iaTooltipEl) iaTooltipEl.classList.add("hidden");
+}
+
+safeBind("openItemsAugmentsBtn", "onclick", openItemsAugmentsModal);
+safeBind("itemsAugmentsClose", "onclick", closeItemsAugmentsModal);
+safeBind("itemsAugmentsClearFilter", "onclick", backToItemsAugmentsBrowse);
+safeBind("iaEditModeBtn", "onclick", toggleIaEditMode);
+safeBind("iaPresetModeBtn", "onclick", toggleIaPresetMode);
+safeBind("iaPresetSave", "onclick", saveIaPreset);
+safeBind("iaPresetCancel", "onclick", () => { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); });
+safeBind("iaPresetSearchInput", "oninput", (e) => {
+  iaPresetSearchTerm = e.target.value;
+  renderIaPresetGrid();
+});
+safeBind("iaPresetCategoryFilter", "onchange", onIaCategoryChange);
+safeBind("iaEditClearAll", "onclick", clearIaEditSelection);
+safeBind("iaEditCancel", "onclick", cancelIaEdit);
+safeBind("iaSearchInput", "oninput", (e) => {
+  iaSearchTerm = e.target.value;
+  renderItemsAugmentsModal();
+});
+safeBind("iaEditSearchInput", "oninput", (e) => {
+  iaEditSearchTerm = e.target.value;
+  renderIaEditTargetGrid();
+});
+
+// Kategorie-Dropdowns (Heilung/Schaden/Leben/Resistenzen/CC/...) befuellen.
+// Beide Dropdowns (Hauptsuche + Editor) teilen sich denselben Filter-State
+// "iaCategoryFilter" und werden beim Aendern synchron gehalten, damit die
+// Auswahl nicht verloren geht, wenn man zwischen Browse- und Editor-Ansicht
+// wechselt.
+function populateIaCategoryDropdown(selectEl) {
+  if (!selectEl) return;
+  selectEl.innerHTML = `<option value="">${t("iaCategoryAll")}</option>` +
+    Object.keys(IA_CATEGORIES).map((key) => {
+      const cat = IA_CATEGORIES[key];
+      const label = currentLang === "de" ? cat.labelDe : cat.labelEn;
+      return `<option value="${key}">${label}</option>`;
+    }).join("");
+  selectEl.value = iaCategoryFilter;
+}
+function onIaCategoryChange(e) {
+  iaCategoryFilter = e.target.value;
+  const main = document.getElementById("iaCategoryFilter");
+  const edit = document.getElementById("iaEditCategoryFilter");
+  const preset = document.getElementById("iaPresetCategoryFilter");
+  if (main && main !== e.target) main.value = iaCategoryFilter;
+  if (edit && edit !== e.target) edit.value = iaCategoryFilter;
+  if (preset && preset !== e.target) preset.value = iaCategoryFilter;
+  renderItemsAugmentsModal();
+  if (iaEditingAnchor) renderIaEditTargetGrid();
+  if (iaPresetMode) renderIaPresetGrid();
+}
+populateIaCategoryDropdown(document.getElementById("iaCategoryFilter"));
+populateIaCategoryDropdown(document.getElementById("iaEditCategoryFilter"));
+safeBind("iaCategoryFilter", "onchange", onIaCategoryChange);
+safeBind("iaEditCategoryFilter", "onchange", onIaCategoryChange);
+
+// Ein-/Ausklappen der Tier-Abschnitte (Silber/Gold/Prismatic/Legendary/...).
+// Delegierter Listener auf dem Modal-Container statt auf den einzelnen
+// Labels - die werden bei jeder Suche/jedem Render neu erzeugt, ein
+// direkt gebundener Listener wuerde sonst nach dem ersten Render verloren
+// gehen. Der Aufklapp-Zustand selbst wird bewusst nicht gespeichert -
+// jede neue Filterung/Suche startet wieder mit allen Abschnitten offen.
+document.getElementById("itemsAugmentsOverlay")?.addEventListener("click", (e) => {
+  const label = e.target.closest("[data-tier-toggle]");
+  if (!label) return;
+  label.closest(".iaTierGroup")?.classList.toggle("collapsed");
+});
+
+
 // Liefert die Icon-URL fuer einen Item-Namen, falls der Server eine
 // itemIconMap mitliefert (normalisierter Name -> URL). Kein Icon
 // vorhanden -> null, dann faellt die Darstellung auf reinen Text zurueck.
@@ -2008,19 +3006,114 @@ function openChampDetail(champ) {
       <img src="${champ.icon}" alt="${champ.name}" />
       <h2>${champ.name}</h2>
     </div>
+    <div class="detailSection" id="champPresetsSection">
+      <h3 class="champPresetsToggle collapsed" id="champPresetsToggle" data-i18n="champPresetsHeading">Presets</h3>
+      <p class="detailEmptyInline champPresetsExplain" data-i18n="champPresetsExplain">Allgemeine Presets, gelten für alle Champions gleich (nicht auf diesen Champion zugeschnitten).</p>
+      <div id="champPresetsBody" class="hidden">
+        <div id="champPresetPills"><p class="detailEmpty">...</p></div>
+        <div id="champPresetEntries"></div>
+      </div>
+    </div>
     ${renderCommunityDbPlaceholder()}
     ${renderCommunityAiPlaceholder()}
   `;
 
   document.getElementById("champDetailBackBtn").addEventListener("click", closeChampDetail);
+  document.getElementById("champPresetsToggle").addEventListener("click", () => {
+    document.getElementById("champPresetsBody").classList.toggle("hidden");
+    document.getElementById("champPresetsToggle").classList.toggle("collapsed");
+  });
   detail.querySelectorAll(".clickableTag").forEach((li) => {
     li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
   });
+  loadChampPresetPicker(champ);
   loadCommunityDbSection(champ);
   loadCommunityAiSection(champ);
 }
 
-// ---------- Item-/Augment-Detailansicht (Klick auf ein Item- oder Augment-Tag) ----------
+// ---------- Champion-Seite: reine Anzeige/Auswahl der GLOBALEN Presets ----------
+// Kein Zuweisen/Speichern mehr pro Champion - nur Klick zum Anzeigen.
+// Presets selbst werden weiterhin ausschliesslich im Editor (Items &
+// Augments -> "+ Preset") erstellt/verwaltet.
+
+let champPresetSelectedId = null;
+
+async function loadChampPresetPicker(champ) {
+  const pillsEl = document.getElementById("champPresetPills");
+  if (!pillsEl) return;
+  champPresetSelectedId = null;
+  try {
+    const presets = await loadPresets();
+    renderChampPresetPills(presets);
+    document.getElementById("champPresetEntries").innerHTML = "";
+  } catch (err) {
+    console.error("[ChampPresets] Laden fehlgeschlagen:", err);
+    pillsEl.innerHTML = `<p class="detailEmpty">${t("iaLoadError")}</p>`;
+  }
+}
+
+function renderChampPresetPills(presets) {
+  const pillsEl = document.getElementById("champPresetPills");
+  if (!pillsEl) return;
+  if (!presets.length) {
+    pillsEl.innerHTML = `<p class="detailEmpty">${t("champPresetsNoneGlobal")}</p>`;
+    return;
+  }
+  pillsEl.innerHTML = presets.map((p) => `
+    <button class="champPresetPill${p._id === champPresetSelectedId ? " active" : ""}" data-preset-id="${p._id}">
+      ${p.name}${p.createdBy ? ` <span class="champPresetPillCreator">${t("iaPresetByLabel")} ${p.createdBy}</span>` : ""}
+    </button>
+  `).join("");
+  pillsEl.querySelectorAll(".champPresetPill").forEach((btn) => {
+    btn.onclick = () => {
+      const preset = presets.find((p) => p._id === btn.dataset.presetId);
+      if (!preset) return;
+      // Klick auf das bereits aktive Preset schliesst es wieder.
+      champPresetSelectedId = champPresetSelectedId === preset._id ? null : preset._id;
+      renderChampPresetPills(presets);
+      renderChampPresetEntries(champPresetSelectedId ? preset : null);
+    };
+  });
+}
+
+// Zeigt NUR das angeklickte Preset (alle anderen verschwinden aus der
+// Auswahl-Anzeige automatisch, da renderChampPresetPills() neu rendert) -
+// Preset-Name als Ueberschrift, Eintraege gruppiert nach Tier wie gewohnt.
+function renderChampPresetEntries(preset) {
+  const container = document.getElementById("champPresetEntries");
+  if (!container) return;
+  if (!preset) {
+    container.innerHTML = "";
+    return;
+  }
+  const entries = preset.entries || [];
+  const augments = entries.filter((e) => e.type === "augment");
+  const items = entries.filter((e) => e.type === "item");
+
+  let html = `<h4 class="champPresetActiveName">${preset.name}</h4>`;
+  if (augments.length) {
+    html += `<div class="champPresetKindLabel">${t("iaAugmentsHeading")}</div>` +
+      IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
+  }
+  if (items.length) {
+    html += `<div class="champPresetKindLabel">${t("iaItemsHeading")}</div>` +
+      IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
+  }
+  container.innerHTML = html;
+
+  // Nur Hover-Tooltip noetig (kein Klick-Verhalten auf der Champion-Seite).
+  container.querySelectorAll(".iaTile").forEach((tile) => {
+    const kind = tile.dataset.kind;
+    const idx = parseInt(tile.dataset.idx, 10);
+    const entry = (kind === "augment" ? augments : items)[idx];
+    if (!entry) return;
+    tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
+    tile.addEventListener("mousemove", positionIaTooltip);
+    tile.addEventListener("mouseleave", hideIaTooltip);
+  });
+}
+
+
 // Vierte Ebene: ersetzt die komplette Detailansicht durch eine einzelne,
 // volle Breite nutzende Synergie-Ansicht. Rueckweg fuehrt zurueck zur
 // zuletzt geoeffneten Champion-Ansicht (nicht zum Grid).
@@ -2175,12 +3268,14 @@ function bindRankCategoryTab(id, category) {
     document.getElementById("rankCatChampions").classList.toggle("active", category === "champions");
     document.getElementById("rankCatTotalWins").classList.toggle("active", category === "totalWins");
     document.getElementById("rankCatBestChamp").classList.toggle("active", category === "bestChampion");
+    document.getElementById("rankCatWinRate").classList.toggle("active", category === "winRate");
     loadRanking(currentRankingMode);
   });
 }
 bindRankCategoryTab("rankCatChampions", "champions");
 bindRankCategoryTab("rankCatTotalWins", "totalWins");
 bindRankCategoryTab("rankCatBestChamp", "bestChampion");
+bindRankCategoryTab("rankCatWinRate", "winRate");
 
 async function loadRanking(mode) {
   currentRankingMode = mode;
@@ -2281,21 +3376,28 @@ function renderRanking(ranking) {
       ? `<a class="opggLink" href="${opggUrl}" target="_blank" rel="noopener noreferrer" title="${t("opggOpenTitle")}">${iconImg}</a>`
       : "";
 
-    // Je nach gewaehlter Kategorie wird ein anderer Wert angezeigt:
-    // Anzahl verschiedener Champions, Gesamt-Wins, oder bei "bestChampion"
-    // zusaetzlich der Champion-Name selbst (sonst waere die Zahl ohne
-    // Kontext, mit welchem Champion sie erzielt wurde).
+    // Je nach gewaehlter Kategorie wird ein anderer Wert angezeigt.
+    // In allen Kategorien wird zusaetzlich die Winrate vorangestellt
+    // (sofern genug Spiele vorhanden).
+    const winRateSpan = typeof entry.winRate === "number" && entry.totalGames >= 5
+      ? `<span class="rankWinRate">${entry.winRate.toFixed(1)}%</span>`
+      : "";
     let valueHtml;
     if (currentRankingCategory === "totalWins") {
-      valueHtml = `<span class="rankWins">${entry.totalWins}</span>`;
+      valueHtml = `${winRateSpan}<span class="rankWins">${entry.totalWins} Wins</span>`;
     } else if (currentRankingCategory === "bestChampion") {
       const champ = entry.bestChampionKey ? championByKey[entry.bestChampionKey] : null;
       const champIcon = champ
         ? `<img src="${champ.icon}" alt="${champ.name}" title="${champ.name}" class="rankBestChampIcon" />`
         : "";
-      valueHtml = `${champIcon}<span class="rankWins">${entry.bestChampionWins}</span>`;
+      valueHtml = `${champIcon}${winRateSpan}<span class="rankWins">${entry.bestChampionWins} Wins</span>`;
+    } else if (currentRankingCategory === "winRate") {
+      const wrDisplay = typeof entry.winRate === "number" && entry.totalGames >= 5
+        ? `<span class="rankWinRateBig">${entry.winRate.toFixed(1)}%</span><span class="rankWins">${entry.totalWins}W</span>`
+        : `<span class="rankWins rankWinRateTooFew">–</span>`;
+      valueHtml = wrDisplay;
     } else {
-      valueHtml = `<span class="rankWins">${entry.championsWon}</span>`;
+      valueHtml = `${winRateSpan}<span class="rankWins">${entry.championsWon} Champs</span>`;
     }
 
     li.innerHTML = `

@@ -12,7 +12,7 @@ body {
   -webkit-app-region: drag;
 }
 
-#app { display: flex; flex-direction: column; height: 100vh; padding: 10px; }
+#app { display: flex; flex-direction: column; min-height: 100vh; padding: 10px; }
 
 header {
   display: flex; align-items: center; justify-content: space-between;
@@ -96,12 +96,12 @@ button.danger:hover { background: #c43b4a; }
 .metaCol::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
 #filterInput {
   flex: 1; background: #16100d; border: 1px solid #3a2620; color: #fff;
-  padding: 4px 7px; border-radius: 5px; font-size: 12px;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
 }
 .checkboxLabel { font-size: 11px; color: #b3a39c; display: flex; align-items: center; gap: 4px; }
 #sortMode {
   background: #16100d; border: 1px solid #3a2620; color: #fff;
-  padding: 4px 6px; border-radius: 5px; font-size: 11px;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px; cursor: pointer;
 }
 
 /* ---------- Header: mehrere Buttons rechts ---------- */
@@ -145,18 +145,6 @@ button.danger:hover { background: #c43b4a; }
 .suggestList::-webkit-scrollbar { width: 4px; }
 .suggestList::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
 
-/* ---------- Sprachumschalter: fest oben rechts ---------- */
-#langPanel {
-  position: fixed; top: 12px; right: 12px; z-index: 50;
-}
-#langToggle {
-  background: #221715; color: #ffb37a; border: 1px solid #3a2620;
-  border-radius: 16px; width: auto; min-width: 40px; height: 32px;
-  font-size: 12px; font-weight: 700; letter-spacing: 0.03em;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-}
-#langToggle:hover { background: #2a1c17; }
-
 /* ---------- Ranking-Panel: jetzt feste linke Spalte in #mainRow ---------- */
 #rankingPanel {
   background: rgba(20, 13, 11, 0.97); border: 1px solid #3a2620;
@@ -179,7 +167,7 @@ button.danger:hover { background: #c43b4a; }
 .rankCatTab.active { background: #2a1c17; color: #ffb37a; border-color: #ff7a3c; }
 
 #rankingList {
-  list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1;
+  list-style: none; margin: 0; padding: 0; flex: 1;
   display: flex; flex-direction: column; gap: 5px;
 }
 #rankingList li {
@@ -250,6 +238,9 @@ button.danger:hover { background: #c43b4a; }
 #rankingList li.rank-lizard .rankNum, #rankingList li.rank-lizard .rankName { color: #8a6a3a; }
 #rankingList .rankName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f5ece6; }
 #rankingList .rankWins { color: #4ade80; font-weight: 700; flex-shrink: 0; }
+#rankingList .rankWinRate { color: #ff9f4a; font-weight: 700; flex-shrink: 0; font-size: 0.82em; margin-right: 6px; opacity: 0.85; }
+#rankingList .rankWinRateBig { color: #ff9f4a; font-weight: 700; flex-shrink: 0; font-size: 1em; margin-right: 8px; }
+#rankingList .rankWinRateTooFew { color: #a89690; font-weight: 400; }
 #rankingList .rankEmpty { color: #9c8882; padding: 6px 2px; font-size: 11px; }
 #rankingList::-webkit-scrollbar { width: 4px; }
 #rankingList::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
@@ -310,20 +301,247 @@ button.danger:hover { background: #c43b4a; }
 
 #grid {
   -webkit-app-region: no-drag;
-  flex: 1; overflow-y: auto;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
   gap: 6px; padding-right: 2px;
 }
 #grid.hidden { display: none; }
 
+/* ---------- Items & Augments: Button ueber der Meta-Trios-Sidebar ---------- */
+#openItemsAugmentsBtn {
+  width: 100%; font-size: 12px; padding: 8px 10px;
+}
+
+/* ---------- Items & Augments: grosses Browser-Modal ---------- */
+#itemsAugmentsOverlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(8, 5, 4, 0.78);
+  display: flex; align-items: center; justify-content: center;
+  padding: 10px;
+}
+#itemsAugmentsOverlay.hidden { display: none; }
+#itemsAugmentsBox {
+  background: #1a1212; border: 1px solid #3a2620; border-radius: 10px;
+  width: 100%; max-width: 1900px; height: 96vh;
+  padding: 16px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+}
+#itemsAugmentsHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#itemsAugmentsHeader h2 { font-size: 19px; margin: 0; color: #ffb37a; }
+#itemsAugmentsClose {
+  background: none; border: none; color: #b3a39c; font-size: 18px; cursor: pointer;
+  padding: 2px 6px;
+}
+#itemsAugmentsClose:hover { color: #fff; }
+#itemsAugmentsClearFilter { font-size: 12px; padding: 6px 10px; }
+#itemsAugmentsClearFilter.hidden { display: none; }
+#itemsAugmentsHint { font-size: 12px; color: #a89690; margin: 0; }
+#iaSearchRow { display: flex; gap: 8px; }
+#iaSearchInput {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
+}
+#iaCategoryFilter, #iaEditCategoryFilter {
+  flex-shrink: 0; max-width: 180px;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px; cursor: pointer;
+}
+
+#itemsAugmentsBody { flex: 1; min-height: 0; display: flex; gap: 18px; }
+#itemsAugmentsBody.hidden { display: none; }
+#iaAugmentsCol, #iaItemsCol {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;
+  overflow-y: auto; padding-right: 6px;
+}
+#iaAugmentsCol::-webkit-scrollbar, #iaItemsCol::-webkit-scrollbar { width: 7px; }
+#iaAugmentsCol::-webkit-scrollbar-thumb, #iaItemsCol::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 3px; }
+#iaAugmentsCol > h3, #iaItemsCol > h3 {
+  font-size: 15px; color: #ff7a3c; margin: 0;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.iaTierGroup { margin-bottom: 14px; }
+.iaTierLabel {
+  font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  margin: 10px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #3a2620;
+  cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 6px;
+}
+.iaTierLabel::before {
+  content: "▾"; display: inline-block; font-size: 10px; transition: transform 0.15s;
+}
+.iaTierGroup.collapsed .iaTierLabel::before { transform: rotate(-90deg); }
+.iaTierGroup.collapsed .iaGrid { display: none; }
+.iaTierLabel.tier-silver { color: #c0c0c0; }
+.iaTierLabel.tier-gold { color: #ffd700; }
+.iaTierLabel.tier-prismatic { color: #cfe3ff; }
+.iaTierLabel.tier-boots { color: #9c8882; }
+.iaTierLabel.tier-legendary { color: #ffb37a; }
+.iaTierLabel.tier-quest { color: #8de6a3; }
+.iaTierLabel.tier-anvil { color: #d8a8e0; }
+.iaTierLabel.tier-juice { color: #7fd4e0; }
+
+.iaGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 7px;
+}
+.iaTile {
+  position: relative; cursor: pointer;
+  border: 2px solid #4a3a34; border-radius: 7px; overflow: hidden;
+  background: #16100d; aspect-ratio: 1 / 1;
+  transition: border-color 0.15s, opacity 0.15s, filter 0.15s;
+}
+.iaTile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.iaTile:hover { border-color: #ff7a3c; }
+.iaTile.selected { border-color: #ff7a3c; box-shadow: 0 0 0 2px rgba(255,122,60,0.4); }
+.iaTile.dimmed { opacity: 0.25; filter: grayscale(0.6); pointer-events: none; }
+.iaTile.fallback {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #9c8882; text-align: center; padding: 2px;
+}
+
+.iaTooltip {
+  position: fixed; z-index: 300;
+  background: rgba(10, 31, 53, 0.97); border: 1px solid #4a3a34; border-radius: 6px;
+  padding: 8px 10px; max-width: 280px; font-size: 12px; color: #f5ece6;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5); pointer-events: none;
+}
+.iaTooltip.hidden { display: none; }
+.iaTooltip .iaTooltipTitle { font-weight: 700; color: #ffb37a; margin-bottom: 4px; }
+.iaTooltip .iaTooltipPrice { font-size: 11px; color: #ffd700; margin-bottom: 4px; }
+.iaTooltip .iaTooltipDesc { line-height: 1.4; }
+
+@media (max-width: 900px) {
+  #itemsAugmentsBody { flex-direction: column; }
+  #itemsAugmentsBox { height: 96vh; }
+}
+
+/* ---------- Items & Augments: Detail-/Filter-Ansicht nach Klick ---------- */
+#iaDetailView { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 4px; }
+#iaDetailView.hidden { display: none; }
+#iaSelectedCard {
+  display: flex; gap: 12px; align-items: flex-start; flex-shrink: 0;
+  background: linear-gradient(180deg, #1E2328, #161B22); border: 1px solid #5a463a; border-radius: 8px;
+  padding: 12px;
+}
+#iaSelectedCard img { width: 64px; height: 64px; border-radius: 8px; border: 2px solid #ff7a3c; flex-shrink: 0; }
+#iaSelectedCard .iaSelectedInfo { flex: 1; min-width: 0; }
+#iaSelectedCard .iaSelectedName { font-size: 15px; font-weight: 700; color: #ffb37a; margin-bottom: 4px; }
+#iaSelectedCard .iaSelectedPrice { font-size: 12px; color: #ffd700; margin-bottom: 4px; }
+#iaSelectedCard .iaSelectedDesc { font-size: 12.5px; line-height: 1.5; color: #f5ece6; }
+
+#iaSynergyResults h4 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690;
+  margin: 0 0 8px;
+}
+#iaSynergyResults .iaTierGroup { margin-bottom: 10px; }
+
+/* ---------- Items & Augments: Synergie-Editor ---------- */
+#iaEditModeBtn.active { background: linear-gradient(180deg, #4ade80, #22c55e) !important; color: #0b1f0f !important; }
+#iaEditView { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding-right: 6px; }
+#iaEditView.hidden { display: none; }
+
+#iaEditHint { font-size: 12px; color: #a89690; margin: 0; }
+#iaEditSelectedCard {
+  display: flex; gap: 12px; align-items: center; flex-shrink: 0; min-height: 48px;
+  background: linear-gradient(180deg, #1a1212, #150f0d); border: 1px solid #5a463a; border-radius: 8px;
+  padding: 12px 14px; font-size: 14px; color: #a89690;
+}
+#iaEditSelectedCard img { width: 56px; height: 56px; border-radius: 6px; border: 2px solid #4ade80; }
+#iaEditSelectedCard .iaSelectedName { font-size: 16px; font-weight: 700; color: #ffb37a; }
+
+#iaEditSearchRow { display: flex; gap: 8px; flex-shrink: 0; }
+#iaEditSearchInput {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
+}
+#iaEditItemsGrid { flex-shrink: 0; }
+#iaEditItemsGrid .iaGrid {
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+}
+#iaEditItemsGrid .iaTile.synergySelected { border-color: #4ade80; box-shadow: 0 0 0 2px rgba(74,222,128,0.45); }
+#iaEditItemsGrid .iaTile { position: relative; }
+
+/* ---------- Items & Augments: Preset-Erstellung ---------- */
+#iaPresetView { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 6px; }
+#iaPresetView.hidden { display: none; }
+.iaEditHintLike { font-size: 12px; color: #a89690; margin: 0; }
+
+#iaPresetExisting {
+  background: linear-gradient(180deg, #1a1212, #150f0d); border: 1px solid #3a2620;
+  border-radius: 8px; padding: 10px 12px; flex-shrink: 0;
+}
+#iaPresetExisting h4 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690; margin: 0 0 8px;
+}
+#iaPresetExistingList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 140px; overflow-y: auto; }
+#iaPresetExistingList li {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,122,60,0.05); border-radius: 5px; padding: 5px 8px; font-size: 12px;
+}
+.iaPresetListName { flex: 1; color: #f5ece6; font-weight: 600; }
+.iaPresetListNameClickable { cursor: pointer; }
+.iaPresetListNameClickable:hover { color: #ff7a3c; }
+.iaPresetListCount { color: #9c8882; font-size: 11px; }
+.iaPresetDeleteBtn {
+  background: none; border: none; color: #f87171; cursor: pointer; font-size: 13px; padding: 0 4px;
+}
+.iaPresetEmpty { color: #9c8882; font-size: 12px; padding: 4px 0; }
+.iaPresetListCreator, .champPresetBlockCreator {
+  font-size: 11px; font-weight: 400; color: #9c8882; margin-left: 4px;
+}
+
+#iaPresetNameRow { display: flex; gap: 8px; flex-shrink: 0; }
+#iaPresetNameInput {
+  flex: 2; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px; font-weight: 600;
+}
+#iaPresetCreatorInput {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
+}
+#iaPresetSearchRow { display: flex; gap: 8px; flex-shrink: 0; }
+#iaPresetSearchInput {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
+}
+#iaPresetItemsGrid { flex-shrink: 0; }
+#iaPresetItemsGrid .iaGrid {
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+}
+#iaPresetItemsGrid h4 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690;
+  margin: 12px 0 8px;
+}
+#iaEditItemsGrid .iaTile .iaEditBadge {
+  position: absolute; bottom: -4px; right: -4px;
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; line-height: 1;
+  background: #4a3a34; color: #f5ece6; border: 1px solid #16100d;
+}
+#iaEditItemsGrid .iaTile.synergySelected .iaEditBadge { background: #ef4444; color: #fff; }
+#iaEditItemsGrid .iaTile:not(.synergySelected) .iaEditBadge { background: #22c55e; color: #fff; }
+#iaEditItemsGrid h4 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690;
+  margin: 12px 0 8px;
+}
+#iaEditActions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding-top: 8px; }
+#iaEditActions button { font-size: 13px; padding: 8px 14px; }
+#iaEditStatus { font-size: 11px; color: #4ade80; }
+
 /* ---------- Hauptzeile: Leaderboard | Grid/Detailansicht | Top-30-Trios ---------- */
 #mainRow {
-  flex: 1; min-height: 0; display: flex; gap: 10px;
+  flex: 1; display: flex; gap: 10px;
 }
-#rankingPanel { flex: 0 0 17.85%; }
+#rankingPanel { flex: 0 0 24%; }
 #mainRow #grid, #mainRow #champDetail { flex: 1 1 auto; min-width: 0; }
 #top30Trio { display: none !important; }
-#externalTrio { flex: 0 0 18%; }
+#rightSidebarCol { flex: 0 0 18%; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+#externalTrio { flex: 1 1 auto; min-height: 0; }
 
 /* ---------- Top-30-Trio-Section: entfernt (siehe display:none oben), Styling bleibt fuer evtl. Reaktivierung ---------- */
 #top30Trio {
@@ -355,13 +573,21 @@ button.danger:hover { background: #c43b4a; }
 
 @media (max-width: 900px) {
   #mainRow { flex-direction: column; }
-  #rankingPanel, #externalTrio { flex: 1 1 auto; }
+  #rankingPanel, #rightSidebarCol { flex: 1 1 auto; }
 }
 
 .champ {
   display: flex; flex-direction: column; align-items: center; gap: 3px;
   padding: 4px; border-radius: 6px; background: rgba(255,122,60,0.035);
-  position: relative;
+  position: relative; cursor: pointer; transition: background 0.15s ease;
+}
+.champ:hover { background: rgba(255,122,60,0.09); }
+
+/* Einheitlicher Fokus-Zustand fuer alle Eingabefelder/Dropdowns im
+   gesamten Dashboard - vorher hatte keines einen sichtbaren Fokus-Rahmen. */
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: #ff7a3c !important;
+  box-shadow: 0 0 0 2px rgba(255,122,60,0.25);
 }
 .champ img {
   width: 48px; height: 48px; border-radius: 6px; border: 2px solid #4a3a34;
@@ -531,6 +757,37 @@ button.danger:hover { background: #c43b4a; }
   width: 40px; height: 40px; border-radius: 6px; border: 2px solid #ff7a3c;
 }
 .detailHeader h2 { flex: 1; font-size: 15px; margin: 0; color: #ffb37a; }
+
+/* ---------- Champion-Seite: Preset-Auswahl (reine Anzeige) ---------- */
+.champPresetsToggle {
+  cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px;
+}
+.champPresetsToggle::before {
+  content: "▾"; display: inline-block; font-size: 10px; transition: transform 0.15s;
+}
+.champPresetsToggle.collapsed::before { transform: rotate(-90deg); }
+.champPresetsExplain { margin: 2px 0 8px; }
+#champPresetPills { display: flex; flex-wrap: wrap; gap: 6px; }
+.champPresetPill {
+  background: #16100d; border: 1px solid #3a2620; color: #f5ece6;
+  border-radius: 16px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.champPresetPill:hover { border-color: #ff7a3c; }
+.champPresetPill.active { background: rgba(255,122,60,0.18); border-color: #ff7a3c; color: #ffb37a; font-weight: 700; }
+.champPresetPillCreator { font-weight: 400; color: #9c8882; font-size: 10.5px; }
+
+#champPresetEntries { margin-top: 10px; }
+.champPresetActiveName {
+  font-size: 14px; font-weight: 700; color: #ffb37a; margin: 0 0 8px;
+}
+.champPresetKindLabel {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690;
+  margin: 8px 0 4px;
+}
+#champPresetEntries .iaGrid {
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+}
 
 .backArrowBtn {
   width: 28px; height: 28px; flex-shrink: 0; padding: 0;

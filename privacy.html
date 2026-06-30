@@ -37,7 +37,7 @@
       <table class="legal">
         <tr><th>Name</th><td>JC</td></tr>
         <tr><th>Kontakt</th><td><a href="mailto:arenawintracker.support@proton.me">arenawintracker.support@proton.me</a></td></tr>
-        <tr><th>Projekt</th><td>Arena Win Tracker (Overwolf-App und Web-App, privates Projekt)</td></tr>
+        <tr><th>Projekt</th><td>Arena Win Tracker – inoffizielles Drittanbieter-Tool für League of Legends Arena, verfügbar als Overwolf-App und Web-App.</td></tr>
       </table>
     </div>
   </section>
@@ -45,19 +45,33 @@
   <section class="block">
     <div class="wrap">
       <h2><span class="num">02</span>Welche Daten werden verarbeitet</h2>
-      <p>Für den Betrieb werden folgende Daten verarbeitet:</p>
+      <p>Für den Betrieb werden ausschließlich folgende Daten verarbeitet:</p>
       <table class="legal">
-        <tr><th>Riot-ID (Name#Tag)</th><td>Um deinen Spieler-Account bei der Riot-API zu identifizieren und deinen Sync zuzuordnen.</td></tr>
-        <tr><th>Region</th><td>Server-Region deines Accounts (z.B. Europe), zur richtigen Riot-API-Abfrage.</td></tr>
-        <tr><th>Match-Historie (Arena)</th><td>Datum, Champion, Platzierung und Teammates deiner Arena-Spiele seit Season-Start.</td></tr>
-        <tr><th>Season-Start-Datum</th><td>Einstellung, die du selbst festlegst.</td></tr>
-        <tr><th>Sync-Secret</th><td>Gemeinsames Zugangs-Secret, um den manuellen Sync auszulösen - kein persönliches Passwort, sondern ein geteilter Wert für alle Nutzer des Servers.</td></tr>
+        <tr>
+          <th>Riot-ID (Name#Tag)</th>
+          <td>Zur Identifikation deines Accounts bei der Riot-API und zur Zuordnung deines täglichen Syncs.</td>
+        </tr>
+        <tr>
+          <th>Region</th>
+          <td>Deine Server-Region (z.&thinsp;B. Europe), die für die korrekte Riot-API-Abfrage benötigt wird.</td>
+        </tr>
+        <tr>
+          <th>Match-Historie (Arena)</th>
+          <td>Datum, Champion und Platzierung deiner Arena-Spiele seit dem von dir gewählten Season-Start-Datum.</td>
+        </tr>
+        <tr>
+          <th>Season-Start-Datum</th>
+          <td>Eine Einstellung, die du selbst in der App festlegst und jederzeit ändern kannst.</td>
+        </tr>
+        <tr>
+          <th>Profilbild-ID</th>
+          <td>Die ID deines In-Game-Profilbilds, ausschließlich zur Anzeige im Leaderboard der App.</td>
+        </tr>
       </table>
       <p class="muted">
-        Du musst <strong>keinen eigenen Riot API-Key</strong> mehr angeben - der Abruf
-        bei Riot erfolgt zentral über den Sync-Server. Es werden keine Zahlungsdaten,
-        keine Standortdaten und keine Daten von anderen Spielern außerhalb deiner
-        eigenen Match-Historie verarbeitet.
+        Du musst <strong>keinen eigenen Riot API-Key</strong> angeben – der Abruf bei Riot
+        erfolgt zentral über den Sync-Server. Es werden keine Zahlungsdaten, keine
+        Standortdaten und keine Passwörter gespeichert.
       </p>
     </div>
   </section>
@@ -65,68 +79,67 @@
   <section class="block">
     <div class="wrap">
       <h2><span class="num">03</span>Wo deine Daten gespeichert werden</h2>
-      <p>
-        Arena Win Tracker nutzt seit Juni 2026 einen <strong>zentralen Sync-Server</strong>
-        statt ausschließlich lokaler Speicherung. Das betrifft sowohl die Overwolf-App
-        als auch die Web-App-Version.
-      </p>
       <table class="legal">
         <tr>
           <th>Zentrale Datenbank</th>
           <td>
-            Deine Riot-ID, Region, Season-Start sowie deine Match-Historie und
-            Sieg-Übersicht werden auf einem Server gespeichert (Hosting: Render,
-            Datenbank: MongoDB Atlas), damit der tägliche automatische Sync
-            funktioniert und du nicht jedes Mal neu syncen musst.
+            Riot-ID, Region, Season-Start sowie Match-Historie und Sieg-Übersicht
+            werden auf einem Server gespeichert (Hosting: <strong>Render</strong>,
+            Frankfurt; Datenbank: <strong>MongoDB Atlas</strong>, Frankfurt),
+            damit der tägliche automatische Sync funktioniert.
           </td>
         </tr>
         <tr>
-          <th>Lokale Zwischenspeicherung</th>
+          <th>Lokaler Cache</th>
           <td>
-            Zusätzlich speichert dein Browser/die App eine Kopie der zuletzt
-            geladenen Anzeige-Daten lokal (<code>localStorage</code>), damit die
-            Oberfläche auch ohne erneuten Serverabruf sofort etwas anzeigen kann.
-            Das ist nur ein Anzeige-Cache, keine eigenständige Datenquelle.
+            Dein Browser speichert eine Kopie der zuletzt geladenen Anzeige-Daten
+            in <code>localStorage</code>. Das ist nur ein Anzeige-Cache, keine
+            eigenständige Datenbank – er kann in den App-Einstellungen jederzeit
+            geleert werden.
           </td>
         </tr>
       </table>
       <p class="muted">
-        Andere Nutzer des Servers (z.B. Freunde) können über die Liste registrierter
-        Riot-IDs sehen, <em>dass</em> du registriert bist und wann zuletzt gesynct
-        wurde - nicht jedoch deine Match-Historie oder Sieg-Details, sofern sie nicht
-        gezielt deine Riot-ID abrufen.
+        Andere registrierte Nutzer können im Leaderboard deine Riot-ID und Sieg-Statistiken
+        sehen – genauso wie du die der anderen Spieler siehst. Deine vollständige Match-Historie
+        ist nur abrufbar, wenn jemand gezielt deine Riot-ID eingibt.
       </p>
     </div>
   </section>
 
   <section class="block">
     <div class="wrap">
-      <h2><span class="num">04</span>Riot Games API & weitere Drittanbieter</h2>
+      <h2><span class="num">04</span>Riot Games API &amp; Drittanbieter</h2>
       <p>
-        Zur Abfrage der Match-Daten nutzt der Server die offizielle Riot Match-V5 API
-        sowie Champion-Daten von Riots Data Dragon CDN. Zusätzlich werden folgende
-        Dienste zum Betrieb des Servers eingesetzt:
+        Zur Abfrage der Match-Daten nutzt der Server die offizielle <strong>Riot Match-V5 API</strong>
+        sowie Champion- und Patch-Daten von Riots Data Dragon CDN. Folgende Dienste werden
+        für den Betrieb eingesetzt:
       </p>
       <table class="legal">
-        <tr><th>Render (Hosting)</th><td>Betreibt den Sync-Server und den täglichen automatischen Abgleich.</td></tr>
-        <tr><th>MongoDB Atlas (Datenbank)</th><td>Speichert die in Abschnitt 02 genannten Daten dauerhaft.</td></tr>
+        <tr><th>Render</th><td>Betreibt den Sync-Server (Frankfurt). Datenschutzerklärung: render.com/privacy</td></tr>
+        <tr><th>MongoDB Atlas</th><td>Speichert die in Abschnitt 02 genannten Daten (Frankfurt). Datenschutzerklärung: mongodb.com/legal/privacy-policy</td></tr>
+        <tr><th>Overwolf</th><td>Plattform für die Overlay-Version der App. Eigene Datenschutzerklärung: overwolf.com/legal/overwolf-apps-privacy-policy</td></tr>
       </table>
       <p class="muted">
-        Es werden keine Werbenetzwerke, Analyse- oder Tracking-Dienste eingebunden.
+        Es werden keine Werbenetzwerke, Analyse- oder Tracking-Dienste von Drittanbietern
+        eingebunden. In der Overwolf-Version können Overwolf-eigene Anzeigen erscheinen,
+        die ausschließlich Overwolfs eigenen Richtlinien unterliegen.
       </p>
     </div>
   </section>
 
   <section class="block">
     <div class="wrap">
-      <h2><span class="num">05</span>Deine Rechte</h2>
+      <h2><span class="num">05</span>Deine Rechte (DSGVO)</h2>
       <p>
-        Die App-Einstellung "Lokale Anzeige zurücksetzen" löscht nur den lokalen
-        Anzeige-Cache auf deinem Gerät - <strong>nicht</strong> die zentral auf dem
-        Server gespeicherten Daten. Für Auskunft, Berichtigung oder vollständige
-        Löschung deiner auf dem Server gespeicherten Daten wende dich jederzeit an
-        die oben genannte Kontaktadresse; die Löschung erfolgt dann manuell durch
-        den Verantwortlichen.
+        Du hast das Recht auf Auskunft, Berichtigung und vollständige Löschung deiner
+        auf dem Server gespeicherten Daten. Die Einstellung <em>„Lokale Anzeige
+        zurücksetzen"</em> in der App löscht nur den lokalen Cache auf deinem Gerät –
+        nicht die serverseitig gespeicherten Daten.
+      </p>
+      <p>
+        Für die Löschung deiner Serverdaten wende dich an die oben genannte
+        Kontaktadresse. Die Löschung erfolgt innerhalb von 14 Tagen.
       </p>
     </div>
   </section>
@@ -135,9 +148,9 @@
     <div class="wrap">
       <h2><span class="num">06</span>Änderungen dieser Erklärung</h2>
       <p>
-        Diese Datenschutzerklärung wird angepasst, sobald sich an der
-        Datenverarbeitung etwas ändert. Es lohnt sich, bei größeren Updates
-        der App hier vorbeizuschauen.
+        Diese Datenschutzerklärung wird angepasst, sobald sich an der Datenverarbeitung
+        etwas ändert. Das Datum „Stand:" oben zeigt an, wann die letzte Aktualisierung
+        stattgefunden hat.
       </p>
     </div>
   </section>
