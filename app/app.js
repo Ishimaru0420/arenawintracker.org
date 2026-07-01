@@ -1705,10 +1705,20 @@ function iaEntryDesc(entry) {
 // Baut die kompakte Entitaets-Referenz, die die generische Synergie-API
 // erwartet/zurueckgibt. key = apiName bei Augments, EN-Name bei Items
 // (stabiler als der jeweils aktuell angezeigte Sprachname).
+// Wichtig: apiName kann bei manchen Augments null sein. Ohne Fallback
+// wuerden dann mehrere unterschiedliche Augments dieselbe ID
+// ("augment:null") teilen und liessen sich nur noch gemeinsam
+// an-/abwaehlen (Bug, siehe iaEntityId-Kollision).
+function iaAugmentKey(entry) {
+  if (entry.apiName) return entry.apiName;
+  const nameEn = entry.name && entry.name.en;
+  const nameDe = entry.name && entry.name.de;
+  return nameEn || nameDe || `noapiname-${entry.icon || Math.random().toString(36).slice(2)}`;
+}
 function iaEntityRef(entry, kind) {
   return {
     type: kind,
-    key: kind === "augment" ? entry.apiName : entry.name.en,
+    key: kind === "augment" ? iaAugmentKey(entry) : entry.name.en,
     name: entry.name,
     icon: entry.icon || null,
     tier: entry.tier
@@ -2102,7 +2112,7 @@ async function startCreatingPreset() {
   document.getElementById("iaSearchInput").classList.add("hidden");
   document.getElementById("iaPresetView").classList.remove("hidden");
   updateIaPresetSaveLabel();
-  populateIaCategoryDropdown(document.getElementById("iaPresetCategoryFilter"));
+
   await renderIaPresetExistingList();
   renderIaPresetGrid();
 }
@@ -2368,7 +2378,6 @@ safeBind("iaPresetSearchInput", "oninput", (e) => {
   iaPresetSearchTerm = e.target.value;
   renderIaPresetGrid();
 });
-safeBind("iaPresetCategoryFilter", "onchange", onIaCategoryChange);
 safeBind("iaEditClearAll", "onclick", clearIaEditSelection);
 safeBind("iaEditCancel", "onclick", cancelIaEdit);
 safeBind("iaSearchInput", "oninput", (e) => {
@@ -2399,10 +2408,8 @@ function onIaCategoryChange(e) {
   iaCategoryFilter = e.target.value;
   const main = document.getElementById("iaCategoryFilter");
   const edit = document.getElementById("iaEditCategoryFilter");
-  const preset = document.getElementById("iaPresetCategoryFilter");
   if (main && main !== e.target) main.value = iaCategoryFilter;
   if (edit && edit !== e.target) edit.value = iaCategoryFilter;
-  if (preset && preset !== e.target) preset.value = iaCategoryFilter;
   renderItemsAugmentsModal();
   if (iaEditingAnchor) renderIaEditTargetGrid();
   if (iaPresetMode) renderIaPresetGrid();
