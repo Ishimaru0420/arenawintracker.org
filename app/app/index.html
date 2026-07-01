@@ -8,7 +8,7 @@
   <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
   <link rel="stylesheet" href="theme.css?v=1" />
   <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=44" />
+  <link rel="stylesheet" href="app.css?v=43" />
 
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
@@ -138,7 +138,6 @@
       <section id="top30Trio"></section>
       <div id="rightSidebarCol">
         <button id="openItemsAugmentsBtn" data-i18n="openItemsAugmentsBtn">📦 Items &amp; Augments</button>
-        <section id="champBuildSidebar" class="hidden"></section>
         <section id="externalTrio"></section>
       </div>
     </div>
@@ -199,15 +198,6 @@
           <input id="iaPresetSearchInput" type="text" placeholder="Augment oder Item suchen..." data-i18n-placeholder="iaSearchPlaceholder" />
         </div>
         <div id="iaPresetItemsGrid"></div>
-        <div id="buildSelectedNotesSection" class="hidden">
-          <h4 data-i18n="buildSelectedNotesHeading">Ausgewählt (optional: Notiz hinzufügen)</h4>
-          <div id="buildSelectedNotesList"></div>
-        </div>
-        <div id="buildSkillPathSection" class="hidden">
-          <h4 data-i18n="buildSkillPathHeading">Skill Path</h4>
-          <div id="buildSkillPathGrid"></div>
-          <button id="buildSkillPathReset" data-i18n="buildSkillPathReset">Zurücksetzen</button>
-        </div>
         <div id="iaEditActions">
           <button id="iaPresetSave" data-i18n="iaPresetSave">Speichern</button>
           <button id="iaPresetCancel" data-i18n="iaEditCancel">Fertig</button>
@@ -247,6 +237,6 @@
   </div>
 
   <!-- Cache-Busting: v=20 statt v=19 (externe Meta-Trios ergänzt) -->
-  <script src="app.js?v=56"></script>
+  <script src="app.js?v=54"></script>
 </body>
 </html>

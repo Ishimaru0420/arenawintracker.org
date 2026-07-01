@@ -297,22 +297,16 @@ const I18N = {
     iaPresetSaved: "Schnellsuche gespeichert.",
     iaPresetCreatorPlaceholder: "Dein Name...",
     iaPresetByLabel: "von",
-    iaPresetConvertBtn: "🎯 Als Champion-Build",
-    iaPresetConvertTitle: "Als Champion-Build übernehmen",
+    iaPresetConvertBtn: "🎯 Zu Champion-Build",
+    iaPresetConvertTitle: "In Champion-Build umwandeln",
     buildConvertPickerTitle: "Champion wählen",
     buildConvertPickerHint: "Der Champion-Build erscheint danach nur noch auf der Seite dieses Champions.",
-    buildConvertConfirm: "\"{name}\" als Champion-Build für {champ} anlegen? Die Schnellsuche bleibt zusätzlich in der globalen Liste erhalten.",
+    buildConvertConfirm: "\"{name}\" zu einem Champion-Build für {champ} umwandeln? Die Schnellsuche wird dabei aus der globalen Liste entfernt.",
     buildConvertNeedRiotId: "Bitte zuerst deine Riot-ID in den Einstellungen eintragen.",
     buildConvertSuccess: "In Champion-Build für {champ} umgewandelt.",
     buildConvertFailed: "Umwandlung fehlgeschlagen.",
     champBuildHeading: "Champion-Build",
     champBuildNone: "Noch kein Champion-Build für diesen Champion.",
-    champBuildEditTitle: "Champion-Build bearbeiten",
-    champBuildBackBtn: "← Zurück zur Schnellsuche",
-    champBuildSidebarHeading: "Champion-Builds",
-    buildSelectedNotesHeading: "Ausgewählt (optional: Notiz hinzufügen)",
-    buildSkillPathHeading: "Skill Path",
-    buildSkillPathReset: "Zurücksetzen",
     champAddPresetBtn: "🔍 Schnellsuche",
     champPresetsHeading: "Schnellsuchen",
     champPresetsNone: "Noch keine Schnellsuche für diesen Champion zugewiesen.",
@@ -506,22 +500,16 @@ const I18N = {
     iaPresetSaved: "Quick search saved.",
     iaPresetCreatorPlaceholder: "Your name...",
     iaPresetByLabel: "by",
-    iaPresetConvertBtn: "🎯 As champion build",
-    iaPresetConvertTitle: "Save as champion build",
+    iaPresetConvertBtn: "🎯 To champion build",
+    iaPresetConvertTitle: "Convert to champion build",
     buildConvertPickerTitle: "Choose champion",
     buildConvertPickerHint: "The champion build will then only appear on that champion's page.",
-    buildConvertConfirm: "Create \"{name}\" as a champion build for {champ}? The quick search stays in the global list too.",
+    buildConvertConfirm: "Convert \"{name}\" into a champion build for {champ}? The quick search will be removed from the global list.",
     buildConvertNeedRiotId: "Please enter your Riot ID in settings first.",
     buildConvertSuccess: "Converted into a champion build for {champ}.",
     buildConvertFailed: "Conversion failed.",
     champBuildHeading: "Champion build",
     champBuildNone: "No champion build for this champion yet.",
-    champBuildEditTitle: "Edit champion build",
-    champBuildBackBtn: "← Back to quick search",
-    champBuildSidebarHeading: "Champion builds",
-    buildSelectedNotesHeading: "Selected (optional: add a note)",
-    buildSkillPathHeading: "Skill Path",
-    buildSkillPathReset: "Reset",
     champAddPresetBtn: "🔍 Quick Search",
     champPresetsHeading: "Quick Searches",
     champPresetsNone: "No quick search assigned to this champion yet.",
@@ -1617,10 +1605,6 @@ let iaPresetMode = false;
 let iaPresetSearchTerm = "";
 let iaPresetSelectedEntries = new Map(); // iaEntityId -> {type, key, name, icon, tier}
 let iaEditingPresetId = null; // _id des Presets im Bearbeiten-Modus, null = Neuanlage
-let editingBuildId = null;    // _id des Champion-Builds im Bearbeiten-Modus, null = kein Build-Edit
-let editingBuildNotes = "";   // Notes des Builds bleiben beim Speichern erhalten
-let editingBuildChampKey = null;
-let editingSkillOrder = [];   // [{round, key}] - nur im Build-Editor relevant
 let iaPresetsCache = null; // alle existierenden Presets vom Server
 
 // Inhaltliche Kategorien per Stichwort-Abgleich (DE+EN) gegen Name +
@@ -2144,19 +2128,12 @@ function toggleIaPresetMode() {
 async function startCreatingPreset() {
   iaPresetSelectedEntries = new Map();
   iaEditingPresetId = null;
-  editingBuildId = null;
-  editingBuildNotes = "";
-  editingBuildChampKey = null;
-  editingSkillOrder = [];
   iaPresetSearchTerm = "";
   const nameInput = document.getElementById("iaPresetNameInput");
   if (nameInput) nameInput.value = "";
   const searchInput = document.getElementById("iaPresetSearchInput");
   if (searchInput) searchInput.value = "";
   document.getElementById("iaPresetStatus").textContent = "";
-  document.getElementById("iaPresetExisting")?.classList.remove("hidden");
-  document.getElementById("buildSkillPathSection")?.classList.add("hidden");
-  document.getElementById("buildSelectedNotesSection")?.classList.add("hidden");
   document.getElementById("itemsAugmentsBody").classList.add("hidden");
   document.getElementById("iaSearchInput").classList.add("hidden");
   document.getElementById("iaPresetView").classList.remove("hidden");
@@ -2169,7 +2146,7 @@ async function startCreatingPreset() {
 function updateIaPresetSaveLabel() {
   const btn = document.getElementById("iaPresetSave");
   if (!btn) return;
-  btn.textContent = (iaEditingPresetId || editingBuildId) ? t("iaPresetUpdate") : t("iaPresetSave");
+  btn.textContent = iaEditingPresetId ? t("iaPresetUpdate") : t("iaPresetSave");
 }
 
 async function startEditingPreset(preset) {
@@ -2189,13 +2166,6 @@ async function startEditingPreset(preset) {
 function cancelIaPreset() {
   iaPresetSelectedEntries = new Map();
   iaEditingPresetId = null;
-  editingBuildId = null;
-  editingBuildNotes = "";
-  editingBuildChampKey = null;
-  editingSkillOrder = [];
-  document.getElementById("iaPresetExisting")?.classList.remove("hidden");
-  document.getElementById("buildSkillPathSection")?.classList.add("hidden");
-  document.getElementById("buildSelectedNotesSection")?.classList.add("hidden");
   document.getElementById("itemsAugmentsBody").classList.remove("hidden");
   document.getElementById("iaSearchInput").classList.remove("hidden");
   document.getElementById("iaPresetView").classList.add("hidden");
@@ -2277,7 +2247,6 @@ function renderIaPresetGrid() {
 
   markIaPresetTiles(grid, augments, "augment");
   markIaPresetTiles(grid, items, "item");
-  renderBuildSelectedNotesList();
 }
 
 function markIaPresetTiles(container, entries, kindFilter) {
@@ -2316,41 +2285,6 @@ async function saveIaPreset() {
     statusEl.style.color = "#f87171";
     return;
   }
-
-  // Build-Edit-Modus: speichert ueber PUT /builds/:id statt der
-  // Preset-Routen (siehe openBuildEditor).
-  if (editingBuildId) {
-    if (!state.riotId) {
-      statusEl.textContent = t("buildConvertNeedRiotId");
-      statusEl.style.color = "#f87171";
-      return;
-    }
-    try {
-      const entries = [...iaPresetSelectedEntries.values()];
-      const augments = entries.filter((e) => e.type === "augment");
-      const items = entries.filter((e) => e.type === "item");
-      const res = await authFetch(serverUrl(`/builds/${editingBuildId}`), {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ riotId: state.riotId, name, augments, items, notes: editingBuildNotes, skillOrder: editingSkillOrder })
-      });
-      if (!res.ok) throw new Error("HTTP " + res.status);
-      statusEl.textContent = t("iaPresetUpdated");
-      statusEl.style.color = "#4ade80";
-      const champKey = editingBuildChampKey;
-      cancelIaPreset();
-      closeItemsAugmentsModal();
-      if (currentDetailChamp && String(currentDetailChamp.key) === String(champKey)) {
-        loadChampBuildsSidebar(currentDetailChamp);
-      }
-    } catch (err) {
-      console.error("[ChampBuild] Speichern fehlgeschlagen:", err);
-      statusEl.textContent = t("iaEditSaveError");
-      statusEl.style.color = "#f87171";
-    }
-    return;
-  }
-
   try {
     const entries = [...iaPresetSelectedEntries.values()];
     const isEdit = !!iaEditingPresetId;
@@ -2386,7 +2320,7 @@ async function saveIaPreset() {
 // Kopie: nach erfolgreichem Anlegen des Builds wird die Original-
 // Schnellsuche geloescht. Einziger inhaltlicher Unterschied zur
 // Schnellsuche: championKey ist gesetzt, dadurch nur auf der Seite
-// dieses einen Champions sichtbar (siehe loadChampBuildsSidebar).
+// dieses einen Champions sichtbar (siehe loadChampBuildsSection).
 // ============================================================
 let pendingConvertPreset = null;
 
@@ -2450,8 +2384,10 @@ async function confirmConvertPresetToBuild(champ) {
     });
     if (!res.ok) throw new Error("HTTP " + res.status);
 
-    // Original-Schnellsuche bleibt bestehen - der Build ist eine Kopie,
-    // keine Verschiebung mehr (auf Wunsch geaendert).
+    // Erfolgreich angelegt -> Original-Schnellsuche entfernen (echte
+    // Umwandlung, keine Kopie).
+    await authFetch(serverUrl(`/presets/${preset._id}`), { method: "DELETE" });
+
     closeBuildConvertPicker();
     await loadPresets(true);
     await renderIaPresetExistingList();
@@ -2465,87 +2401,54 @@ async function confirmConvertPresetToBuild(champ) {
 safeBind("buildConvertPickerClose", "onclick", closeBuildConvertPicker);
 safeBind("buildConvertPickerSearch", "oninput", (e) => renderBuildConvertPickerGrid(e.target.value));
 
-// ---------- Champion-Seite: Champion-Builds in der rechten Sidebar (per championKey) ----------
-let champBuildsForSidebar = [];
-
-async function loadChampBuildsSidebar(champ) {
-  const section = document.getElementById("champBuildSidebar");
+// ---------- Champion-Seite: Champion-Builds anzeigen (per championKey) ----------
+async function loadChampBuildsSection(champ) {
+  const section = document.getElementById("champBuildSection");
   if (!section) return;
   try {
     await loadArenaItemsAugments();
     const res = await authFetch(serverUrl(`/builds/${encodeURIComponent(champ.key)}`));
-    champBuildsForSidebar = res.ok ? await res.json() : [];
-    renderChampBuildSidebar(champ, champBuildsForSidebar);
+    const builds = res.ok ? await res.json() : [];
+    renderChampBuildsSection(section, builds);
   } catch (err) {
     console.error("[ChampBuilds] Laden fehlgeschlagen:", err);
-    champBuildsForSidebar = [];
-    renderChampBuildSidebar(champ, []);
+    renderChampBuildsSection(section, []);
   }
 }
 
-function renderChampBuildSidebar(champ, builds) {
-  const section = document.getElementById("champBuildSidebar");
-  if (!section) return;
-  if (!builds.length) {
-    section.innerHTML = `<h3>${t("champBuildSidebarHeading")}</h3><p class="detailEmpty">${t("champBuildNone")}</p>`;
+function renderChampBuildsSection(section, builds) {
+  if (!builds || !builds.length) {
+    section.innerHTML = `<h3>${t("champBuildHeading")}</h3><p class="detailEmpty">${t("champBuildNone")}</p>`;
     return;
   }
-  section.innerHTML = `<h3>${t("champBuildSidebarHeading")}</h3>` +
-    builds.map((b, i) => `
-      <div class="champBuildSidebarPill" data-build-idx="${i}">
-        <img src="${champ.icon}" alt="${champ.name}" />
-        <span class="champBuildSidebarPillName">${b.name}${b.riotId ? `<span class="champBuildSidebarPillCreator">${t("iaPresetByLabel")} ${b.riotId}</span>` : ""}</span>
-      </div>
-    `).join("");
-  section.querySelectorAll(".champBuildSidebarPill").forEach((pill) => {
-    pill.addEventListener("click", () => {
-      const idx = parseInt(pill.dataset.buildIdx, 10);
-      const build = builds[idx];
-      if (build) openBuildFullView(build);
-      section.querySelectorAll(".champBuildSidebarPill").forEach((p) => p.classList.toggle("active", p === pill));
-    });
+  let html = `<h3>${t("champBuildHeading")}</h3>`;
+  builds.forEach((b, i) => {
+    const augments = b.augments || [];
+    const items = b.items || [];
+    html += `<div class="champBuildBlock" data-build-idx="${i}">`;
+    html += `<h4 class="champPresetActiveName">${b.name}${b.riotId ? ` <span class="champPresetBlockCreator">${t("iaPresetByLabel")} ${b.riotId}</span>` : ""}</h4>`;
+    if (augments.length) {
+      html += `<div class="champPresetKindLabel">${t("iaAugmentsHeading")}</div>` +
+        IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
+    }
+    if (items.length) {
+      html += `<div class="champPresetKindLabel">${t("iaItemsHeading")}</div>` +
+        IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
+    }
+    if (b.notes) html += `<p class="detailEmpty" style="margin-top:6px;">${b.notes}</p>`;
+    html += `</div>`;
   });
-}
-
-// Ersetzt den kompletten Hauptbereich (Schnellsuche-Pills + Augments/
-// Items) durch die Vollansicht des angeklickten Champion-Builds.
-// "← Zurueck" baut die normale Champion-Ansicht wieder komplett auf
-// (gleiches Muster wie die anderen Rueckwege in der App).
-function openBuildFullView(build) {
-  const section = document.getElementById("champPresetsSection");
-  if (!section) return;
-  const augments = build.augments || [];
-  const items = build.items || [];
-
-  let html = `<button class="champBuildFullBackBtn" id="champBuildFullBackBtn">${t("champBuildBackBtn")}</button>`;
-  html += `<div class="champBuildBlockHeader">
-    <h3 class="champPresetActiveName">${build.name}${build.riotId ? ` <span class="champPresetBlockCreator">${t("iaPresetByLabel")} ${build.riotId}</span>` : ""}</h3>
-    <button class="champBuildEditBtn" id="champBuildFullEditBtn" title="${t("champBuildEditTitle")}">✏️</button>
-  </div>`;
-  if (augments.length) {
-    html += `<div class="champPresetKindLabel">${t("iaAugmentsHeading")}</div>` +
-      IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
-  }
-  if (items.length) {
-    html += `<div class="champPresetKindLabel">${t("iaItemsHeading")}</div>` +
-      IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
-  }
-  if (build.skillOrder && build.skillOrder.length) {
-    html += `<div class="champPresetKindLabel">${t("buildSkillPathHeading")}</div>`;
-    html += renderSkillPathReadOnly(build.skillOrder);
-  }
-  if (build.notes) html += `<p class="detailEmpty" style="margin-top:8px;">${build.notes}</p>`;
-
   section.innerHTML = html;
-  document.getElementById("champBuildFullBackBtn").addEventListener("click", () => openChampDetail(currentDetailChamp));
-  document.getElementById("champBuildFullEditBtn").addEventListener("click", () => {
-    requireIaCode(() => openBuildEditor(build, build.championKey));
-  });
 
-  const bindTiles = (entries, kind) => {
-    section.querySelectorAll(`.iaTile[data-kind="${kind}"]`).forEach((tile) => {
+  builds.forEach((b, i) => {
+    const block = section.querySelector(`[data-build-idx="${i}"]`);
+    if (!block) return;
+    const augments = b.augments || [];
+    const items = b.items || [];
+    block.querySelectorAll(".iaTile").forEach((tile) => {
+      const kind = tile.dataset.kind;
       const idx = parseInt(tile.dataset.idx, 10);
-      const entry = entries[idx];
+      const entry = (kind === "augment" ? augments : items)[idx];
       if (!entry) return;
       tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
       tile.addEventListener("mousemove", positionIaTooltip);
@@ -2555,134 +2458,9 @@ function openBuildFullView(build) {
         hideIaTooltip();
         openItemOrAugmentDetail(iaEntryName(entry), kind);
       });
-      if (entry.note) {
-        tile.title = entry.note;
-      }
     });
-  };
-  if (augments.length) bindTiles(augments, "augment");
-  if (items.length) bindTiles(items, "item");
-}
-
-const SKILL_PATH_ROWS = ["Q", "W", "E", "R"];
-const SKILL_PATH_ROUNDS = 18;
-
-// Lesend: zeigt eine gespeicherte skillOrder (Array aus {round,key})
-// als kompaktes Grid, ohne Klick-Funktion (nur in der Build-Vollansicht).
-function renderSkillPathReadOnly(skillOrder) {
-  const counters = {};
-  let html = `<div id="buildSkillPathGrid" class="buildSkillPathReadOnly">`;
-  SKILL_PATH_ROWS.forEach((key) => {
-    counters[key] = 0;
-    html += `<div class="buildSkillRow"><span class="buildSkillRowLabel">${key}</span>`;
-    for (let round = 1; round <= SKILL_PATH_ROUNDS; round++) {
-      const entry = skillOrder.find((s) => s.round === round && s.key === key);
-      if (entry) counters[key]++;
-      html += `<span class="buildSkillCell${entry ? " filled" : ""}">${entry ? counters[key] : ""}</span>`;
-    }
-    html += `</div>`;
-  });
-  html += `</div>`;
-  return html;
-}
-
-// Oeffnet den bestehenden Schnellsuche-Editor im "Build-Edit-Modus":
-// gleiche Grid-/Auswahl-Mechanik, aber speichert am Ende ueber
-// PUT /builds/:id statt der Preset-Routen (siehe saveIaPreset).
-async function openBuildEditor(build, champKey) {
-  document.getElementById("itemsAugmentsOverlay").classList.remove("hidden");
-  await loadArenaItemsAugments();
-
-  if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
-  iaPresetMode = true;
-  document.getElementById("iaPresetModeBtn")?.classList.add("active");
-  backToItemsAugmentsBrowse();
-
-  editingBuildId = build._id;
-  editingBuildNotes = build.notes || "";
-  editingBuildChampKey = champKey;
-  editingSkillOrder = Array.isArray(build.skillOrder) ? [...build.skillOrder] : [];
-  iaEditingPresetId = null;
-  iaPresetSelectedEntries = new Map();
-  [...(build.augments || []), ...(build.items || [])].forEach((entry) => {
-    iaPresetSelectedEntries.set(iaEntityId(entry), entry);
-  });
-
-  const nameInput = document.getElementById("iaPresetNameInput");
-  if (nameInput) nameInput.value = build.name || "";
-  const searchInput = document.getElementById("iaPresetSearchInput");
-  if (searchInput) searchInput.value = "";
-  iaPresetSearchTerm = "";
-  document.getElementById("iaPresetStatus").textContent = "";
-  document.getElementById("iaPresetExisting")?.classList.add("hidden"); // im Build-Edit irrelevant
-  document.getElementById("itemsAugmentsBody").classList.add("hidden");
-  document.getElementById("iaSearchInput").classList.add("hidden");
-  document.getElementById("iaPresetView").classList.remove("hidden");
-  document.getElementById("buildSkillPathSection")?.classList.remove("hidden");
-  document.getElementById("buildSelectedNotesSection")?.classList.remove("hidden");
-  updateIaPresetSaveLabel();
-  renderIaPresetGrid();
-  renderSkillPathGrid();
-}
-
-// ---- Skill Path: klickbares Grid (Q/W/E/R x Runden), nur im Build-Editor ----
-function renderSkillPathGrid() {
-  const grid = document.getElementById("buildSkillPathGrid");
-  if (!grid) return;
-  const counters = {};
-  let html = "";
-  SKILL_PATH_ROWS.forEach((key) => {
-    counters[key] = 0;
-    html += `<div class="buildSkillRow"><span class="buildSkillRowLabel">${key}</span>`;
-    for (let round = 1; round <= SKILL_PATH_ROUNDS; round++) {
-      const entry = editingSkillOrder.find((s) => s.round === round && s.key === key);
-      if (entry) counters[key]++;
-      html += `<span class="buildSkillCell${entry ? " filled" : ""}" data-round="${round}" data-key="${key}">${entry ? counters[key] : ""}</span>`;
-    }
-    html += `</div>`;
-  });
-  grid.innerHTML = html;
-  grid.querySelectorAll(".buildSkillCell").forEach((cell) => {
-    cell.onclick = () => {
-      const round = parseInt(cell.dataset.round, 10);
-      const key = cell.dataset.key;
-      const existingIdx = editingSkillOrder.findIndex((s) => s.round === round);
-      if (existingIdx !== -1 && editingSkillOrder[existingIdx].key === key) {
-        // Gleiche Zelle nochmal geklickt -> entfernen (Toggle aus).
-        editingSkillOrder.splice(existingIdx, 1);
-      } else if (existingIdx !== -1) {
-        // Andere Faehigkeit in dieser Runde -> ersetzen (nur 1 Pick/Runde).
-        editingSkillOrder[existingIdx] = { round, key };
-      } else {
-        editingSkillOrder.push({ round, key });
-      }
-      renderSkillPathGrid();
-    };
   });
 }
-safeBind("buildSkillPathReset", "onclick", () => { editingSkillOrder = []; renderSkillPathGrid(); });
-
-// ---- Notizen: pro ausgewaehltem Augment/Item optional ein Freitext ----
-function renderBuildSelectedNotesList() {
-  const list = document.getElementById("buildSelectedNotesList");
-  if (!list) return;
-  const entries = [...iaPresetSelectedEntries.values()];
-  if (!entries.length) {
-    list.innerHTML = `<p class="detailEmpty">–</p>`;
-    return;
-  }
-  list.innerHTML = entries.map((entry, i) => `
-    <div class="buildNoteRow">
-      ${entry.icon ? `<img src="${entry.icon}" alt="" />` : ""}
-      <span class="buildNoteRowName">${iaEntryName(entry)}</span>
-      <input class="buildNoteRowInput" data-note-idx="${i}" type="text" value="${(entry.note || "").replace(/"/g, "&quot;")}" placeholder="Notiz (optional)..." />
-    </div>
-  `).join("");
-  list.querySelectorAll(".buildNoteRowInput").forEach((input, i) => {
-    input.oninput = () => { entries[i].note = input.value; };
-  });
-}
-
 
 function renderIaSelectedCard(entry) {
   const card = document.getElementById("iaSelectedCard");
@@ -3461,7 +3239,6 @@ function openChampDetail(champ) {
   document.getElementById("grid").classList.add("hidden");
   document.getElementById("top30Trio").classList.add("hidden");
   document.getElementById("externalTrio").classList.add("hidden");
-  document.getElementById("champBuildSidebar").classList.remove("hidden");
   document.getElementById("rankingPanel").classList.add("hidden");
   const detail = document.getElementById("champDetail");
   detail.classList.remove("hidden");
@@ -3479,6 +3256,7 @@ function openChampDetail(champ) {
         <div id="champPresetEntries"></div>
       </div>
     </div>
+    <div class="detailSection" id="champBuildSection"><h3>${t("champBuildHeading")}</h3><p class="detailEmpty">...</p></div>
     ${renderCommunityDbPlaceholder()}
     ${renderCommunityAiPlaceholder()}
   `;
@@ -3494,7 +3272,7 @@ function openChampDetail(champ) {
     li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
   });
   loadChampPresetPicker(champ);
-  loadChampBuildsSidebar(champ);
+  loadChampBuildsSection(champ);
   loadCommunityDbSection(champ);
   loadCommunityAiSection(champ);
 }
@@ -3593,74 +3371,46 @@ function renderChampPresetEntries(preset) {
 // volle Breite nutzende Synergie-Ansicht. Rueckweg fuehrt zurueck zur
 // zuletzt geoeffneten Champion-Ansicht (nicht zum Grid).
 
-// Laedt die ECHTEN, live editierbaren Synergien aus der synergyPairs-
-// Collection (dieselbe Quelle wie der "✏️ Synergien bearbeiten"-Editor
-// und die Detailansicht im Items&Augments-Modal, ueber /synergy/:type/:key).
-// Vorher wurde hier faelschlich die separate, statische
-// metaData.augmentSynergyMap/itemSynergyMap genutzt (vom Agent-Sync
-// befuellt, NICHT vom Synergie-Editor) - dadurch zeigten manuell
-// gepflegte Synergien hier nie an, obwohl sie im Editor sichtbar waren.
-async function openItemOrAugmentDetail(name, type) {
+function getSynergyMap(type) {
+  if (!metaData) return {};
+  return type === "item" ? (metaData.itemSynergyMap || {}) : (metaData.augmentSynergyMap || {});
+}
+
+function getSynergiesFor(name, type) {
+  const map = getSynergyMap(type);
+  const key = normName(name);
+  for (const k in map) {
+    if (normName(k) === key) return map[k];
+  }
+  return null;
+}
+
+function openItemOrAugmentDetail(name, type) {
+  const synergy = getSynergiesFor(name, type);
   const heading = type === "item" ? t("itemDetailHeading") : t("augmentDetailHeading");
   const detail = document.getElementById("champDetail");
 
-  detail.innerHTML = `
+  let html = `
     <div class="detailHeader">
       <button class="backArrowBtn" id="itemDetailBackBtn" title="${t("backToChampTitle")}">${t("backArrow")}</button>
       <h2>${name}</h2>
     </div>
-    <div class="detailSection"><h3>${heading} · ${t("detailSynergyHeading")}</h3>
-      <div id="itemDetailSynergyBody"><p class="detailEmpty">…</p></div>
-    </div>`;
+    <div class="detailSection"><h3>${heading} · ${t("detailSynergyHeading")}</h3>`;
+
+  if (synergy && synergy.with && synergy.with.length) {
+    html += `<ul class="detailTagList">` +
+      synergy.with.map((n) => renderItemTag(n, false)).join("") +
+      `</ul>`;
+    if (synergy.note) {
+      html += `<p class="detailEmpty" style="margin-top:6px;">${synergy.note}</p>`;
+    }
+  } else {
+    html += `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
+  }
+  html += `</div>`;
+
+  detail.innerHTML = html;
   document.getElementById("itemDetailBackBtn").addEventListener("click", () => openChampDetail(currentDetailChamp));
-
-  const bodyEl = document.getElementById("itemDetailSynergyBody");
-  await loadArenaItemsAugments();
-  const lookupEntry = type === "item" ? iaItemByName[normName(name)] : iaAugmentByName[normName(name)];
-  if (!lookupEntry) {
-    bodyEl.innerHTML = `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
-    return;
-  }
-
-  try {
-    const ref = iaEntityRef(lookupEntry, type);
-    const res = await authFetch(serverUrl(`/synergy/${ref.type}/${encodeURIComponent(ref.key)}`));
-    const partners = res.ok ? await res.json() : [];
-    if (!partners.length) {
-      bodyEl.innerHTML = `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
-      return;
-    }
-    const augPartners = partners.filter((p) => p.type === "augment");
-    const itemPartners = partners.filter((p) => p.type === "item");
-    let html = "";
-    if (augPartners.length) {
-      html += `<h4>${t("iaAugmentsHeading")}</h4>` +
-        IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augPartners, tier, "augment")).join("");
-    }
-    if (itemPartners.length) {
-      html += `<h4>${t("iaItemsHeading")}</h4>` +
-        IA_ITEM_TIERS.map((tier) => renderIaTierGroup(itemPartners, tier, "item")).join("");
-    }
-    bodyEl.innerHTML = html;
-
-    const bindPartnerTiles = (entries, kind) => {
-      bodyEl.querySelectorAll(`.iaTile[data-kind="${kind}"]`).forEach((tile) => {
-        const idx = parseInt(tile.dataset.idx, 10);
-        const entry = entries[idx];
-        if (!entry) return;
-        tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
-        tile.addEventListener("mousemove", positionIaTooltip);
-        tile.addEventListener("mouseleave", hideIaTooltip);
-        tile.style.cursor = "pointer";
-        tile.addEventListener("click", () => { hideIaTooltip(); openItemOrAugmentDetail(iaEntryName(entry), kind); });
-      });
-    };
-    if (augPartners.length) bindPartnerTiles(augPartners, "augment");
-    if (itemPartners.length) bindPartnerTiles(itemPartners, "item");
-  } catch (err) {
-    console.error("[ItemDetail] Synergie-Lookup fehlgeschlagen:", err);
-    bodyEl.innerHTML = `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
-  }
 }
 
 function closeChampDetail() {
@@ -3668,7 +3418,6 @@ function closeChampDetail() {
   document.getElementById("grid").classList.remove("hidden");
   document.getElementById("top30Trio").classList.remove("hidden");
   document.getElementById("externalTrio").classList.remove("hidden");
-  document.getElementById("champBuildSidebar").classList.add("hidden");
   document.getElementById("rankingPanel").classList.remove("hidden");
 }
 

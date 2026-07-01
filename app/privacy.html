@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Datenschutz – Arena Win Tracker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <nav class="top">
+    <div class="wrap">
+      <div class="brand"><span class="dot"></span> Arena Win Tracker</div>
+      <div class="links">
+        <a href="index.html">Übersicht</a>
+        <a href="app/index.html">Web-App</a>
+        <a href="privacy.html">Datenschutz</a>
+        <a href="terms.html">Nutzungsbedingungen</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero" style="padding: 48px 0 24px;">
+    <div class="wrap">
+      <div class="eyebrow">Stand: Juni 2026</div>
+      <h1 style="font-size: 30px;">Datenschutzerklärung</h1>
+      <p class="lead">
+        Diese Erklärung beschreibt, welche Daten Arena Win Tracker verarbeitet,
+        wo sie gespeichert werden und welche Rechte du als Nutzer hast.
+      </p>
+    </div>
+  </header>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">01</span>Verantwortlicher</h2>
+      <table class="legal">
+        <tr><th>Name</th><td>JC</td></tr>
+        <tr><th>Kontakt</th><td><a href="mailto:arenawintracker.support@proton.me">arenawintracker.support@proton.me</a></td></tr>
+        <tr><th>Projekt</th><td>Arena Win Tracker – inoffizielles Drittanbieter-Tool für League of Legends Arena, verfügbar als Overwolf-App und Web-App.</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">02</span>Welche Daten werden verarbeitet</h2>
+      <p>Für den Betrieb werden ausschließlich folgende Daten verarbeitet:</p>
+      <table class="legal">
+        <tr>
+          <th>Riot-ID (Name#Tag)</th>
+          <td>Zur Identifikation deines Accounts bei der Riot-API und zur Zuordnung deines täglichen Syncs.</td>
+        </tr>
+        <tr>
+          <th>Region</th>
+          <td>Deine Server-Region (z.&thinsp;B. Europe), die für die korrekte Riot-API-Abfrage benötigt wird.</td>
+        </tr>
+        <tr>
+          <th>Match-Historie (Arena)</th>
+          <td>Datum, Champion und Platzierung deiner Arena-Spiele seit dem von dir gewählten Season-Start-Datum.</td>
+        </tr>
+        <tr>
+          <th>Season-Start-Datum</th>
+          <td>Eine Einstellung, die du selbst in der App festlegst und jederzeit ändern kannst.</td>
+        </tr>
+        <tr>
+          <th>Profilbild-ID</th>
+          <td>Die ID deines In-Game-Profilbilds, ausschließlich zur Anzeige im Leaderboard der App.</td>
+        </tr>
+      </table>
+      <p class="muted">
+        Du musst <strong>keinen eigenen Riot API-Key</strong> angeben – der Abruf bei Riot
+        erfolgt zentral über den Sync-Server. Es werden keine Zahlungsdaten, keine
+        Standortdaten und keine Passwörter gespeichert.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">03</span>Wo deine Daten gespeichert werden</h2>
+      <table class="legal">
+        <tr>
+          <th>Zentrale Datenbank</th>
+          <td>
+            Riot-ID, Region, Season-Start sowie Match-Historie und Sieg-Übersicht
+            werden auf einem Server gespeichert (Hosting: <strong>Render</strong>,
+            Frankfurt; Datenbank: <strong>MongoDB Atlas</strong>, Frankfurt),
+            damit der tägliche automatische Sync funktioniert.
+          </td>
+        </tr>
+        <tr>
+          <th>Lokaler Cache</th>
+          <td>
+            Dein Browser speichert eine Kopie der zuletzt geladenen Anzeige-Daten
+            in <code>localStorage</code>. Das ist nur ein Anzeige-Cache, keine
+            eigenständige Datenbank – er kann in den App-Einstellungen jederzeit
+            geleert werden.
+          </td>
+        </tr>
+      </table>
+      <p class="muted">
+        Andere registrierte Nutzer können im Leaderboard deine Riot-ID und Sieg-Statistiken
+        sehen – genauso wie du die der anderen Spieler siehst. Deine vollständige Match-Historie
+        ist nur abrufbar, wenn jemand gezielt deine Riot-ID eingibt.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">04</span>Riot Games API &amp; Drittanbieter</h2>
+      <p>
+        Zur Abfrage der Match-Daten nutzt der Server die offizielle <strong>Riot Match-V5 API</strong>
+        sowie Champion- und Patch-Daten von Riots Data Dragon CDN. Folgende Dienste werden
+        für den Betrieb eingesetzt:
+      </p>
+      <table class="legal">
+        <tr><th>Render</th><td>Betreibt den Sync-Server (Frankfurt). Datenschutzerklärung: render.com/privacy</td></tr>
+        <tr><th>MongoDB Atlas</th><td>Speichert die in Abschnitt 02 genannten Daten (Frankfurt). Datenschutzerklärung: mongodb.com/legal/privacy-policy</td></tr>
+        <tr><th>Overwolf</th><td>Plattform für die Overlay-Version der App. Eigene Datenschutzerklärung: overwolf.com/legal/overwolf-apps-privacy-policy</td></tr>
+      </table>
+      <p class="muted">
+        Es werden keine Werbenetzwerke, Analyse- oder Tracking-Dienste von Drittanbietern
+        eingebunden. In der Overwolf-Version können Overwolf-eigene Anzeigen erscheinen,
+        die ausschließlich Overwolfs eigenen Richtlinien unterliegen.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">05</span>Deine Rechte (DSGVO)</h2>
+      <p>
+        Du hast das Recht auf Auskunft, Berichtigung und vollständige Löschung deiner
+        auf dem Server gespeicherten Daten. Die Einstellung <em>„Lokale Anzeige
+        zurücksetzen"</em> in der App löscht nur den lokalen Cache auf deinem Gerät –
+        nicht die serverseitig gespeicherten Daten.
+      </p>
+      <p>
+        Für die Löschung deiner Serverdaten wende dich an die oben genannte
+        Kontaktadresse. Die Löschung erfolgt innerhalb von 14 Tagen.
+      </p>
+    </div>
+  </section>
+
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">06</span>Änderungen dieser Erklärung</h2>
+      <p>
+        Diese Datenschutzerklärung wird angepasst, sobald sich an der Datenverarbeitung
+        etwas ändert. Das Datum „Stand:" oben zeigt an, wann die letzte Aktualisierung
+        stattgefunden hat.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <p class="riot-disclaimer">
+        Arena Win Tracker isn't endorsed by Riot Games and doesn't reflect the views or
+        opinions of Riot Games or anyone officially involved in producing or managing
+        Riot Games properties. Riot Games, and all associated properties are trademarks
+        or registered trademarks of Riot Games, Inc.
+      </p>
+      <div class="links">
+        <a href="index.html">Übersicht</a>
+        <a href="terms.html">Nutzungsbedingungen</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>

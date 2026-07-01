@@ -529,69 +529,6 @@ button.danger:hover { background: #c43b4a; }
   font-size: 11px; padding: 2px 6px; border-radius: 4px; white-space: nowrap;
 }
 .iaPresetConvertBtn:hover { background: rgba(255,122,60,0.15); border-color: #ff7a3c; }
-.champBuildBlockHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.champBuildEditBtn {
-  background: none; border: none; color: #9c8882; cursor: pointer; font-size: 13px; padding: 2px 6px; flex-shrink: 0;
-}
-.champBuildEditBtn:hover { color: #ff7a3c; }
-
-/* ---- Champion-Build-Sidebar (rechte Spalte, nur bei offener Champion-Ansicht) ---- */
-#champBuildSidebar {
-  background: linear-gradient(180deg, #1a1212, #150f0d);
-  border: 1px solid #3a2620; border-radius: 6px; padding: 8px 10px;
-  display: flex; flex-direction: column; gap: 6px;
-}
-#champBuildSidebar.hidden { display: none; }
-#champBuildSidebar h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690; margin: 0 0 2px; }
-.champBuildSidebarPill {
-  display: flex; align-items: center; gap: 8px; cursor: pointer;
-  background: rgba(255,122,60,0.06); border: 1px solid #3a2620; border-radius: 6px;
-  padding: 6px 8px; transition: background 0.15s ease, border-color 0.15s ease;
-}
-.champBuildSidebarPill:hover, .champBuildSidebarPill.active { background: rgba(255,122,60,0.16); border-color: #ff7a3c; }
-.champBuildSidebarPill img { width: 26px; height: 26px; border-radius: 4px; flex-shrink: 0; }
-.champBuildSidebarPillName { font-size: 12px; color: #f5ece6; font-weight: 600; line-height: 1.25; }
-.champBuildSidebarPillCreator { font-size: 10px; color: #9c8882; font-weight: 400; display: block; }
-
-/* ---- Build-Vollansicht (ersetzt Quicksuche+Augments+Items im Hauptbereich) ---- */
-#champBuildFullView .detailHeader { margin-bottom: 4px; }
-.champBuildFullBackBtn {
-  background: none; border: 1px solid #3a2620; color: #ffb37a; cursor: pointer;
-  font-size: 11px; padding: 4px 10px; border-radius: 5px; margin-bottom: 8px;
-}
-.champBuildFullBackBtn:hover { background: rgba(255,122,60,0.12); border-color: #ff7a3c; }
-.champBuildEntryNote { font-size: 11px; color: #9c8882; font-style: italic; margin: 2px 0 8px; }
-
-/* ---- Skill-Path-Grid (Build-Editor) ---- */
-#buildSkillPathSection.hidden, #buildSelectedNotesSection.hidden { display: none; }
-#buildSkillPathSection h4, #buildSelectedNotesSection h4 {
-  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690; margin: 10px 0 6px;
-}
-#buildSkillPathGrid { display: flex; flex-direction: column; gap: 2px; overflow-x: auto; }
-.buildSkillRow { display: flex; align-items: center; gap: 3px; }
-.buildSkillRowLabel {
-  width: 22px; flex-shrink: 0; text-align: center; font-size: 11px; font-weight: 700;
-  color: #ffb37a; background: rgba(255,122,60,0.1); border-radius: 4px; padding: 3px 0;
-}
-.buildSkillCell {
-  width: 22px; height: 22px; flex-shrink: 0; border-radius: 4px;
-  background: #16100d; border: 1px solid #3a2620; cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-weight: 700; color: #6a4a44;
-}
-.buildSkillCell:hover { border-color: #ff7a3c; }
-.buildSkillCell.filled { background: #ff7a3c; color: #1a1212; border-color: #ff7a3c; }
-#buildSkillPathReset { font-size: 11px; padding: 5px 10px; margin-top: 6px; }
-
-/* ---- Notizen-Liste im Build-Editor ---- */
-#buildSelectedNotesList { display: flex; flex-direction: column; gap: 5px; max-height: 160px; overflow-y: auto; }
-.buildNoteRow { display: flex; align-items: center; gap: 6px; background: rgba(255,122,60,0.05); border-radius: 5px; padding: 4px 6px; }
-.buildNoteRow img { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; }
-.buildNoteRowName { font-size: 11px; color: #f5ece6; flex-shrink: 0; min-width: 90px; }
-.buildNoteRowInput {
-  flex: 1; min-width: 0; box-sizing: border-box; background: #16100d; border: 1px solid #3a2620;
-  color: #fff; padding: 4px 6px; border-radius: 4px; font-size: 11px;
-}
 .iaPresetEmpty { color: #9c8882; font-size: 12px; padding: 4px 0; }
 .iaPresetListCreator, .champPresetBlockCreator {
   font-size: 11px; font-weight: 400; color: #9c8882; margin-left: 4px;
