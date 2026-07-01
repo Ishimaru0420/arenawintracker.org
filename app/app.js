@@ -2336,11 +2336,19 @@ function showIaTooltip(e, entry, kind) {
     document.body.appendChild(iaTooltipEl);
   }
   // Falls "entry" nur eine Partner-Referenz ohne Beschreibung ist (z.B.
-  // aus den Synergie-Ergebnissen), volle Daten aus den lokalen Listen
-  // nachladen, damit der Tooltip trotzdem die Beschreibung zeigt.
+  // aus den Synergie-Ergebnissen oder einer gespeicherten Schnellsuche),
+  // volle Daten aus den lokalen Listen nachladen, damit der Tooltip
+  // trotzdem die Beschreibung zeigt. Schnellsuche-Eintraege haben kein
+  // .apiName-Feld (nur .key aus iaEntityRef), daher zusaetzlich ueber
+  // .key und als letzten Fallback ueber den Namen nachschlagen.
   let full = entry;
   if (!entry.desc && kind) {
-    if (kind === "augment" && entry.apiName) full = iaAugmentByApiName[entry.apiName] || entry;
+    if (kind === "augment") {
+      const byApiName = entry.apiName && iaAugmentByApiName[entry.apiName];
+      const byKey = entry.key && iaAugmentByApiName[entry.key];
+      const byName = iaAugmentByName[normName(entry.name?.[currentLang] || entry.name?.de || entry.name?.en || "")];
+      full = byApiName || byKey || byName || entry;
+    }
     if (kind === "item") full = iaItemByName[normName(entry.name?.[currentLang] || entry.name?.de || "")] || entry;
   }
   const name = iaEntryName(full);
@@ -3100,6 +3108,7 @@ async function loadChampPresetPicker(champ) {
   const pillsEl = document.getElementById("champPresetPills");
   if (!pillsEl) return;
   champPresetSelectedId = null;
+  loadArenaItemsAugments();
   try {
     const presets = await loadPresets();
     renderChampPresetPills(presets);
@@ -3159,7 +3168,8 @@ function renderChampPresetEntries(preset) {
   }
   container.innerHTML = html;
 
-  // Nur Hover-Tooltip noetig (kein Klick-Verhalten auf der Champion-Seite).
+  // Hover-Tooltip mit Beschreibung + Klick oeffnet die Synergie-Ansicht
+  // (gleiches Verhalten wie bei den Build-Tags und der Standard-Datenbank).
   container.querySelectorAll(".iaTile").forEach((tile) => {
     const kind = tile.dataset.kind;
     const idx = parseInt(tile.dataset.idx, 10);
@@ -3168,6 +3178,11 @@ function renderChampPresetEntries(preset) {
     tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
     tile.addEventListener("mousemove", positionIaTooltip);
     tile.addEventListener("mouseleave", hideIaTooltip);
+    tile.style.cursor = "pointer";
+    tile.addEventListener("click", () => {
+      hideIaTooltip();
+      openItemOrAugmentDetail(iaEntryName(entry), kind);
+    });
   });
 }
 
