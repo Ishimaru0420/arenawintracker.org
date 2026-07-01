@@ -829,6 +829,12 @@ input:focus, select:focus, textarea:focus {
 .detailTagList li.clickableTag:hover {
   background: rgba(255,122,60,0.18); border-color: #ff7a3c;
 }
+.dbIconList li.clickableTag {
+  cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease;
+}
+.dbIconList li.clickableTag:hover {
+  background: rgba(255,122,60,0.18); border-color: #ff7a3c;
+}
 .detailTagList li img {
   width: 28px; height: 28px; border-radius: 4px; display: block;
 }

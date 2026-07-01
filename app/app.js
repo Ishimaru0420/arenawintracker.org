@@ -1573,6 +1573,7 @@ let arenaItemsData = null;
 let iaTooltipEl = null;
 let iaSelectedEntry = null; // { entry, kind: "augment"|"item" } oder null
 let iaAugmentByApiName = {};
+let iaAugmentByName = {};
 let iaItemByName = {};
 let iaSearchTerm = "";
 let iaEditMode = false;
@@ -1657,7 +1658,14 @@ async function loadArenaItemsAugments() {
     arenaAugmentsData = await augRes.json();
     arenaItemsData = await itemRes.json();
     iaAugmentByApiName = {};
-    for (const a of arenaAugmentsData) iaAugmentByApiName[a.apiName] = a;
+    iaAugmentByName = {};
+    for (const a of arenaAugmentsData) {
+      iaAugmentByApiName[a.apiName] = a;
+      if (a.name) {
+        if (a.name.de) iaAugmentByName[normName(a.name.de)] = a;
+        if (a.name.en) iaAugmentByName[normName(a.name.en)] = a;
+      }
+    }
     iaItemByName = {};
     for (const i of arenaItemsData) {
       iaItemByName[normName(i.name.de)] = i;
@@ -2636,8 +2644,12 @@ function bindAugmentTabs(section, build) {
 
   for (const tab of AUGMENT_TABS) {
     const list = build[tab.field] || [];
+    const enriched = list.map((a) => enrichDbEntryWithDesc(a, "augment"));
     const panel = section.querySelector(`[data-augpanel-list="${tab.key}"]`);
-    if (panel) bindAiTagTooltips(panel, ".dbIconRow", list);
+    if (panel) {
+      bindAiTagTooltips(panel, ".dbIconRow", enriched);
+      bindDbIconListClicks(panel, ".dbIconRow", enriched, "augment");
+    }
   }
 }
 
@@ -2765,7 +2777,11 @@ function bindCommunityDbInteractions(section, data) {
   bindAugmentTabs(section, build);
 
   const itemList = section.querySelector("[data-itemlist]");
-  if (itemList && build.itemNamesFromIntro) bindAiTagTooltips(itemList, ".dbIconRow", build.itemNamesFromIntro);
+  if (itemList && build.itemNamesFromIntro) {
+    const enrichedItems = build.itemNamesFromIntro.map((i) => enrichDbEntryWithDesc(i, "item"));
+    bindAiTagTooltips(itemList, ".dbIconRow", enrichedItems);
+    bindDbIconListClicks(itemList, ".dbIconRow", enrichedItems, "item");
+  }
 
   const synergyList = section.querySelector("[data-synergylist]");
   if (synergyList && build.synergies) bindChampionStatTooltips(synergyList, ".dbIconRow", build.synergies);
@@ -2780,7 +2796,10 @@ async function loadCommunityDbSection(champ) {
   const section = document.getElementById("communityDbSection");
   if (!section) return;
   try {
-    const res = await authFetch(serverUrl(`/community-meta/${champ.key}`));
+    const [res] = await Promise.all([
+      authFetch(serverUrl(`/community-meta/${champ.key}`)),
+      loadArenaItemsAugments()
+    ]);
     if (!res.ok) {
       section.innerHTML = renderCommunityDbContent(null);
       return;
@@ -2835,7 +2854,11 @@ function bindCommunityAiInteractions(section, data) {
   bindDbIconFallbacks(section);
   if (data && data.recommendedAugments && data.recommendedAugments.length) {
     const list = section.querySelector("[data-airecaugs]");
-    if (list) bindAiTagTooltips(list, ".dbIconRow", data.recommendedAugments);
+    if (list) {
+      const enriched = data.recommendedAugments.map((a) => enrichDbEntryWithDesc(a, "augment"));
+      bindAiTagTooltips(list, ".dbIconRow", enriched);
+      bindDbIconListClicks(list, ".dbIconRow", enriched, "augment");
+    }
   }
 }
 
@@ -2843,7 +2866,10 @@ async function loadCommunityAiSection(champ) {
   const section = document.getElementById("communityAiSection");
   if (!section) return;
   try {
-    const res = await authFetch(serverUrl(`/community-meta-ai/${champ.key}`));
+    const [res] = await Promise.all([
+      authFetch(serverUrl(`/community-meta-ai/${champ.key}`)),
+      loadArenaItemsAugments()
+    ]);
     if (!res.ok) {
       section.innerHTML = renderCommunityAiContent(null);
       return;
@@ -2915,6 +2941,32 @@ function showAiTagTooltip(e, entry) {
 // Bindet die Hover-Tooltips fuer eine Liste von KI-Tag-Elementen + ihre
 // Original-Datenobjekte (Reihenfolge MUSS der Render-Reihenfolge
 // entsprechen - wird direkt nach dem jeweiligen renderAiTag-Aufruf genutzt).
+// Reichert einen Community-DB-Eintrag ({name, pickPct, ...}) mit der
+// echten Augment-/Item-Beschreibung aus arenaAugmentsData/arenaItemsData
+// an, damit der Hover-Tooltip nicht nur den Namen zeigt, sondern auch
+// den Beschreibungstext (falls die Referenzdaten geladen sind).
+function enrichDbEntryWithDesc(entry, kind) {
+  const lookupMap = kind === "item" ? iaItemByName : iaAugmentByName;
+  const match = lookupMap[normName(entry.name)];
+  if (!match || !match.desc) return entry;
+  return {
+    ...entry,
+    tooltip: { en: match.desc.en || match.desc.de || "", de: match.desc.de || match.desc.en || "" }
+  };
+}
+
+// Macht eine dbIconList-Zeile klickbar: oeffnet dieselbe Synergie-Detailansicht
+// wie die "clickableTag"-Elemente im Build-Bereich (openItemOrAugmentDetail).
+function bindDbIconListClicks(container, selector, entries, kind) {
+  const items = container.querySelectorAll(selector);
+  items.forEach((li, i) => {
+    const entry = entries[i];
+    if (!entry) return;
+    li.classList.add("clickableTag");
+    li.addEventListener("click", () => openItemOrAugmentDetail(entry.name, kind));
+  });
+}
+
 function bindAiTagTooltips(container, selector, entries) {
   const items = container.querySelectorAll(selector);
   items.forEach((li, i) => {
