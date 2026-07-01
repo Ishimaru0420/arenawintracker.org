@@ -3014,8 +3014,8 @@ function openChampDetail(champ) {
       <h2>${champ.name}</h2>
     </div>
     <div class="detailSection" id="champPresetsSection">
-      <h3 class="champPresetsToggle collapsed" id="champPresetsToggle" data-i18n="champPresetsHeading">Presets</h3>
-      <p class="detailEmptyInline champPresetsExplain" data-i18n="champPresetsExplain">Allgemeine Presets, gelten für alle Champions gleich (nicht auf diesen Champion zugeschnitten).</p>
+      <h3 class="champPresetsToggle collapsed" id="champPresetsToggle" data-i18n="champPresetsHeading">Schnellsuchen</h3>
+      <p class="detailEmptyInline champPresetsExplain" data-i18n="champPresetsExplain">Allgemeine Schnellsuchen, gelten für alle Champions gleich (nicht auf diesen Champion zugeschnitten).</p>
       <div id="champPresetsBody" class="hidden">
         <div id="champPresetPills"><p class="detailEmpty">...</p></div>
         <div id="champPresetEntries"></div>
@@ -3024,6 +3024,8 @@ function openChampDetail(champ) {
     ${renderCommunityDbPlaceholder()}
     ${renderCommunityAiPlaceholder()}
   `;
+
+  applyStaticTranslations();
 
   document.getElementById("champDetailBackBtn").addEventListener("click", closeChampDetail);
   document.getElementById("champPresetsToggle").addEventListener("click", () => {
