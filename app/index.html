@@ -8,7 +8,7 @@
   <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
   <link rel="stylesheet" href="theme.css?v=1" />
   <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=42" />
+  <link rel="stylesheet" href="app.css?v=43" />
 
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
@@ -148,6 +148,17 @@
 
   <div id="itemsAugmentsOverlay" class="hidden">
     <div id="itemsAugmentsBox">
+      <div id="buildConvertPickerOverlay" class="hidden">
+        <div id="buildConvertPickerBox">
+          <div id="buildConvertPickerHeader">
+            <h3 data-i18n="buildConvertPickerTitle">Champion wählen</h3>
+            <input id="buildConvertPickerSearch" type="text" data-i18n-placeholder="champSearchPlaceholder" placeholder="Champion suchen..." />
+            <button id="buildConvertPickerClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
+          </div>
+          <p id="buildConvertPickerHint" data-i18n="buildConvertPickerHint">Der Champion-Build erscheint danach nur noch auf der Seite dieses Champions.</p>
+          <div id="buildConvertPickerGrid"></div>
+        </div>
+      </div>
       <div id="itemsAugmentsHeader">
         <h2 data-i18n="itemsAugmentsHeading">Arena Items &amp; Augments</h2>
         <div class="playerViewHeaderBtns">
@@ -226,6 +237,6 @@
   </div>
 
   <!-- Cache-Busting: v=20 statt v=19 (externe Meta-Trios ergänzt) -->
-  <script src="app.js?v=53"></script>
+  <script src="app.js?v=54"></script>
 </body>
 </html>

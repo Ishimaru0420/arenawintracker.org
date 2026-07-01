@@ -297,6 +297,16 @@ const I18N = {
     iaPresetSaved: "Schnellsuche gespeichert.",
     iaPresetCreatorPlaceholder: "Dein Name...",
     iaPresetByLabel: "von",
+    iaPresetConvertBtn: "🎯 Zu Champion-Build",
+    iaPresetConvertTitle: "In Champion-Build umwandeln",
+    buildConvertPickerTitle: "Champion wählen",
+    buildConvertPickerHint: "Der Champion-Build erscheint danach nur noch auf der Seite dieses Champions.",
+    buildConvertConfirm: "\"{name}\" zu einem Champion-Build für {champ} umwandeln? Die Schnellsuche wird dabei aus der globalen Liste entfernt.",
+    buildConvertNeedRiotId: "Bitte zuerst deine Riot-ID in den Einstellungen eintragen.",
+    buildConvertSuccess: "In Champion-Build für {champ} umgewandelt.",
+    buildConvertFailed: "Umwandlung fehlgeschlagen.",
+    champBuildHeading: "Champion-Build",
+    champBuildNone: "Noch kein Champion-Build für diesen Champion.",
     champAddPresetBtn: "🔍 Schnellsuche",
     champPresetsHeading: "Schnellsuchen",
     champPresetsNone: "Noch keine Schnellsuche für diesen Champion zugewiesen.",
@@ -490,6 +500,16 @@ const I18N = {
     iaPresetSaved: "Quick search saved.",
     iaPresetCreatorPlaceholder: "Your name...",
     iaPresetByLabel: "by",
+    iaPresetConvertBtn: "🎯 To champion build",
+    iaPresetConvertTitle: "Convert to champion build",
+    buildConvertPickerTitle: "Choose champion",
+    buildConvertPickerHint: "The champion build will then only appear on that champion's page.",
+    buildConvertConfirm: "Convert \"{name}\" into a champion build for {champ}? The quick search will be removed from the global list.",
+    buildConvertNeedRiotId: "Please enter your Riot ID in settings first.",
+    buildConvertSuccess: "Converted into a champion build for {champ}.",
+    buildConvertFailed: "Conversion failed.",
+    champBuildHeading: "Champion build",
+    champBuildNone: "No champion build for this champion yet.",
     champAddPresetBtn: "🔍 Quick Search",
     champPresetsHeading: "Quick Searches",
     champPresetsNone: "No quick search assigned to this champion yet.",
@@ -2163,9 +2183,18 @@ async function renderIaPresetExistingList() {
     <li data-preset-id="${p._id}">
       <span class="iaPresetListName iaPresetListNameClickable" data-preset-id="${p._id}" title="${t("iaPresetEdit")}">${p.name}${p.createdBy ? ` <span class="iaPresetListCreator">${t("iaPresetByLabel")} ${p.createdBy}</span>` : ""}</span>
       <span class="iaPresetListCount">${(p.entries || []).length}</span>
+      <button class="iaPresetConvertBtn" data-preset-id="${p._id}" title="${t("iaPresetConvertTitle")}">${t("iaPresetConvertBtn")}</button>
       <button class="iaPresetDeleteBtn" data-preset-id="${p._id}" title="${t("iaPresetDelete")}">✕</button>
     </li>
   `).join("");
+  ul.querySelectorAll(".iaPresetConvertBtn").forEach((btn) => {
+    btn.onclick = (ev) => {
+      ev.stopPropagation();
+      const id = btn.dataset.presetId;
+      const preset = presets.find((p) => p._id === id);
+      if (preset) openBuildConvertPicker(preset);
+    };
+  });
   ul.querySelectorAll(".iaPresetListNameClickable").forEach((el) => {
     el.onclick = () => {
       const id = el.dataset.presetId;
@@ -2282,6 +2311,155 @@ async function saveIaPreset() {
     statusEl.textContent = t("iaEditSaveError");
     statusEl.style.color = "#f87171";
   }
+}
+
+// ============================================================
+// Schnellsuche -> Champion-Build umwandeln
+// Nutzt die BEREITS bestehende champBuilds-Collection/Route (GET/POST
+// /builds), NICHT die presets-Collection - echte Verschiebung statt
+// Kopie: nach erfolgreichem Anlegen des Builds wird die Original-
+// Schnellsuche geloescht. Einziger inhaltlicher Unterschied zur
+// Schnellsuche: championKey ist gesetzt, dadurch nur auf der Seite
+// dieses einen Champions sichtbar (siehe loadChampBuildsSection).
+// ============================================================
+let pendingConvertPreset = null;
+
+function openBuildConvertPicker(preset) {
+  pendingConvertPreset = preset;
+  const overlay = document.getElementById("buildConvertPickerOverlay");
+  const searchInput = document.getElementById("buildConvertPickerSearch");
+  if (searchInput) searchInput.value = "";
+  overlay.classList.remove("hidden");
+  renderBuildConvertPickerGrid("");
+}
+
+function closeBuildConvertPicker() {
+  pendingConvertPreset = null;
+  document.getElementById("buildConvertPickerOverlay").classList.add("hidden");
+}
+
+function renderBuildConvertPickerGrid(filterText) {
+  const grid = document.getElementById("buildConvertPickerGrid");
+  if (!grid) return;
+  const term = (filterText || "").toLowerCase();
+  const visible = championList.filter((c) => c.name.toLowerCase().includes(term));
+  grid.innerHTML = visible.map((c) => `
+    <div class="buildConvertPickerChamp" data-champ-key="${c.key}">
+      <img src="${c.icon}" alt="${c.name}" loading="lazy" />
+      <span>${c.name}</span>
+    </div>
+  `).join("");
+  grid.querySelectorAll(".buildConvertPickerChamp").forEach((el) => {
+    el.onclick = () => {
+      const champ = championByKey[el.dataset.champKey];
+      if (champ) confirmConvertPresetToBuild(champ);
+    };
+  });
+}
+
+async function confirmConvertPresetToBuild(champ) {
+  const preset = pendingConvertPreset;
+  if (!preset) return;
+  if (!state.riotId) {
+    showToast(t("buildConvertNeedRiotId"), "warning");
+    return;
+  }
+  if (!confirm(t("buildConvertConfirm", { name: preset.name, champ: champ.name }))) return;
+
+  try {
+    const entries = preset.entries || [];
+    const augments = entries.filter((e) => e.type === "augment");
+    const items = entries.filter((e) => e.type === "item");
+    const res = await authFetch(serverUrl("/builds"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        riotId: state.riotId,
+        championKey: champ.key,
+        name: preset.name,
+        augments,
+        items,
+        notes: ""
+      })
+    });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+
+    // Erfolgreich angelegt -> Original-Schnellsuche entfernen (echte
+    // Umwandlung, keine Kopie).
+    await authFetch(serverUrl(`/presets/${preset._id}`), { method: "DELETE" });
+
+    closeBuildConvertPicker();
+    await loadPresets(true);
+    await renderIaPresetExistingList();
+    showToast(t("buildConvertSuccess", { champ: champ.name }), "success");
+  } catch (err) {
+    console.error("[Presets->Build] Umwandlung fehlgeschlagen:", err);
+    showToast(t("buildConvertFailed"), "error");
+  }
+}
+
+safeBind("buildConvertPickerClose", "onclick", closeBuildConvertPicker);
+safeBind("buildConvertPickerSearch", "oninput", (e) => renderBuildConvertPickerGrid(e.target.value));
+
+// ---------- Champion-Seite: Champion-Builds anzeigen (per championKey) ----------
+async function loadChampBuildsSection(champ) {
+  const section = document.getElementById("champBuildSection");
+  if (!section) return;
+  try {
+    await loadArenaItemsAugments();
+    const res = await authFetch(serverUrl(`/builds/${encodeURIComponent(champ.key)}`));
+    const builds = res.ok ? await res.json() : [];
+    renderChampBuildsSection(section, builds);
+  } catch (err) {
+    console.error("[ChampBuilds] Laden fehlgeschlagen:", err);
+    renderChampBuildsSection(section, []);
+  }
+}
+
+function renderChampBuildsSection(section, builds) {
+  if (!builds || !builds.length) {
+    section.innerHTML = `<h3>${t("champBuildHeading")}</h3><p class="detailEmpty">${t("champBuildNone")}</p>`;
+    return;
+  }
+  let html = `<h3>${t("champBuildHeading")}</h3>`;
+  builds.forEach((b, i) => {
+    const augments = b.augments || [];
+    const items = b.items || [];
+    html += `<div class="champBuildBlock" data-build-idx="${i}">`;
+    html += `<h4 class="champPresetActiveName">${b.name}${b.riotId ? ` <span class="champPresetBlockCreator">${t("iaPresetByLabel")} ${b.riotId}</span>` : ""}</h4>`;
+    if (augments.length) {
+      html += `<div class="champPresetKindLabel">${t("iaAugmentsHeading")}</div>` +
+        IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
+    }
+    if (items.length) {
+      html += `<div class="champPresetKindLabel">${t("iaItemsHeading")}</div>` +
+        IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
+    }
+    if (b.notes) html += `<p class="detailEmpty" style="margin-top:6px;">${b.notes}</p>`;
+    html += `</div>`;
+  });
+  section.innerHTML = html;
+
+  builds.forEach((b, i) => {
+    const block = section.querySelector(`[data-build-idx="${i}"]`);
+    if (!block) return;
+    const augments = b.augments || [];
+    const items = b.items || [];
+    block.querySelectorAll(".iaTile").forEach((tile) => {
+      const kind = tile.dataset.kind;
+      const idx = parseInt(tile.dataset.idx, 10);
+      const entry = (kind === "augment" ? augments : items)[idx];
+      if (!entry) return;
+      tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
+      tile.addEventListener("mousemove", positionIaTooltip);
+      tile.addEventListener("mouseleave", hideIaTooltip);
+      tile.style.cursor = "pointer";
+      tile.addEventListener("click", () => {
+        hideIaTooltip();
+        openItemOrAugmentDetail(iaEntryName(entry), kind);
+      });
+    });
+  });
 }
 
 function renderIaSelectedCard(entry) {
@@ -3078,6 +3256,7 @@ function openChampDetail(champ) {
         <div id="champPresetEntries"></div>
       </div>
     </div>
+    <div class="detailSection" id="champBuildSection"><h3>${t("champBuildHeading")}</h3><p class="detailEmpty">...</p></div>
     ${renderCommunityDbPlaceholder()}
     ${renderCommunityAiPlaceholder()}
   `;
@@ -3093,6 +3272,7 @@ function openChampDetail(champ) {
     li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
   });
   loadChampPresetPicker(champ);
+  loadChampBuildsSection(champ);
   loadCommunityDbSection(champ);
   loadCommunityAiSection(champ);
 }

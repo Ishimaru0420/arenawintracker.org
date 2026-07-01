@@ -319,6 +319,44 @@ button.danger:hover { background: #c43b4a; }
   padding: 10px;
 }
 #itemsAugmentsOverlay.hidden { display: none; }
+#buildConvertPickerOverlay {
+  position: fixed; inset: 0; z-index: 250;
+  background: rgba(8, 5, 4, 0.85);
+  display: flex; align-items: center; justify-content: center;
+  padding: 10px;
+}
+#buildConvertPickerOverlay.hidden { display: none; }
+#buildConvertPickerBox {
+  background: #1a1212; border: 1px solid #3a2620; border-radius: 10px;
+  width: 100%; max-width: 700px; max-height: 80vh;
+  padding: 16px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+}
+#buildConvertPickerHeader { display: flex; align-items: center; gap: 8px; }
+#buildConvertPickerHeader h3 { margin: 0; font-size: 15px; color: #ffb37a; flex-shrink: 0; }
+#buildConvertPickerSearch {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 8px 10px; border-radius: 5px; font-size: 13px;
+}
+#buildConvertPickerClose {
+  background: none; border: none; color: #b3a39c; font-size: 16px; cursor: pointer;
+  padding: 2px 6px; flex-shrink: 0;
+}
+#buildConvertPickerClose:hover { color: #fff; }
+#buildConvertPickerHint { font-size: 11px; color: #a89690; margin: 0; }
+#buildConvertPickerGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 6px; overflow-y: auto; padding-right: 4px;
+}
+.buildConvertPickerChamp {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  cursor: pointer; padding: 4px; border-radius: 6px; border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.buildConvertPickerChamp:hover { background: rgba(255,122,60,0.12); border-color: #ff7a3c; }
+.buildConvertPickerChamp img { width: 40px; height: 40px; border-radius: 5px; }
+.buildConvertPickerChamp span { font-size: 10px; color: #d9c9c1; text-align: center; line-height: 1.2; }
 #itemsAugmentsBox {
   background: #1a1212; border: 1px solid #3a2620; border-radius: 10px;
   width: 100%; max-width: 1900px; height: 96vh;
@@ -486,6 +524,11 @@ button.danger:hover { background: #c43b4a; }
 .iaPresetDeleteBtn {
   background: none; border: none; color: #f87171; cursor: pointer; font-size: 13px; padding: 0 4px;
 }
+.iaPresetConvertBtn {
+  background: none; border: 1px solid #3a2620; color: #ffb37a; cursor: pointer;
+  font-size: 11px; padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+}
+.iaPresetConvertBtn:hover { background: rgba(255,122,60,0.15); border-color: #ff7a3c; }
 .iaPresetEmpty { color: #9c8882; font-size: 12px; padding: 4px 0; }
 .iaPresetListCreator, .champPresetBlockCreator {
   font-size: 11px; font-weight: 400; color: #9c8882; margin-left: 4px;
