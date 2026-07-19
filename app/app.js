@@ -4802,7 +4802,7 @@ function resolveRuneIcon(perkId) {
   return { icon: null, name: `#${perkId}` };
 }
 
-function renderPlacementHistoryList(filterText) {
+async function renderPlacementHistoryList(filterText) {
   const listEl = document.getElementById("placementHistoryList");
   if (!listEl) return;
   const term = (filterText || "").toLowerCase();
@@ -4816,6 +4816,12 @@ function renderPlacementHistoryList(filterText) {
     listEl.innerHTML = `<p class="detailEmpty">${t("placementHistoryNone")}</p>`;
     return;
   }
+
+  // Augment-Icons/Namen kommen aus der Arena-Items&Augments-DB - muss vor
+  // dem Rendern geladen sein, sonst zeigen alle Augments hier faelschlich
+  // nur den Zahlen-Fallback (siehe resolveAugmentIcon), auch wenn sie in
+  // der DB eigentlich vorhanden waeren.
+  await loadArenaItemsAugments();
 
   listEl.innerHTML = matches.map((m) => {
     const isWin = m.placement === 1;
@@ -4844,6 +4850,18 @@ function renderPlacementHistoryList(filterText) {
         }).join("")}</span>`
       : "";
 
+    // NEU: Augments direkt hinter den Items in der Vorschau - gleiche
+    // Logik/Groesse wie Items, Tier-Farbe am Rand wie in der Detailansicht.
+    const augmentsRowHtml = (m.augments || []).length
+      ? `<span class="matchHistoryItemsRow">${m.augments.map((id) => {
+          const r = resolveAugmentIcon(id);
+          const tierClass = r.tier ? ` tier-${r.tier}` : "";
+          return r.icon
+            ? `<img class="matchHistoryItemIcon${tierClass}" src="${r.icon}" alt="${r.name}" title="${r.name}" />`
+            : `<span class="matchHistoryItemIcon matchHistoryItemIconFallback${tierClass}" title="${r.name}"></span>`;
+        }).join("")}</span>`
+      : "";
+
     return `
       <div class="matchHistoryRow clickableRow" data-match-key="${matchDetailKey(m)}">
         <span class="placementChampIcon matchHistoryChampIconLg">${champIconHtml}</span>
@@ -4856,6 +4874,7 @@ function renderPlacementHistoryList(filterText) {
           <div class="matchHistoryLine2">
             ${kdaHtml}
             ${itemsRowHtml}
+            ${augmentsRowHtml}
             <span class="matchHistoryMates">${mateNames}</span>
           </div>
         </div>
