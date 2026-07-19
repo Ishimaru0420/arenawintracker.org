@@ -831,6 +831,32 @@ input:focus, select:focus, textarea:focus {
 #champTooltip::-webkit-scrollbar { width: 4px; }
 #champTooltip::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
 
+#mateTrioTooltip {
+  position: fixed;
+  z-index: 1000;
+  background: rgba(20, 13, 11, 0.97);
+  border: 1px solid #ff7a3c;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  max-width: 240px;
+  max-height: 260px;
+  overflow-y: auto;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+}
+#mateTrioTooltip.hidden { display: none; }
+#mateTrioTooltip::-webkit-scrollbar { width: 4px; }
+#mateTrioTooltip::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+.mateTrioRow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.mateTrioRow:last-child { border-bottom: none; }
+.mateTrioName { color: #f5ece6; font-weight: 600; }
+.mateTrioMeta { color: #a89690; font-size: 10px; white-space: nowrap; }
+.mateTrioWinrate { color: #ffb35c; font-weight: 700; margin-right: 4px; }
+
 
 
 /* ---------- Champion-Detailansicht (Klick auf Champion-Kachel) ---------- */
@@ -1165,7 +1191,9 @@ input:focus, select:focus, textarea:focus {
   width: 28px; height: 28px; border-radius: 5px; border: 1px solid #4a3a34; display: block;
 }
 .placementChampName { font-size: 12.5px; color: #f5ece6; font-weight: 600; min-width: 90px; flex-shrink: 0; }
+.mateNameHoverable { cursor: help; border-bottom: 1px dotted rgba(245,236,230,0.35); }
 .placementChampGames { font-size: 11px; color: #9c8882; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
+.placementChampWinrate { font-size: 11px; color: #ffb35c; font-weight: 700; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
 .placementChampBreakdown { display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; }
 .placementChampBreakdown .placementChampTag { white-space: nowrap; flex-shrink: 0; }
 .placementMatesToolbar { display: flex; gap: 8px; align-items: center; margin: 4px 0 8px; }

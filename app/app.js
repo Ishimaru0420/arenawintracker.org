@@ -443,6 +443,10 @@ const I18N = {
     placementMatesNone: "Noch keine Mitspieler-Daten vorhanden.",
     placementMateSortGames: "Meiste Spiele",
     placementMateSortWins: "Meiste Siege",
+    placementMateSortWinrate: "Beste Winrate (1. Platz)",
+    mateTrioTooltipTitle: "Gemeinsame Mitspieler mit {name}",
+    mateTrioTooltipEmpty: "Keine gemeinsamen Trio-Spiele (min. 3 Spiele zusammen nötig).",
+    mateTrioTooltipGames: "{count} Spiel(e) zusammen",
     placementMateChampHeading: "Champions dieses Mitspielers (mit dir zusammen)"
   },
   en: {
@@ -672,6 +676,10 @@ const I18N = {
     placementMatesNone: "No teammate data yet.",
     placementMateSortGames: "Most games",
     placementMateSortWins: "Most wins",
+    placementMateSortWinrate: "Best win rate (1st place)",
+    mateTrioTooltipTitle: "Shared teammates with {name}",
+    mateTrioTooltipEmpty: "No shared trio games (min. 3 games together needed).",
+    mateTrioTooltipGames: "{count} game(s) together",
     placementMateChampHeading: "This teammate's champions (with you)"
   }
 };
@@ -4278,6 +4286,11 @@ function renderPlacementChampList(filterText) {
 // steckt genau einmal in state.matchHistory (unter dem selbst gespielten
 // Champion), daher entsteht beim Durchlaufen aller champKeys keine
 // Doppelzaehlung.
+// Ab wie vielen gemeinsamen Spielen eine Winrate als aussagekraeftig gilt -
+// wird sowohl fuer die "Beste Winrate"-Sortierung als auch fuer den
+// Trio-Hover-Tooltip verwendet.
+const MIN_TEAMMATE_GAMES_FOR_WINRATE = 3;
+
 function computeTeammateStats() {
   // key: Name in Kleinbuchstaben -> { name, games, placementDist, champCounts, champPlacements }
   // champPlacements[championApiName][placement] = Anzahl - Platzierung des Mitspielers
@@ -4289,12 +4302,13 @@ function computeTeammateStats() {
     for (const g of games) {
       if (typeof g.placement !== "number") continue;
       const teammates = g.teammates || [];
-      for (const m of teammates) {
+      for (let i = 0; i < teammates.length; i++) {
+        const m = teammates[i];
         const rawName = m && m.summoner ? String(m.summoner).trim() : "";
         if (!rawName) continue;
         const key = rawName.toLowerCase();
         if (!mates[key]) {
-          mates[key] = { key, name: rawName, games: 0, placementDist: {}, champCounts: {}, champPlacements: {} };
+          mates[key] = { key, name: rawName, games: 0, placementDist: {}, champCounts: {}, champPlacements: {}, coMates: {} };
         }
         const entry = mates[key];
         entry.games++;
@@ -4303,6 +4317,25 @@ function computeTeammateStats() {
           entry.champCounts[m.champion] = (entry.champCounts[m.champion] || 0) + 1;
           if (!entry.champPlacements[m.champion]) entry.champPlacements[m.champion] = {};
           entry.champPlacements[m.champion][g.placement] = (entry.champPlacements[m.champion][g.placement] || 0) + 1;
+        }
+
+        // Falls in diesem Match noch weitere Teammates dabei waren (echte
+        // Trio-Lobby statt normalem 2er-Arena-Team), merken wir uns pro
+        // Mitspieler zusaetzlich, mit welchen ANDEREN Mitspielern man in
+        // genau diesen Matches zusammen war - fuer den Hover-Tooltip
+        // "gemeinsame dritte Mitspieler".
+        for (let j = 0; j < teammates.length; j++) {
+          if (j === i) continue;
+          const m2 = teammates[j];
+          const rawName2 = m2 && m2.summoner ? String(m2.summoner).trim() : "";
+          if (!rawName2) continue;
+          const key2 = rawName2.toLowerCase();
+          if (key2 === key) continue;
+          if (!entry.coMates[key2]) {
+            entry.coMates[key2] = { key: key2, name: rawName2, games: 0, wins: 0 };
+          }
+          entry.coMates[key2].games++;
+          if (g.placement === 1) entry.coMates[key2].wins++;
         }
       }
     }
@@ -4315,15 +4348,28 @@ function renderPlacementMateList(filterText, sortMode) {
   if (!listEl) return;
   const mates = computeTeammateStats();
   const term = (filterText || "").toLowerCase();
-  const mode = sortMode === "wins" ? "wins" : "games";
+  const mode = sortMode === "wins" ? "wins" : sortMode === "winrate" ? "winrate" : "games";
 
+  // Im Winrate-Modus verzerren Mitspieler mit sehr wenigen gemeinsamen
+  // Spielen (z.B. 1 Spiel = 100%) das Ranking. Erst ab
+  // MIN_TEAMMATE_GAMES_FOR_WINRATE gemeinsamen Spielen gilt die Quote als
+  // aussagekraeftig genug, darunter wird ausgeblendet.
   const rows = Object.values(mates)
     .filter((r) => r.name.toLowerCase().includes(term))
+    .filter((r) => {
+      if (mode !== "winrate") return true;
+      return r.games >= MIN_TEAMMATE_GAMES_FOR_WINRATE;
+    })
     .sort((a, b) => {
       if (mode === "wins") {
         const winsA = a.placementDist[1] || 0;
         const winsB = b.placementDist[1] || 0;
         return winsB - winsA || b.games - a.games || a.name.localeCompare(b.name);
+      }
+      if (mode === "winrate") {
+        const winrateA = a.games ? (a.placementDist[1] || 0) / a.games : 0;
+        const winrateB = b.games ? (b.placementDist[1] || 0) / b.games : 0;
+        return winrateB - winrateA || b.games - a.games || a.name.localeCompare(b.name);
       }
       return b.games - a.games || a.name.localeCompare(b.name);
     });
@@ -4345,19 +4391,94 @@ function renderPlacementMateList(filterText, sortMode) {
     const iconHtml = buildProfileIconImg(r.name);
     const mateKeyAttr = r.key.replace(/"/g, "&quot;");
 
+    // Im Winrate-Sortiermodus zeigen wir zusaetzlich die 1.-Platz-Quote
+    // direkt neben der Spieleanzahl, damit der Sortiergrund sichtbar ist.
+    const winrateHtml = mode === "winrate"
+      ? `<span class="placementChampWinrate">${Math.round(((r.placementDist[1] || 0) / r.games) * 100)}% #1</span>`
+      : "";
+
     return `
       <div class="placementChampRow clickableRow" data-mate-key="${mateKeyAttr}">
         <span class="placementChampIcon">${iconHtml}</span>
-        <span class="placementChampName">${r.name}</span>
+        <span class="placementChampName mateNameHoverable">${r.name}</span>
         <span class="placementChampGames">${t("placementGamesShort", { count: r.games })}</span>
+        ${winrateHtml}
         <span class="placementChampBreakdown">${breakdown}</span>
       </div>
     `;
   }).join("");
 
+  // key -> Mitspieler-Datensatz, damit der Hover-Tooltip ohne erneute
+  // Berechnung direkt auf die schon vorhandenen coMates-Daten zugreifen kann.
+  const rowsByKey = new Map(rows.map((r) => [r.key, r]));
+
   listEl.querySelectorAll(".placementChampRow[data-mate-key]").forEach((rowEl) => {
     rowEl.addEventListener("click", () => openTeammateDetail(rowEl.dataset.mateKey));
+
+    const entry = rowsByKey.get(rowEl.dataset.mateKey);
+    const nameEl = rowEl.querySelector(".mateNameHoverable");
+    if (nameEl && entry) {
+      nameEl.addEventListener("mouseenter", (e) => showMateTrioTooltip(e, entry));
+      nameEl.addEventListener("mousemove", positionMateTrioTooltip);
+      nameEl.addEventListener("mouseleave", hideMateTrioTooltip);
+    }
   });
+}
+
+// Zeigt beim Hover ueber einem Mitspieler-Namen, mit welchen ANDEREN
+// Mitspielern man in denselben Matches zusammen war (echte Trio-Lobbys),
+// gefiltert auf mind. MIN_TEAMMATE_GAMES_FOR_WINRATE gemeinsame Spiele und
+// sortiert nach Winrate (1. Platz-Quote) absteigend.
+function showMateTrioTooltip(e, entry) {
+  const tooltip = document.getElementById("mateTrioTooltip");
+  if (!tooltip) return;
+
+  const coMates = Object.values(entry.coMates || {})
+    .filter((c) => c.games >= MIN_TEAMMATE_GAMES_FOR_WINRATE)
+    .sort((a, b) => {
+      const winrateA = a.games ? a.wins / a.games : 0;
+      const winrateB = b.games ? b.wins / b.games : 0;
+      return winrateB - winrateA || b.games - a.games || a.name.localeCompare(b.name);
+    });
+
+  let html = `<div class="tooltipTitle">${t("mateTrioTooltipTitle", { name: entry.name })}</div>`;
+
+  if (!coMates.length) {
+    html += `<div class="tooltipEmpty">${t("mateTrioTooltipEmpty")}</div>`;
+  } else {
+    html += `<ul class="tooltipList">`;
+    for (const c of coMates) {
+      const winratePct = Math.round((c.wins / c.games) * 100);
+      html += `
+        <li class="mateTrioRow">
+          <span class="mateTrioName">${c.name}</span>
+          <span class="mateTrioMeta"><span class="mateTrioWinrate">${winratePct}% #1</span>${t("mateTrioTooltipGames", { count: c.games })}</span>
+        </li>
+      `;
+    }
+    html += `</ul>`;
+  }
+
+  tooltip.innerHTML = html;
+  tooltip.classList.remove("hidden");
+  positionMateTrioTooltip(e);
+}
+
+function positionMateTrioTooltip(e) {
+  const tooltip = document.getElementById("mateTrioTooltip");
+  if (!tooltip || tooltip.classList.contains("hidden")) return;
+  const offset = 14;
+  let x = e.clientX + offset;
+  let y = e.clientY + offset;
+  const rect = tooltip.getBoundingClientRect();
+  if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
+  if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
+  tooltip.style.left = x + "px";
+  tooltip.style.top = y + "px";
+}
+
+function hideMateTrioTooltip() {
+  document.getElementById("mateTrioTooltip")?.classList.add("hidden");
 }
 
 // ---- Detailansicht: Klick auf einen Mitspieler zeigt dessen eigene
