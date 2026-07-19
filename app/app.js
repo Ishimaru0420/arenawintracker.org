@@ -423,7 +423,26 @@ const I18N = {
     communityAiStrengths: "Stärken",
     communityAiAugments: "Augment-Empfehlung",
     communityAiSynergy: "Synergie-Hinweis",
-    communityAiWeakness: "Schwäche-Hinweis"
+    communityAiWeakness: "Schwäche-Hinweis",
+
+    placementStatsBtnTitle: "Meine Platzierungsstatistik",
+    placementStatsHeading: "📊 Meine Statistiken",
+    placementOverallHeading: "Platzierungsverteilung (gesamt · {games} Spiele)",
+    placementOverallNone: "Noch keine Arena-Spiele erfasst.",
+    placementPlaceLabel: "{n}. Platz",
+    placementPerChampHeading: "Platzierungen pro Champion",
+    placementPerChampNone: "Keine Champions gefunden.",
+    placementGamesShort: "{count} Spiel(e)",
+    placementStatFirst: "1. Plätze",
+    placementStatSecond: "2. Plätze",
+    placementStatGames: "Spiele gesamt",
+    placementTabPlacements: "Platzierungen",
+    placementTabMates: "Mitspieler",
+    placementMatesHeading: "Mitspieler (nach gemeinsamen Spielen)",
+    placementMateFilterPlaceholder: "Mitspieler suchen...",
+    placementMatesNone: "Noch keine Mitspieler-Daten vorhanden.",
+    placementMateSortGames: "Meiste Spiele",
+    placementMateSortWins: "Meiste Siege"
   },
   en: {
     rankingToggleTitle: "Show ranking",
@@ -632,7 +651,26 @@ const I18N = {
     communityAiStrengths: "Strengths",
     communityAiAugments: "Augment recommendation",
     communityAiSynergy: "Synergy note",
-    communityAiWeakness: "Weakness note"
+    communityAiWeakness: "Weakness note",
+
+    placementStatsBtnTitle: "My placement stats",
+    placementStatsHeading: "📊 My stats",
+    placementOverallHeading: "Placement distribution (total · {games} games)",
+    placementOverallNone: "No Arena games recorded yet.",
+    placementPlaceLabel: "{n}th place",
+    placementPerChampHeading: "Placements per champion",
+    placementPerChampNone: "No champions found.",
+    placementGamesShort: "{count} game(s)",
+    placementStatFirst: "1st places",
+    placementStatSecond: "2nd places",
+    placementStatGames: "Total games",
+    placementTabPlacements: "Placements",
+    placementTabMates: "Teammates",
+    placementMatesHeading: "Teammates (by games together)",
+    placementMateFilterPlaceholder: "Search teammate...",
+    placementMatesNone: "No teammate data yet.",
+    placementMateSortGames: "Most games",
+    placementMateSortWins: "Most wins"
   }
 };
 
@@ -780,6 +818,9 @@ function applyLanguageChange() {
     loadRanking(currentRankingMode);
   }
   if (viewedPlayerStats) renderPlayerViewGrid();
+  if (!document.getElementById("placementStatsOverlay")?.classList.contains("hidden")) {
+    renderPlacementStatsModal();
+  }
 }
 
 safeBind("languageSelect", "onchange", (e) => {
@@ -917,6 +958,11 @@ document.addEventListener("keydown", (e) => {
       const playerView = document.getElementById("playerViewOverlay");
       if (playerView && !playerView.classList.contains("hidden")) {
         playerView.classList.add("hidden");
+        break;
+      }
+      const placementStats = document.getElementById("placementStatsOverlay");
+      if (placementStats && !placementStats.classList.contains("hidden")) {
+        placementStats.classList.add("hidden");
         break;
       }
       document.getElementById("settingsPanel")?.classList.add("hidden");
@@ -4050,6 +4096,293 @@ safeBind("playerViewClose", "onclick", () => {
 });
 
 safeBind("playerViewFilter", "oninput", renderPlayerViewGrid);
+
+// ============================================================
+// NEU (19.07.2026): Eigene Statistik-Seite - Platzierungsverteilung
+// ============================================================
+// Zeigt, wie oft man 1., 2., 3. usw. Platz belegt hat - insgesamt UND
+// pro Champion. Nutzt AUSSCHLIESSLICH bereits vorhandene Daten
+// (state.matchHistory[champKey][i].placement), die ohnehin schon bei
+// jedem Sync vom Server kommen (siehe syncUser.js im Backend) - daher
+// komplett clientseitig berechnet, kein neuer Server-Endpunkt noetig.
+// Gleiche Datenquelle wie die Champion-Tooltips und updateOverallStats().
+
+// Liefert { overall: {placement: count}, perChamp: {champKey: {placement: count}} }
+function computePlacementStats() {
+  const overall = {};
+  const perChamp = {};
+  for (const champKey in state.matchHistory) {
+    const games = state.matchHistory[champKey] || [];
+    if (!games.length) continue;
+    const dist = {};
+    for (const g of games) {
+      const p = g.placement;
+      if (typeof p !== "number") continue;
+      overall[p] = (overall[p] || 0) + 1;
+      dist[p] = (dist[p] || 0) + 1;
+    }
+    if (Object.keys(dist).length) perChamp[champKey] = dist;
+  }
+  return { overall, perChamp };
+}
+
+// Gleiche DE/EN-Formatierung wie bereits in showChampTooltip() verwendet
+// ("1. Platz" vs. "1st place") - hier zentral wiederverwendet.
+function placementLabel(n) {
+  return currentLang === "de" ? `${n}. Platz` : `${ordinal(n)} place`;
+}
+
+function renderPlacementOverallSection() {
+  const section = document.getElementById("placementOverallSection");
+  if (!section) return;
+  const { overall } = computePlacementStats();
+  const placements = Object.keys(overall).map(Number).sort((a, b) => a - b);
+  const totalGames = placements.reduce((sum, p) => sum + overall[p], 0);
+
+  if (!placements.length) {
+    section.innerHTML = `
+      <h3>${t("placementOverallHeading", { games: 0 })}</h3>
+      <p class="detailEmpty">${t("placementOverallNone")}</p>
+    `;
+    return;
+  }
+
+  const firstCount = overall[1] || 0;
+  const secondCount = overall[2] || 0;
+  const maxCount = Math.max(...placements.map((p) => overall[p]));
+
+  let html = `<h3>${t("placementOverallHeading", { games: totalGames })}</h3>`;
+  html += `
+    <div class="placementStatsSummaryRow">
+      <div class="placementStatsSummaryCard win">
+        <div class="placementStatsSummaryValue">${firstCount}</div>
+        <div class="placementStatsSummaryLabel">${t("placementStatFirst")}</div>
+      </div>
+      <div class="placementStatsSummaryCard second">
+        <div class="placementStatsSummaryValue">${secondCount}</div>
+        <div class="placementStatsSummaryLabel">${t("placementStatSecond")}</div>
+      </div>
+      <div class="placementStatsSummaryCard">
+        <div class="placementStatsSummaryValue">${totalGames}</div>
+        <div class="placementStatsSummaryLabel">${t("placementStatGames")}</div>
+      </div>
+    </div>
+  `;
+
+  html += `<div class="placementBarList">`;
+  for (const p of placements) {
+    const count = overall[p];
+    const pct = totalGames > 0 ? ((count / totalGames) * 100).toFixed(1) : "0.0";
+    const barPct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
+    const rowClass = p === 1 ? " placementBarWin" : p === 2 ? " placementBarSecond" : "";
+    html += `
+      <div class="placementBarRow${rowClass}">
+        <span class="placementBarLabel">${placementLabel(p)}</span>
+        <div class="placementBarTrack"><div class="placementBarFill" style="width:${barPct}%"></div></div>
+        <span class="placementBarCount">${count} (${pct}%)</span>
+      </div>
+    `;
+  }
+  html += `</div>`;
+
+  section.innerHTML = html;
+}
+
+function renderPlacementChampList(filterText) {
+  const listEl = document.getElementById("placementChampList");
+  if (!listEl) return;
+  const { perChamp } = computePlacementStats();
+  const term = (filterText || "").toLowerCase();
+
+  const rows = Object.keys(perChamp)
+    .map((key) => {
+      const champ = championByKey[key];
+      const name = champ ? champ.name : `#${key}`;
+      const dist = perChamp[key];
+      const totalGames = Object.values(dist).reduce((a, b) => a + b, 0);
+      return { key, champ, name, dist, totalGames };
+    })
+    .filter((r) => r.name.toLowerCase().includes(term))
+    .sort((a, b) => b.totalGames - a.totalGames || a.name.localeCompare(b.name));
+
+  if (!rows.length) {
+    listEl.innerHTML = `<p class="detailEmpty">${t("placementPerChampNone")}</p>`;
+    return;
+  }
+
+  listEl.innerHTML = rows.map((r) => {
+    const placements = Object.keys(r.dist).map(Number).sort((a, b) => a - b);
+    const breakdown = placements.map((p) => {
+      const tagClass = p === 1 ? " placementChampTagWin" : p === 2 ? " placementChampTagSecond" : "";
+      return `<span class="placementChampTag${tagClass}">${placementLabel(p)}: ${r.dist[p]}</span>`;
+    }).join("");
+    const iconHtml = r.champ
+      ? `<img src="${r.champ.icon}" alt="${r.name}" />`
+      : `<span class="dbIconFallback">${r.name.slice(0, 2).toUpperCase()}</span>`;
+    return `
+      <div class="placementChampRow">
+        <span class="placementChampIcon">${iconHtml}</span>
+        <span class="placementChampName">${r.name}</span>
+        <span class="placementChampGames">${t("placementGamesShort", { count: r.totalGames })}</span>
+        <span class="placementChampBreakdown">${breakdown}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+// ---- Mitspieler-Tab: Aggregation ueber ALLE Matches hinweg (unabhaengig
+// vom eigenen gespielten Champion) - gruppiert nach Summoner-Name, der
+// einzigen in g.teammates verfuegbaren Kennung (siehe syncUser.js/
+// showChampTooltip, die dasselbe Feld m.summoner nutzt). Jedes Match
+// steckt genau einmal in state.matchHistory (unter dem selbst gespielten
+// Champion), daher entsteht beim Durchlaufen aller champKeys keine
+// Doppelzaehlung.
+function computeTeammateStats() {
+  const mates = {}; // key: Name in Kleinbuchstaben -> { name, games, placementDist, champCounts }
+  for (const champKey in state.matchHistory) {
+    const games = state.matchHistory[champKey] || [];
+    for (const g of games) {
+      if (typeof g.placement !== "number") continue;
+      const teammates = g.teammates || [];
+      for (const m of teammates) {
+        const rawName = m && m.summoner ? String(m.summoner).trim() : "";
+        if (!rawName) continue;
+        const key = rawName.toLowerCase();
+        if (!mates[key]) {
+          mates[key] = { name: rawName, games: 0, placementDist: {}, champCounts: {} };
+        }
+        const entry = mates[key];
+        entry.games++;
+        entry.placementDist[g.placement] = (entry.placementDist[g.placement] || 0) + 1;
+        if (m.champion) {
+          entry.champCounts[m.champion] = (entry.champCounts[m.champion] || 0) + 1;
+        }
+      }
+    }
+  }
+  return mates;
+}
+
+function renderPlacementMateList(filterText, sortMode) {
+  const listEl = document.getElementById("placementMateList");
+  if (!listEl) return;
+  const mates = computeTeammateStats();
+  const term = (filterText || "").toLowerCase();
+  const mode = sortMode === "wins" ? "wins" : "games";
+
+  const rows = Object.values(mates)
+    .filter((r) => r.name.toLowerCase().includes(term))
+    .sort((a, b) => {
+      if (mode === "wins") {
+        const winsA = a.placementDist[1] || 0;
+        const winsB = b.placementDist[1] || 0;
+        return winsB - winsA || b.games - a.games || a.name.localeCompare(b.name);
+      }
+      return b.games - a.games || a.name.localeCompare(b.name);
+    });
+
+  if (!rows.length) {
+    listEl.innerHTML = `<p class="detailEmpty">${t("placementMatesNone")}</p>`;
+    return;
+  }
+
+  listEl.innerHTML = rows.map((r) => {
+    const placements = Object.keys(r.placementDist).map(Number).sort((a, b) => a - b);
+    const breakdown = placements.map((p) => {
+      const tagClass = p === 1 ? " placementChampTagWin" : p === 2 ? " placementChampTagSecond" : "";
+      return `<span class="placementChampTag${tagClass}">${placementLabel(p)}: ${r.placementDist[p]}</span>`;
+    }).join("");
+
+    // Rein kosmetisch: Icon des Champions, den dieser Mitspieler am
+    // haeufigsten gespielt hat, wenn er mit einem zusammen unterwegs
+    // war (der Mitspieler selbst hat ja keinen festen "eigenen" Champion).
+    let topChampKey = null;
+    let topChampCount = -1;
+    for (const apiName in r.champCounts) {
+      if (r.champCounts[apiName] > topChampCount) {
+        topChampCount = r.champCounts[apiName];
+        topChampKey = apiName;
+      }
+    }
+    const topChamp = topChampKey ? championByApiName[topChampKey] : null;
+    const iconHtml = topChamp
+      ? `<img src="${topChamp.icon}" alt="${topChamp.name}" title="${topChamp.name}" />`
+      : `<span class="dbIconFallback">${r.name.slice(0, 2).toUpperCase()}</span>`;
+
+    return `
+      <div class="placementChampRow">
+        <span class="placementChampIcon">${iconHtml}</span>
+        <span class="placementChampName">${r.name}</span>
+        <span class="placementChampGames">${t("placementGamesShort", { count: r.games })}</span>
+        <span class="placementChampBreakdown">${breakdown}</span>
+      </div>
+    `;
+  }).join("");
+}
+
+function switchPlacementStatsTab(tab) {
+  const btnPlacements = document.getElementById("placementTabBtnPlacements");
+  const btnMates = document.getElementById("placementTabBtnMates");
+  const panelPlacements = document.getElementById("placementPanelPlacements");
+  const panelMates = document.getElementById("placementPanelMates");
+  const isMates = tab === "mates";
+  btnPlacements?.classList.toggle("active", !isMates);
+  btnMates?.classList.toggle("active", isMates);
+  panelPlacements?.classList.toggle("hidden", isMates);
+  panelMates?.classList.toggle("hidden", !isMates);
+  if (isMates) {
+    const filterInput = document.getElementById("placementMateFilter");
+    const sortSelect = document.getElementById("placementMateSort");
+    renderPlacementMateList(filterInput ? filterInput.value : "", sortSelect ? sortSelect.value : "games");
+  } else {
+    renderPlacementOverallSection();
+    const filterInput = document.getElementById("placementChampFilter");
+    renderPlacementChampList(filterInput ? filterInput.value : "");
+  }
+}
+
+// Re-rendert nur den aktuell sichtbaren Tab - genutzt bei Sprachwechsel,
+// damit nicht unnoetig beide Tabs neu berechnet werden muessen.
+function renderPlacementStatsModal() {
+  const matesActive = document.getElementById("placementTabBtnMates")?.classList.contains("active");
+  switchPlacementStatsTab(matesActive ? "mates" : "placements");
+}
+
+function openPlacementStatsModal() {
+  const overlay = document.getElementById("placementStatsOverlay");
+  if (!overlay) return;
+  const champFilterInput = document.getElementById("placementChampFilter");
+  if (champFilterInput) champFilterInput.value = "";
+  const mateFilterInput = document.getElementById("placementMateFilter");
+  if (mateFilterInput) mateFilterInput.value = "";
+  const mateSortSelect = document.getElementById("placementMateSort");
+  if (mateSortSelect) mateSortSelect.value = "games";
+  overlay.classList.remove("hidden");
+  switchPlacementStatsTab("placements");
+}
+
+function closePlacementStatsModal() {
+  document.getElementById("placementStatsOverlay")?.classList.add("hidden");
+}
+
+safeBind("placementStatsBtn", "onclick", openPlacementStatsModal);
+safeBind("placementStatsClose", "onclick", closePlacementStatsModal);
+safeBind("placementTabBtnPlacements", "onclick", () => switchPlacementStatsTab("placements"));
+safeBind("placementTabBtnMates", "onclick", () => switchPlacementStatsTab("mates"));
+safeBind("placementChampFilter", "oninput", () => {
+  const filterInput = document.getElementById("placementChampFilter");
+  renderPlacementChampList(filterInput ? filterInput.value : "");
+});
+safeBind("placementMateFilter", "oninput", () => {
+  const filterInput = document.getElementById("placementMateFilter");
+  const sortSelect = document.getElementById("placementMateSort");
+  renderPlacementMateList(filterInput ? filterInput.value : "", sortSelect ? sortSelect.value : "games");
+});
+safeBind("placementMateSort", "onchange", () => {
+  const filterInput = document.getElementById("placementMateFilter");
+  const sortSelect = document.getElementById("placementMateSort");
+  renderPlacementMateList(filterInput ? filterInput.value : "", sortSelect ? sortSelect.value : "games");
+});
 
 // ---------- Start ----------
 

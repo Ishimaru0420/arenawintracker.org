@@ -33,6 +33,7 @@
       <h1>Arena Win Tracker</h1>
       <div class="headerBtns">
         <button id="manualSyncBtn" title="Jetzt synchronisieren" data-i18n-title="manualSyncTitle">🔄</button>
+        <button id="placementStatsBtn" title="Meine Platzierungsstatistik" data-i18n-title="placementStatsBtnTitle">📊</button>
         <button id="friendsToggle" title="Freunde verwalten" data-i18n-title="friendsToggleTitle">👥</button>
         <button id="settingsToggle" title="Einstellungen" data-i18n-title="settingsToggleTitle">⚙</button>
       </div>
@@ -246,7 +247,43 @@
     </div>
   </div>
 
-  <!-- Cache-Busting: v=20 statt v=19 (externe Meta-Trios ergänzt) -->
-  <script src="app.js?v=56"></script>
+  <div id="placementStatsOverlay" class="hidden">
+    <div id="placementStatsBox">
+      <div id="placementStatsHeader">
+        <h2 data-i18n="placementStatsHeading">📊 Meine Statistiken</h2>
+        <button id="placementStatsClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
+      </div>
+      <div class="dbTabBar" id="placementStatsTabBar">
+        <button class="dbTabBtn active" id="placementTabBtnPlacements" data-i18n="placementTabPlacements">Platzierungen</button>
+        <button class="dbTabBtn" id="placementTabBtnMates" data-i18n="placementTabMates">Mitspieler</button>
+      </div>
+      <div id="placementStatsBody">
+        <div class="dbTabPanel" id="placementPanelPlacements">
+          <div class="detailSection" id="placementOverallSection"></div>
+          <div class="detailSection" id="placementPerChampSection">
+            <h3 data-i18n="placementPerChampHeading">Platzierungen pro Champion</h3>
+            <input id="placementChampFilter" type="text" placeholder="Champion suchen..." data-i18n-placeholder="champSearchPlaceholder" />
+            <div id="placementChampList"></div>
+          </div>
+        </div>
+        <div class="dbTabPanel hidden" id="placementPanelMates">
+          <div class="detailSection" id="placementMatesSection">
+            <h3 data-i18n="placementMatesHeading">Mitspieler (nach gemeinsamen Spielen)</h3>
+            <div class="placementMatesToolbar">
+              <input id="placementMateFilter" type="text" placeholder="Mitspieler suchen..." data-i18n-placeholder="placementMateFilterPlaceholder" />
+              <select id="placementMateSort">
+                <option value="games" data-i18n="placementMateSortGames">Meiste Spiele</option>
+                <option value="wins" data-i18n="placementMateSortWins">Meiste Siege</option>
+              </select>
+            </div>
+            <div id="placementMateList"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Cache-Busting: v=21 statt v=20 (Platzierungsstatistik ergänzt) -->
+  <script src="app.js?v=57"></script>
 </body>
 </html>
