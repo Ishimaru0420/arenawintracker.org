@@ -1231,15 +1231,15 @@ input:focus, select:focus, textarea:focus {
    League-Client), dann Mitspieler. In der schmalen Sidebar spaltenweise
    statt in einer einzigen langen Reihe, damit alles lesbar bleibt. */
 .matchHistoryRow {
-  display: flex; align-items: center; gap: 12px;
-  background: rgba(255,122,60,0.04); border-radius: 8px; padding: 9px 10px; margin-bottom: 6px;
+  display: flex; flex-wrap: nowrap; align-items: center; gap: 9px;
+  background: rgba(255,122,60,0.04); border-radius: 8px; padding: 7px 9px; margin-bottom: 6px;
 }
 .matchHistoryChampIconLg { flex-shrink: 0; }
 .matchHistoryChampIconLg img {
-  width: 80px; height: 80px; border-radius: 12px; border: 2px solid #4a3a34; display: block;
+  width: 52px; height: 52px; border-radius: 8px; border: 2px solid #4a3a34; display: block;
 }
 .matchHistoryChampIconLg .dbIconFallback {
-  width: 80px; height: 80px; border-radius: 12px; font-size: 18px;
+  width: 52px; height: 52px; border-radius: 8px; font-size: 13px;
 }
 .matchHistoryInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
 .matchHistoryLine1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
