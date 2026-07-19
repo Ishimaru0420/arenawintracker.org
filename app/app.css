@@ -1225,6 +1225,21 @@ input:focus, select:focus, textarea:focus {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* Klickbare Zeilen im Champion-Hover-Tooltip (Spielverlauf) */
+.tooltipList li.clickableRow { cursor: pointer; border-radius: 4px; transition: background 0.15s ease; padding: 4px; margin: -4px; }
+.tooltipList li.clickableRow:hover { background: rgba(255,122,60,0.14); }
+
+/* Stats-Sektion (K/D/A, Level, Gold, Schaden) in der Match-Detailansicht */
+.matchDetailStatsGrid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px;
+}
+.matchDetailStatCard {
+  background: rgba(255,122,60,0.05); border: 1px solid #3a2620; border-radius: 6px;
+  padding: 8px 6px; text-align: center;
+}
+.matchDetailStatValue { font-size: 16px; font-weight: 800; color: #ffb37a; line-height: 1.2; }
+.matchDetailStatLabel { font-size: 9px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
 .matchDetailDate { font-size: 12px; color: #9c8882; margin: -4px 0 8px; }
 .matchDetailMatesRow { display: flex; flex-wrap: wrap; gap: 10px; }
 .matchDetailMate { font-size: 12px; color: #f5ece6; }

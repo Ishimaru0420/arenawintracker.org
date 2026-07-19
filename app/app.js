@@ -454,6 +454,13 @@ const I18N = {
     matchDetailNoSpells: "Keine Beschwörerzauber erfasst.",
     matchDetailNoTeammates: "Kein Mitspieler erfasst.",
     matchDetailLoading: "Lade Match-Details...",
+    matchDetailStatsHeading: "Statistiken",
+    matchDetailKda: "K/D/A",
+    matchDetailLevel: "Level",
+    matchDetailGold: "Gold",
+    matchDetailDamageDealt: "Schaden an Champions",
+    matchDetailDamageTaken: "Schaden erhalten",
+    matchDetailNoStats: "Für dieses Match sind noch keine Statistiken erfasst (älteres Match).",
     placementMatesHeading: "Mitspieler (nach gemeinsamen Spielen)",
     placementMateFilterPlaceholder: "Mitspieler suchen...",
     placementMatesNone: "Noch keine Mitspieler-Daten vorhanden.",
@@ -703,6 +710,13 @@ const I18N = {
     matchDetailNoSpells: "No summoner spells recorded.",
     matchDetailNoTeammates: "No teammate recorded.",
     matchDetailLoading: "Loading match details...",
+    matchDetailStatsHeading: "Stats",
+    matchDetailKda: "K/D/A",
+    matchDetailLevel: "Level",
+    matchDetailGold: "Gold",
+    matchDetailDamageDealt: "Damage to champions",
+    matchDetailDamageTaken: "Damage taken",
+    matchDetailNoStats: "No stats recorded for this match yet (older match).",
     placementMatesHeading: "Teammates (by games together)",
     placementMateFilterPlaceholder: "Search teammate...",
     placementMatesNone: "No teammate data yet.",
@@ -1454,7 +1468,7 @@ function showChampTooltip(e, champ) {
   } else {
     html += `<div class="tooltipCount">${t("tooltipGamesCount", { count: history.length })}</div>`;
     html += `<ul class="tooltipList">`;
-    for (const g of history) {
+    history.forEach((g, idx) => {
       const isWin = g.placement === 1;
       const dateStr = formatDateDDMM(g.date);
       const placementText = currentLang === "de" ? `${g.placement}. Platz` : `${ordinal(g.placement)} place`;
@@ -1468,17 +1482,40 @@ function showChampTooltip(e, champ) {
             return `<span class="tooltipMate">${icon}${m.summoner}</span>`;
           }).join("")
         : "?";
-      html += `<li class="${isWin ? "tooltipWin" : "tooltipLose"}">
+      // NEU: Zeile klickbar - oeffnet die volle Match-Detailansicht
+      // (Items/Augments/Runen/Spells/Stats), statt nur Datum+Platzierung.
+      html += `<li class="clickableRow ${isWin ? "tooltipWin" : "tooltipLose"}" data-history-idx="${idx}">
         <div class="tooltipDate">${dateStr} ${placementBadge}</div>
         <div class="tooltipMates">${mates}</div>
       </li>`;
-    }
+    });
     html += `</ul>`;
   }
 
   tooltip.innerHTML = html;
   tooltip.classList.remove("hidden");
   positionTooltip(e);
+
+  tooltip.querySelectorAll(".tooltipList li[data-history-idx]").forEach((li) => {
+    li.addEventListener("click", (evt) => {
+      evt.stopPropagation();
+      const idx = parseInt(li.dataset.historyIdx, 10);
+      const g = history[idx];
+      if (g) openMatchFromTooltip(champ, g, idx);
+    });
+  });
+}
+
+// NEU: oeffnet ein Match, das ueber den Champion-Tooltip angeklickt wurde,
+// direkt in der vollen Match-Detailansicht (dieselbe wie im "Verlauf"-Tab
+// der Platzierungsstatistik) - spart einen Umweg ueber die Match-Liste.
+function openMatchFromTooltip(champ, g, historyIndex) {
+  hideChampTooltip();
+  const overlay = document.getElementById("placementStatsOverlay");
+  if (!overlay) return;
+  overlay.classList.remove("hidden");
+  switchPlacementStatsTab("history");
+  openMatchDetail({ ...g, champKey: champ.key, champ, historyIndex });
 }
 
 function positionTooltip(e) {
@@ -4728,6 +4765,12 @@ function matchDetailKey(m) {
   return m.matchId || `${m.champKey}::${m.historyIndex}`;
 }
 
+// Formatiert groessere Zahlen (Schaden, Gold) sprachabhaengig mit
+// Tausendertrennzeichen, z.B. 12345 -> "12.345" (de) / "12,345" (en).
+function formatStatNumber(n) {
+  return Number(n).toLocaleString(currentLang === "de" ? "de-DE" : "en-US");
+}
+
 function resolveItemIcon(itemId) {
   const entry = iaItemById[itemId];
   if (entry) return { icon: entry.icon, name: iaEntryName(entry) };
@@ -4868,8 +4911,62 @@ async function openMatchDetail(m) {
       }).join("")
     : `<p class="detailEmpty">${t("matchDetailNoSpells")}</p>`;
 
+  // Kampf-Statistiken (K/D/A, Level, Gold, Schaden) - nur vorhanden bei
+  // Matches, die nach der syncUser.js-Erweiterung (bzw. nach dem Backfill)
+  // synct wurden. Aeltere Eintraege haben diese Felder gar nicht -> Hinweis
+  // statt leerer/falscher Werte.
+  const hasStats = typeof m.kills === "number" || typeof m.deaths === "number" || typeof m.assists === "number";
+  const statCards = [];
+  if (hasStats) {
+    statCards.push(`
+      <div class="matchDetailStatCard">
+        <div class="matchDetailStatValue">${m.kills ?? 0}/${m.deaths ?? 0}/${m.assists ?? 0}</div>
+        <div class="matchDetailStatLabel">${t("matchDetailKda")}</div>
+      </div>
+    `);
+    if (typeof m.champLevel === "number") {
+      statCards.push(`
+        <div class="matchDetailStatCard">
+          <div class="matchDetailStatValue">${m.champLevel}</div>
+          <div class="matchDetailStatLabel">${t("matchDetailLevel")}</div>
+        </div>
+      `);
+    }
+    if (typeof m.goldEarned === "number") {
+      statCards.push(`
+        <div class="matchDetailStatCard">
+          <div class="matchDetailStatValue">${formatStatNumber(m.goldEarned)}</div>
+          <div class="matchDetailStatLabel">${t("matchDetailGold")}</div>
+        </div>
+      `);
+    }
+    if (typeof m.damageDealt === "number") {
+      statCards.push(`
+        <div class="matchDetailStatCard">
+          <div class="matchDetailStatValue">${formatStatNumber(m.damageDealt)}</div>
+          <div class="matchDetailStatLabel">${t("matchDetailDamageDealt")}</div>
+        </div>
+      `);
+    }
+    if (typeof m.damageTaken === "number") {
+      statCards.push(`
+        <div class="matchDetailStatCard">
+          <div class="matchDetailStatValue">${formatStatNumber(m.damageTaken)}</div>
+          <div class="matchDetailStatLabel">${t("matchDetailDamageTaken")}</div>
+        </div>
+      `);
+    }
+  }
+  const statsHtml = hasStats
+    ? `<div class="matchDetailStatsGrid">${statCards.join("")}</div>`
+    : `<p class="detailEmpty">${t("matchDetailNoStats")}</p>`;
+
   bodyEl.innerHTML = `
     <p class="matchDetailDate">${dateStr}</p>
+    <div class="detailSection">
+      <h3>${t("matchDetailStatsHeading")}</h3>
+      ${statsHtml}
+    </div>
     <div class="detailSection">
       <h3>${t("matchDetailTeammatesHeading")}</h3>
       <div class="matchDetailMatesRow">${teammatesHtml}</div>
