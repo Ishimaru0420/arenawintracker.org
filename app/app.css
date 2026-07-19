@@ -850,9 +850,8 @@ input:focus, select:focus, textarea:focus {
 #mateTrioTooltip::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
 .mateTrioRow {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 3px 0; border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 3px 0;
 }
-.mateTrioRow:last-child { border-bottom: none; }
 .mateTrioName { color: #f5ece6; font-weight: 600; }
 .mateTrioMeta { color: #a89690; font-size: 10px; white-space: nowrap; }
 .mateTrioWinrate { color: #ffb35c; font-weight: 700; margin-right: 4px; }
@@ -1191,7 +1190,7 @@ input:focus, select:focus, textarea:focus {
   width: 28px; height: 28px; border-radius: 5px; border: 1px solid #4a3a34; display: block;
 }
 .placementChampName { font-size: 12.5px; color: #f5ece6; font-weight: 600; min-width: 90px; flex-shrink: 0; }
-.mateNameHoverable { cursor: help; border-bottom: 1px dotted rgba(245,236,230,0.35); }
+.mateNameHoverable { cursor: help; }
 .placementChampGames { font-size: 11px; color: #9c8882; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
 .placementChampWinrate { font-size: 11px; color: #ffb35c; font-weight: 700; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
 .placementChampBreakdown { display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; }
