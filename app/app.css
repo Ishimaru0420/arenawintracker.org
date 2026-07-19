@@ -1,3 +1,4 @@
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; font-family: "Segoe UI", Arial, sans-serif; }
 
@@ -152,6 +153,7 @@ button.danger:hover { background: #c43b4a; }
   display: flex; flex-direction: column; min-width: 0;
 }
 #rankingPanel.hidden { display: none; }
+.rankingStatsBtn { width: 100%; font-size: 12px; padding: 8px 10px; margin-bottom: 10px; }
 .rankingTabs { display: flex; gap: 6px; margin-bottom: 10px; }
 .rankingTab {
   flex: 1; background: #221715; color: #b3a39c; border: 1px solid #3a2620;
@@ -303,6 +305,11 @@ button.danger:hover { background: #c43b4a; }
   -webkit-app-region: no-drag;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
   gap: 6px; padding-right: 2px;
+  /* Ohne dies verteilt CSS Grid die Zeilen ueber die volle (fixe)
+     Container-Hoehe, sobald z.B. durch "nur offene anzeigen" nur noch
+     wenige Champions uebrig sind - das erzeugt grosse Luecken zwischen
+     den Zeilen. Zeilen sollen stattdessen oben zusammenbleiben. */
+  align-content: start;
 }
 #grid.hidden { display: none; }
 
@@ -831,6 +838,31 @@ input:focus, select:focus, textarea:focus {
 #champTooltip::-webkit-scrollbar { width: 4px; }
 #champTooltip::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
 
+#mateTrioTooltip {
+  position: fixed;
+  z-index: 1000;
+  background: rgba(20, 13, 11, 0.97);
+  border: 1px solid #ff7a3c;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  max-width: 240px;
+  max-height: 260px;
+  overflow-y: auto;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+}
+#mateTrioTooltip.hidden { display: none; }
+#mateTrioTooltip::-webkit-scrollbar { width: 4px; }
+#mateTrioTooltip::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+.mateTrioRow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 3px 0;
+}
+.mateTrioName { color: #f5ece6; font-weight: 600; }
+.mateTrioMeta { color: #a89690; font-size: 10px; white-space: nowrap; }
+.mateTrioWinrate { color: #ffb35c; font-weight: 700; margin-right: 4px; }
+
 
 
 /* ---------- Champion-Detailansicht (Klick auf Champion-Kachel) ---------- */
@@ -1028,6 +1060,21 @@ input:focus, select:focus, textarea:focus {
 .dbTabBtn.active { background: rgba(255,122,60,0.18); border-color: #ff7a3c; color: #ffb37a; font-weight: 700; }
 .dbTabPanel.hidden { display: none; }
 
+/* Die beiden Haupt-Tabs "Champions" / "Mitspieler" im Statistik-Modal
+   sollen groesser und auffaelliger wirken als die kleineren
+   Unter-Tabs (z.B. Augment-Spielstile) - daher hier gezielt auf den
+   Wrapper #placementStatsTabBar beschraenkt statt global auf .dbTabBtn. */
+#placementStatsTabBar { justify-content: center; gap: 8px; margin: 4px 0 12px; }
+#placementStatsTabBar .dbTabBtn {
+  font-size: 14px; font-weight: 700; padding: 9px 18px; border-radius: 7px;
+  background: #241812; border: 1px solid #3a2620; color: #9c8882;
+}
+#placementStatsTabBar .dbTabBtn:hover { border-color: #ff7a3c; color: #f5ece6; }
+#placementStatsTabBar .dbTabBtn.active {
+  background: #ff7a3c; border-color: #ff7a3c; color: #1f0e04;
+  box-shadow: 0 0 0 2px rgba(255,122,60,0.35);
+}
+
 /* Icon+Name(+Prozent)-Reihen: Augments, Items, Champion-Synergien */
 .dbIconList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .dbIconRow {
@@ -1120,9 +1167,10 @@ input:focus, select:focus, textarea:focus {
   padding: 16px; display: flex; flex-direction: column; gap: 12px;
   box-shadow: 0 8px 28px rgba(0,0,0,0.5);
 }
-#placementStatsHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-#placementStatsHeader h2 { font-size: 17px; margin: 0; color: #ffb37a; }
+#placementStatsHeader { display: flex; justify-content: center; align-items: center; gap: 8px; position: relative; }
+#placementStatsHeader h2 { font-size: 17px; margin: 0; color: #ffb37a; text-align: center; }
 #placementStatsClose {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
   background: none; border: none; color: #b3a39c; font-size: 18px; cursor: pointer;
   padding: 2px 6px;
 }
@@ -1165,7 +1213,59 @@ input:focus, select:focus, textarea:focus {
   width: 28px; height: 28px; border-radius: 5px; border: 1px solid #4a3a34; display: block;
 }
 .placementChampName { font-size: 12.5px; color: #f5ece6; font-weight: 600; min-width: 90px; flex-shrink: 0; }
+.mateNameHoverable { cursor: help; }
+
+/* ---------- Spielverlauf-Tab (My Stats -> Verlauf) ---------- */
+.matchHistoryRow {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: rgba(255,122,60,0.04); border-radius: 6px; padding: 6px 8px; margin-bottom: 5px;
+}
+.matchHistoryDate { font-size: 11px; color: #9c8882; flex-shrink: 0; white-space: nowrap; }
+.matchHistoryMates {
+  font-size: 11px; color: #b3a39c; flex: 1; min-width: 80px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Klickbare Zeilen im Champion-Hover-Tooltip (Spielverlauf) */
+.tooltipList li.clickableRow { cursor: pointer; border-radius: 4px; transition: background 0.15s ease; padding: 4px; margin: -4px; }
+.tooltipList li.clickableRow:hover { background: rgba(255,122,60,0.14); }
+
+/* Stats-Sektion (K/D/A, Level, Gold, Schaden) in der Match-Detailansicht */
+.matchDetailStatsGrid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px;
+}
+.matchDetailStatCard {
+  background: rgba(255,122,60,0.05); border: 1px solid #3a2620; border-radius: 6px;
+  padding: 8px 6px; text-align: center;
+}
+.matchDetailStatValue { font-size: 16px; font-weight: 800; color: #ffb37a; line-height: 1.2; }
+.matchDetailStatLabel { font-size: 9px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
+.matchDetailDate { font-size: 12px; color: #9c8882; margin: -4px 0 8px; }
+.matchDetailMatesRow { display: flex; flex-wrap: wrap; gap: 10px; }
+.matchDetailMate { font-size: 12px; color: #f5ece6; }
+.matchDetailMate img { width: 22px; height: 22px; }
+
+.matchDetailIaGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 7px;
+}
+.matchDetailIaTile {
+  position: relative;
+  border: 2px solid #4a3a34; border-radius: 7px; overflow: hidden;
+  background: #16100d; aspect-ratio: 1 / 1;
+}
+.matchDetailIaTile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.matchDetailIaTile.fallback {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #9c8882; text-align: center; padding: 2px;
+}
+.matchDetailIaTile.tier-silver { border-color: #b9c4cc; }
+.matchDetailIaTile.tier-gold { border-color: #e0b25c; }
+.matchDetailIaTile.tier-prismatic { border-color: #d98fe0; }
+
+.matchDetailMatchId { font-size: 10px; color: #6b5c56; margin-top: 4px; }
 .placementChampGames { font-size: 11px; color: #9c8882; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
+.placementChampWinrate { font-size: 11px; color: #ffb35c; font-weight: 700; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
 .placementChampBreakdown { display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; }
 .placementChampBreakdown .placementChampTag { white-space: nowrap; flex-shrink: 0; }
 .placementMatesToolbar { display: flex; gap: 8px; align-items: center; margin: 4px 0 8px; }
@@ -1196,3 +1296,32 @@ input:focus, select:focus, textarea:focus {
 .placementStatsSummaryCard.win .placementStatsSummaryValue { color: #4ade80; }
 .placementStatsSummaryCard.second .placementStatsSummaryValue { color: #cfe3ff; }
 .placementStatsSummaryLabel { font-size: 9px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
+/* ---------- Mitspieler-Detailansicht (Klick auf einen Mitspieler) ---------- */
+.placementChampRow.clickableRow { cursor: pointer; transition: background 0.15s ease; }
+.placementChampRow.clickableRow:hover { background: rgba(255,122,60,0.10); }
+#placementMateListView.hidden { display: none; }
+#placementMateDetailView.hidden { display: none; }
+#placementMateDetailView .detailHeader { margin-bottom: 8px; }
+
+/* ---------- Spielverlauf-Detailansicht (Klick auf ein Match) ----------
+   FIX: diese beiden Regeln haben komplett gefehlt - die .hidden-Klasse
+   wurde von openMatchDetail()/closeMatchDetail() zwar korrekt per JS
+   getoggelt, hatte aber ohne diese CSS-Regeln gar keinen visuellen Effekt.
+   Dadurch blieb die Liste beim Klick auf ein Match immer sichtbar stehen
+   und die Detailansicht darunter sichtbar - wirkte wie "Klick tut nichts". */
+#placementHistoryListView.hidden { display: none; }
+#placementHistoryDetailView.hidden { display: none; }
+#placementMateDetailIcon img {
+  width: 32px; height: 32px; border-radius: 6px; border: 2px solid #ff7a3c; flex-shrink: 0;
+}
+#placementMateDetailName { font-size: 15px; margin: 0; color: #ffb37a; flex: 1; }
+.placementMateChampHeading {
+  font-size: 11px; color: #ff7a3c; margin: 14px 0 6px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+#placementMateDetailChampFilter {
+  width: 100%; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 8px 10px; border-radius: 5px; font-size: 13px; margin: 0 0 8px;
+}

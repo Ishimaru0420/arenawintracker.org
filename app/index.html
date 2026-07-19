@@ -8,7 +8,7 @@
   <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
   <link rel="stylesheet" href="theme.css?v=1" />
   <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=44" />
+  <link rel="stylesheet" href="app.css?v=51" />
 
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
@@ -33,7 +33,6 @@
       <h1>Arena Win Tracker</h1>
       <div class="headerBtns">
         <button id="manualSyncBtn" title="Jetzt synchronisieren" data-i18n-title="manualSyncTitle">🔄</button>
-        <button id="placementStatsBtn" title="Meine Platzierungsstatistik" data-i18n-title="placementStatsBtnTitle">📊</button>
         <button id="friendsToggle" title="Freunde verwalten" data-i18n-title="friendsToggleTitle">👥</button>
         <button id="settingsToggle" title="Einstellungen" data-i18n-title="settingsToggleTitle">⚙</button>
       </div>
@@ -118,6 +117,7 @@
 
     <div id="mainRow">
       <section id="rankingPanel">
+        <button id="placementStatsBtn" class="rankingStatsBtn" title="Meine Platzierungsstatistik" data-i18n-title="placementStatsBtnTitle" data-i18n="placementStatsBtn">📊 Meine Statistik</button>
         <div class="rankingTabs">
           <button id="rankingTabGlobal" class="rankingTab active" data-i18n="tabGlobal">Global</button>
           <button id="rankingTabFriends" class="rankingTab" data-i18n="tabFriends">Freunde</button>
@@ -126,7 +126,6 @@
           <button id="rankCatChampions" class="rankCatTab active" data-i18n="rankCatChampions">Champions</button>
           <button id="rankCatTotalWins" class="rankCatTab" data-i18n="rankCatTotalWins">Gesamt-Wins</button>
           <button id="rankCatBestChamp" class="rankCatTab" data-i18n="rankCatBestChamp">Bester Champ</button>
-          <button id="rankCatWinRate" class="rankCatTab" data-i18n="rankCatWinRate">Winrate</button>
         </div>
         <ol id="rankingList"></ol>
         <p class="rankingUpdateNote" data-i18n="rankingUpdateNote">🕕 Update alle 6 Std.</p>
@@ -145,6 +144,7 @@
     </div>
 
     <div id="champTooltip" class="hidden"></div>
+    <div id="mateTrioTooltip" class="hidden"></div>
 
   </div>
 
@@ -254,8 +254,9 @@
         <button id="placementStatsClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
       </div>
       <div class="dbTabBar" id="placementStatsTabBar">
-        <button class="dbTabBtn active" id="placementTabBtnPlacements" data-i18n="placementTabPlacements">Platzierungen</button>
+        <button class="dbTabBtn active" id="placementTabBtnPlacements" data-i18n="placementTabPlacements">Champions</button>
         <button class="dbTabBtn" id="placementTabBtnMates" data-i18n="placementTabMates">Mitspieler</button>
+        <button class="dbTabBtn" id="placementTabBtnHistory" data-i18n="placementTabHistory">Verlauf</button>
       </div>
       <div id="placementStatsBody">
         <div class="dbTabPanel" id="placementPanelPlacements">
@@ -268,22 +269,50 @@
         </div>
         <div class="dbTabPanel hidden" id="placementPanelMates">
           <div class="detailSection" id="placementMatesSection">
-            <h3 data-i18n="placementMatesHeading">Mitspieler (nach gemeinsamen Spielen)</h3>
-            <div class="placementMatesToolbar">
-              <input id="placementMateFilter" type="text" placeholder="Mitspieler suchen..." data-i18n-placeholder="placementMateFilterPlaceholder" />
-              <select id="placementMateSort">
-                <option value="games" data-i18n="placementMateSortGames">Meiste Spiele</option>
-                <option value="wins" data-i18n="placementMateSortWins">Meiste Siege</option>
-              </select>
+            <div id="placementMateListView">
+              <h3 data-i18n="placementMatesHeading">Mitspieler (nach gemeinsamen Spielen)</h3>
+              <div class="placementMatesToolbar">
+                <input id="placementMateFilter" type="text" placeholder="Mitspieler suchen..." data-i18n-placeholder="placementMateFilterPlaceholder" />
+                <select id="placementMateSort">
+                  <option value="games" data-i18n="placementMateSortGames">Meiste Spiele</option>
+                  <option value="wins" data-i18n="placementMateSortWins">Meiste Siege</option>
+                  <option value="winrate" data-i18n="placementMateSortWinrate">Beste Winrate (1. Platz)</option>
+                </select>
+              </div>
+              <div id="placementMateList"></div>
             </div>
-            <div id="placementMateList"></div>
+            <div id="placementMateDetailView" class="hidden">
+              <div class="detailHeader">
+                <button class="backArrowBtn" id="placementMateDetailBack" title="Zurück" data-i18n-title="backToGridTitle">←</button>
+                <span id="placementMateDetailIcon"></span>
+                <h2 id="placementMateDetailName"></h2>
+              </div>
+              <div id="placementMateDetailBody"></div>
+            </div>
+          </div>
+        </div>
+        <div class="dbTabPanel hidden" id="placementPanelHistory">
+          <div class="detailSection" id="placementHistorySection">
+            <div id="placementHistoryListView">
+              <h3 data-i18n="placementHistoryHeading">Spielverlauf (alle Arena-Runden)</h3>
+              <input id="placementHistoryFilter" type="text" placeholder="Champion suchen..." data-i18n-placeholder="champSearchPlaceholder" />
+              <div id="placementHistoryList"></div>
+            </div>
+            <div id="placementHistoryDetailView" class="hidden">
+              <div class="detailHeader">
+                <button class="backArrowBtn" id="placementHistoryDetailBack" title="Zurück" data-i18n-title="backToGridTitle">←</button>
+                <span id="matchDetailIcon"></span>
+                <h2 id="matchDetailTitle"></h2>
+              </div>
+              <div id="matchDetailBody"></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- Cache-Busting: v=21 statt v=20 (Platzierungsstatistik ergänzt) -->
-  <script src="app.js?v=57"></script>
+  <!-- Cache-Busting: v=62 (+ Heilung/Schilde-Stats) -->
+  <script src="app.js?v=62"></script>
 </body>
 </html>
