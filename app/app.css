@@ -1200,6 +1200,7 @@ input:focus, select:focus, textarea:focus {
 /* ---------- Mitspieler-Detailansicht (Klick auf einen Mitspieler) ---------- */
 .placementChampRow.clickableRow { cursor: pointer; transition: background 0.15s ease; }
 .placementChampRow.clickableRow:hover { background: rgba(255,122,60,0.10); }
+#placementMateListView.hidden { display: none; }
 #placementMateDetailView.hidden { display: none; }
 #placementMateDetailView .detailHeader { margin-bottom: 8px; }
 #placementMateDetailIcon img {
