@@ -1,318 +1,112 @@
 <!DOCTYPE html>
-<html lang="de" data-theme="dark">
+<html lang="de">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-  <title>Arena Win Tracker - Web</title>
-
-  <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
-  <link rel="stylesheet" href="theme.css?v=1" />
-  <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=52" />
-
-  <style>
-    /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
-       nicht noetig sind (dort ist die Fenstergroesse fix). */
-    html, body { height: auto; min-height: 100vh; }
-    #app { height: auto; min-height: 100vh; width: 98%; max-width: 1900px; margin: 0 auto; }
-    #grid { max-height: 70vh; }
-    .webNotice {
-      background: rgba(255,122,60,0.10); border: 1px solid #ff7a3c;
-      border-radius: 8px; padding: 10px 12px; font-size: 11px;
-      color: #ffb37a; margin-bottom: 10px; -webkit-app-region: no-drag;
-    }
-    .headerBtns {
-      display: flex; gap: 4px; align-items: center;
-    }
-  </style>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arena Win Tracker</title>
+  <meta name="description" content="Arena Win Tracker zeigt dir auf einen Blick, mit welchen Champions du in dieser League of Legends Arena-Season schon einen 1. Platz erreicht hast." />
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <div id="app">
 
-    <header>
-      <h1>Arena Win Tracker</h1>
-      <div class="headerBtns">
-        <button id="manualSyncBtn" title="Jetzt synchronisieren" data-i18n-title="manualSyncTitle">🔄</button>
-        <button id="friendsToggle" title="Freunde verwalten" data-i18n-title="friendsToggleTitle">👥</button>
-        <button id="settingsToggle" title="Einstellungen" data-i18n-title="settingsToggleTitle">⚙</button>
+  <nav class="top">
+    <div class="wrap">
+      <div class="brand"><span class="dot"></span> Arena Win Tracker</div>
+      <div class="links">
+        <a href="index.html">Übersicht</a>
+        <a href="app/index.html">Web-App</a>
+        <a href="privacy.html">Datenschutz</a>
+        <a href="terms.html">Nutzungsbedingungen</a>
       </div>
-    </header>
+    </div>
+  </nav>
 
-    <p class="webNotice" data-i18n="webNotice">
-      Browser-Testversion. Funktioniert identisch zur Overwolf-App,
-      läuft aber als normale Webseite - kein Overwolf nötig.
-    </p>
-
-    <section id="friendsPanel" class="hidden">
-      <label><span data-i18n="friendIdLabel">Riot-ID des Freundes</span>
-        <input id="friendIdInput" type="text" placeholder="z.B. Buddy#EUW" data-i18n-placeholder="friendIdPlaceholder" list="registeredUsersList" />
-        <datalist id="registeredUsersList"></datalist>
-      </label>
-      <button id="addFriendBtn" data-i18n="addFriendBtn">+ Freund hinzufügen</button>
-      <p class="hint" style="margin:4px 0;" data-i18n="registeredUsersHint">Bereits registrierte Nutzer (anklicken zum Hinzufügen):</p>
-      <ul id="registeredUsersBox" class="suggestList"></ul>
-      <p class="hint" style="margin:8px 0 2px;" data-i18n="yourFriendsHint">Deine Freunde:</p>
-      <ul id="friendsList"></ul>
-    </section>
-
-    <section id="settingsPanel" class="hidden">
-      <label><span data-i18n="languageLabel">Sprache</span>
-        <select id="languageSelect">
-          <option value="de">Deutsch</option>
-          <option value="en">English</option>
-        </select>
-      </label>
-      <label><span data-i18n="riotIdLabel">Riot ID (Name#Tag)</span>
-        <input id="riotId" type="text" placeholder="z.B. Glitch#EUW" data-i18n-placeholder="riotIdPlaceholder" />
-      </label>
-      <label><span data-i18n="regionLabel">Region</span>
-        <select id="region">
-          <option value="europe">Europe (EUW/EUNE/TR/RU)</option>
-          <option value="americas">Americas (NA/BR/LAN/LAS)</option>
-          <option value="asia">Asia (KR/JP)</option>
-          <option value="sea">SEA (OCE/SG/PH/...)</option>
-        </select>
-      </label>
-      <label><span data-i18n="seasonStartLabel">Season-Start (Arena-Reset Datum)</span>
-        <div class="seasonStartRow">
-          <input id="seasonStart" type="date" />
-          <button id="resetSeasonStart" type="button" title="Auf Standard zurücksetzen (29.04.2026)" data-i18n="resetSeasonStartBtn" data-i18n-title="resetSeasonStartTitle">↺ Standard</button>
-        </div>
-      </label>
-      <div class="settingsActions">
-        <button id="saveSettings" data-i18n="saveSettingsBtn">Speichern</button>
-        <button id="resetData" class="danger" data-i18n="resetDataBtn">Lokale Anzeige zurücksetzen</button>
-      </div>
-      <p class="hint" data-i18n="settingsHint">
-        Server synct deine Daten automatisch alle 6 Stunden - kein eigener
-        Riot API-Key nötig.
+  <header class="hero">
+    <div class="wrap">
+      <div class="eyebrow">Overwolf-App · League of Legends Arena</div>
+      <h1>Welche Champions fehlen dir noch zum Sieg?</h1>
+      <p class="lead">
+        Arena Win Tracker liest deine Match-Historie aus und markiert jeden Champion,
+        mit dem du in dieser Arena-Season schon einen 1. Platz geholt hast. Kein Excel,
+        kein Mitschreiben – das Overlay zeigt es dir direkt im Spiel.
       </p>
-    </section>
-
-    <section id="statusBar">
-      <span id="statusText" data-i18n="statusNotConnected">Noch nicht verbunden</span>
-    </section>
-
-    <section id="summary">
-      <span id="summaryText">0 / 0 Champions gewonnen</span>
-      <span id="overallStatsText">0 Spiele (0 Siege / 0 Niederlagen)</span>
-      <input id="filterInput" type="text" placeholder="Champion suchen..." data-i18n-placeholder="champSearchPlaceholder" />
-      <select id="sortMode">
-        <option value="name" data-i18n="sortName">Name (A-Z)</option>
-        <option value="wins" data-i18n="sortWins">Meiste Wins</option>
-        <option value="tier" data-i18n="sortTier">Tier-Liste</option>
-      </select>
-      <label class="checkboxLabel">
-        <input id="onlyMissing" type="checkbox" />
-        <span data-i18n="onlyMissingLabel">nur offene zeigen</span>
-      </label>
-      <div class="seasonProgress" id="seasonProgress" style="display:none;">
-        <span class="seasonProgressLabel" id="seasonProgressLabel">0%</span>
-        <div class="seasonProgressBar">
-          <div class="seasonProgressFill" id="seasonProgressFill" style="width:0%"></div>
-        </div>
-        <span class="seasonProgressLabel" id="seasonProgressCount">0 / 0</span>
+      <div class="tile-row" aria-hidden="true">
+        <div class="tile won"></div><div class="tile won"></div><div class="tile"></div>
+        <div class="tile won"></div><div class="tile lost"></div><div class="tile"></div>
+        <div class="tile won"></div><div class="tile won"></div><div class="tile lost"></div>
+        <div class="tile"></div><div class="tile won"></div><div class="tile lost"></div>
+        <div class="tile"></div><div class="tile"></div><div class="tile won"></div>
+        <div class="tile lost"></div><div class="tile won"></div><div class="tile"></div>
       </div>
-    </section>
+      <p class="tile-caption"><strong>Grün</strong> = gewonnen, <span class="lost-label">rot</span> = gespielt, noch kein Sieg, grau = noch nicht gespielt.</p>
+    </div>
+  </header>
 
-    <div id="mainRow">
-      <section id="rankingPanel">
-        <button id="placementStatsBtn" class="rankingStatsBtn" title="Meine Platzierungsstatistik" data-i18n-title="placementStatsBtnTitle" data-i18n="placementStatsBtn">📊 Meine Statistik</button>
-        <div class="rankingTabs">
-          <button id="rankingTabGlobal" class="rankingTab active" data-i18n="tabGlobal">Global</button>
-          <button id="rankingTabFriends" class="rankingTab" data-i18n="tabFriends">Freunde</button>
-        </div>
-        <div class="rankingCategoryTabs">
-          <button id="rankCatChampions" class="rankCatTab active" data-i18n="rankCatChampions">Champions</button>
-          <button id="rankCatTotalWins" class="rankCatTab" data-i18n="rankCatTotalWins">Gesamt-Wins</button>
-          <button id="rankCatBestChamp" class="rankCatTab" data-i18n="rankCatBestChamp">Bester Champ</button>
-        </div>
-        <ol id="rankingList"></ol>
-        <p class="rankingUpdateNote" data-i18n="rankingUpdateNote">🕕 Update alle 6 Std.</p>
-      </section>
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">01</span>Was die App macht</h2>
+      <p>
+        Arena Win Tracker prüft über einen zentralen Sync-Server alle deine
+        Arena-Spiele seit Season-Start. Jeder Champion, mit dem du einen echten 1. Platz
+        (nicht nur Top-4) erreicht hast, wird grün markiert. Alles andere bleibt rot
+        oder grau, bis der nächste Sieg fällt. Du brauchst dafür <strong>keinen
+        eigenen Riot API-Key</strong> - nur deine Riot-ID.
+      </p>
+    </div>
+  </section>
 
-      <section id="grid"></section>
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">02</span>Funktionen</h2>
+      <ul class="feature-list">
+        <li><span class="mark">✓</span> Champion-Übersicht mit Sieg-Status pro Season</li>
+        <li><span class="mark">✓</span> Kein eigener Riot API-Key nötig - Sync läuft zentral über den Server</li>
+        <li><span class="mark">✓</span> Täglicher automatischer Sync, zusätzlich manuell auslösbar</li>
+        <li><span class="mark">✓</span> Verlauf pro Champion: Datum, Sieg/Niederlage, Teammates</li>
+        <li><span class="mark">✓</span> Filter- und Suchfunktion im Champion-Grid</li>
+        <li><span class="mark">✓</span> Als Overwolf-Overlay oder als Web-App im Browser nutzbar</li>
+      </ul>
+    </div>
+  </section>
 
-      <section id="champDetail" class="hidden"></section>
-
-      <section id="top30Trio"></section>
-      <div id="rightSidebarCol">
-        <button id="openItemsAugmentsBtn" data-i18n="openItemsAugmentsBtn">📦 Items &amp; Augments</button>
-        <section id="champBuildSidebar" class="hidden"></section>
-        <section id="externalTrio"></section>
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">03</span>Status</h2>
+      <p class="status-badge"><span class="pulse"></span> Aktuell in privater Testphase</p>
+      <p class="muted" style="margin-top:14px;">
+        Arena Win Tracker befindet sich derzeit in der Entwicklung und wird mit einer
+        kleinen Gruppe getestet. Ein öffentlicher Release über den Overwolf App Store
+        ist geplant.
+      </p>
+      <div class="contact-box" style="margin-top:16px;">
+        Zum Testen ohne Overwolf-Installation: <a href="app/index.html">Web-App öffnen →</a>
       </div>
     </div>
+  </section>
 
-    <div id="champTooltip" class="hidden"></div>
-    <div id="mateTrioTooltip" class="hidden"></div>
-
-  </div>
-
-  <div id="itemsAugmentsOverlay" class="hidden">
-    <div id="itemsAugmentsBox">
-      <div id="buildConvertPickerOverlay" class="hidden">
-        <div id="buildConvertPickerBox">
-          <div id="buildConvertPickerHeader">
-            <h3 data-i18n="buildConvertPickerTitle">Champion wählen</h3>
-            <input id="buildConvertPickerSearch" type="text" data-i18n-placeholder="champSearchPlaceholder" placeholder="Champion suchen..." />
-            <button id="buildConvertPickerClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
-          </div>
-          <p id="buildConvertPickerHint" data-i18n="buildConvertPickerHint">Der Champion-Build erscheint danach nur noch auf der Seite dieses Champions.</p>
-          <div id="buildConvertPickerGrid"></div>
-        </div>
-      </div>
-      <div id="itemsAugmentsHeader">
-        <h2 data-i18n="itemsAugmentsHeading">Arena Items &amp; Augments</h2>
-        <div class="playerViewHeaderBtns">
-          <button id="iaEditModeBtn" data-i18n="iaEditModeBtn">✏️ Synergien bearbeiten</button>
-          <button id="iaPresetModeBtn" data-i18n="iaPresetModeBtn">🔍 Schnellsuche</button>
-          <button id="itemsAugmentsClearFilter" class="hidden" data-i18n="itemsAugmentsClearFilter">Filter zurücksetzen</button>
-          <button id="itemsAugmentsClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
-        </div>
-      </div>
-      <p id="itemsAugmentsHint" data-i18n="itemsAugmentsHint">Auf ein Augment oder Item klicken, um nur dazu passende Treffer zu sehen.</p>
-      <div id="iaSearchRow">
-        <input id="iaSearchInput" type="text" placeholder="Augment oder Item suchen..." data-i18n-placeholder="iaSearchPlaceholder" />
-      </div>
-      <div id="itemsAugmentsBody">
-        <section id="iaAugmentsCol">
-          <h3 data-i18n="iaAugmentsHeading">Augments</h3>
-          <div id="iaAugmentsList"></div>
-        </section>
-        <section id="iaItemsCol">
-          <h3 data-i18n="iaItemsHeading">Items</h3>
-          <div id="iaItemsList"></div>
-        </section>
-      </div>
-      <div id="iaDetailView" class="hidden">
-        <div id="iaSelectedCard"></div>
-        <div id="iaSynergyResults"></div>
-      </div>
-      <div id="iaPresetView" class="hidden">
-        <div id="iaPresetExisting">
-          <h4 data-i18n="iaPresetExistingHeading">Bestehende Schnellsuchen</h4>
-          <ul id="iaPresetExistingList"></ul>
-        </div>
-        <div id="iaPresetNameRow">
-          <input id="iaPresetNameInput" type="text" placeholder="Preset-Name (z.B. Tank, Full Autocast, Onhit Atkspeed)..." data-i18n-placeholder="iaPresetNamePlaceholder" />
-        </div>
-        <div id="iaPresetSearchRow">
-          <input id="iaPresetSearchInput" type="text" placeholder="Augment oder Item suchen..." data-i18n-placeholder="iaSearchPlaceholder" />
-        </div>
-        <div id="iaPresetItemsGrid"></div>
-        <div id="buildSelectedNotesSection" class="hidden">
-          <h4 data-i18n="buildSelectedNotesHeading">Ausgewählt (optional: Notiz hinzufügen)</h4>
-          <div id="buildSelectedNotesList"></div>
-        </div>
-        <div id="buildSkillPathSection" class="hidden">
-          <h4 data-i18n="buildSkillPathHeading">Skill Path</h4>
-          <div id="buildSkillPathGrid"></div>
-          <button id="buildSkillPathReset" data-i18n="buildSkillPathReset">Zurücksetzen</button>
-        </div>
-        <div id="iaEditActions">
-          <button id="iaPresetSave" data-i18n="iaPresetSave">Speichern</button>
-          <button id="iaPresetCancel" data-i18n="iaEditCancel">Fertig</button>
-          <span id="iaPresetStatus"></span>
-        </div>
-      </div>
-      <div id="iaEditView" class="hidden">
-        <p id="iaEditHint" data-i18n="iaEditHint">Augment oder Item auswählen, dann unten anklicken, um Synergien hinzuzufügen (+) oder zu entfernen (✕). Wirkt automatisch in beide Richtungen.</p>
-        <div id="iaEditSelectedCard"></div>
-        <div id="iaEditSearchRow">
-          <input id="iaEditSearchInput" type="text" placeholder="Augment oder Item suchen..." data-i18n-placeholder="iaSearchPlaceholder" />
-          <select id="iaEditCategoryFilter"></select>
-        </div>
-        <div id="iaEditItemsGrid"></div>
-        <div id="iaEditActions">
-          <button id="iaEditClearAll" class="danger" data-i18n="iaEditClearAll">Alle entfernen</button>
-          <button id="iaEditCancel" data-i18n="iaEditCancel">Fertig</button>
-          <span id="iaEditStatus"></span>
-        </div>
+  <section class="block">
+    <div class="wrap">
+      <h2><span class="num">04</span>Kontakt</h2>
+      <div class="contact-box">
+        Fragen, Feedback oder Bugs? <a href="mailto:arenawintracker.support@proton.me">arenawintracker.support@proton.me</a>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div id="playerViewOverlay" class="hidden">
-    <div id="playerViewBox">
-      <div id="playerViewHeader">
-        <h2 id="playerViewName">Spieler</h2>
-        <div class="playerViewHeaderBtns">
-          <button id="playerViewAddFriend" data-i18n="addFriendBtnShort">+ Freund</button>
-          <button id="playerViewClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
-        </div>
-      </div>
-      <p id="playerViewSummary"></p>
-      <input id="playerViewFilter" type="text" placeholder="Champion suchen..." data-i18n-placeholder="champSearchPlaceholder" />
-      <section id="playerViewGrid"></section>
-    </div>
-  </div>
-
-  <div id="placementStatsOverlay" class="hidden">
-    <div id="placementStatsBox">
-      <div id="placementStatsHeader">
-        <h2 data-i18n="placementStatsHeading">📊 Meine Statistiken</h2>
-        <button id="placementStatsClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
-      </div>
-      <div class="dbTabBar" id="placementStatsTabBar">
-        <button class="dbTabBtn active" id="placementTabBtnPlacements" data-i18n="placementTabPlacements">Champions</button>
-        <button class="dbTabBtn" id="placementTabBtnMates" data-i18n="placementTabMates">Mitspieler</button>
-        <button class="dbTabBtn" id="placementTabBtnHistory" data-i18n="placementTabHistory">Verlauf</button>
-      </div>
-      <div id="placementStatsBody">
-        <div class="dbTabPanel" id="placementPanelPlacements">
-          <div class="detailSection" id="placementOverallSection"></div>
-          <div class="detailSection" id="placementPerChampSection">
-            <h3 data-i18n="placementPerChampHeading">Platzierungen pro Champion</h3>
-            <input id="placementChampFilter" type="text" placeholder="Champion suchen..." data-i18n-placeholder="champSearchPlaceholder" />
-            <div id="placementChampList"></div>
-          </div>
-        </div>
-        <div class="dbTabPanel hidden" id="placementPanelMates">
-          <div class="detailSection" id="placementMatesSection">
-            <div id="placementMateListView">
-              <h3 data-i18n="placementMatesHeading">Mitspieler (nach gemeinsamen Spielen)</h3>
-              <div class="placementMatesToolbar">
-                <input id="placementMateFilter" type="text" placeholder="Mitspieler suchen..." data-i18n-placeholder="placementMateFilterPlaceholder" />
-                <select id="placementMateSort">
-                  <option value="games" data-i18n="placementMateSortGames">Meiste Spiele</option>
-                  <option value="wins" data-i18n="placementMateSortWins">Meiste Siege</option>
-                  <option value="winrate" data-i18n="placementMateSortWinrate">Beste Winrate (1. Platz)</option>
-                </select>
-              </div>
-              <div id="placementMateList"></div>
-            </div>
-            <div id="placementMateDetailView" class="hidden">
-              <div class="detailHeader">
-                <button class="backArrowBtn" id="placementMateDetailBack" title="Zurück" data-i18n-title="backToGridTitle">←</button>
-                <span id="placementMateDetailIcon"></span>
-                <h2 id="placementMateDetailName"></h2>
-              </div>
-              <div id="placementMateDetailBody"></div>
-            </div>
-          </div>
-        </div>
-        <div class="dbTabPanel hidden" id="placementPanelHistory">
-          <div class="detailSection" id="placementHistorySection">
-            <div id="placementHistoryListView">
-              <h3 data-i18n="placementHistoryHeading">Spielverlauf (alle Arena-Runden)</h3>
-              <input id="placementHistoryFilter" type="text" placeholder="Champion suchen..." data-i18n-placeholder="champSearchPlaceholder" />
-              <div id="placementHistoryList"></div>
-            </div>
-            <div id="placementHistoryDetailView" class="hidden">
-              <div class="detailHeader">
-                <button class="backArrowBtn" id="placementHistoryDetailBack" title="Zurück" data-i18n-title="backToGridTitle">←</button>
-                <span id="matchDetailIcon"></span>
-                <h2 id="matchDetailTitle"></h2>
-              </div>
-              <div id="matchDetailBody"></div>
-            </div>
-          </div>
-        </div>
+  <footer>
+    <div class="wrap">
+      <p class="riot-disclaimer">
+        Arena Win Tracker isn't endorsed by Riot Games and doesn't reflect the views or
+        opinions of Riot Games or anyone officially involved in producing or managing
+        Riot Games properties. Riot Games, and all associated properties are trademarks
+        or registered trademarks of Riot Games, Inc.
+      </p>
+      <div class="links">
+        <a href="privacy.html">Datenschutz</a>
+        <a href="terms.html">Nutzungsbedingungen</a>
       </div>
     </div>
-  </div>
+  </footer>
 
-  <!-- Cache-Busting: v=63 (+ K/D/A und Items in der Verlaufsliste) -->
-  <script src="app.js?v=63"></script>
 </body>
 </html>
