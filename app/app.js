@@ -869,7 +869,11 @@ function applyLanguageChange() {
   renderGrid();
   if (metaData) renderMeta(metaData);
   renderTop30TrioSection();
-  renderExternalTrioSection();
+  // Meta-Trios-Section (extern) wurde entfernt - stattdessen lebt hier
+  // jetzt der Spielverlauf, der bei Sprachwechsel neu gerendert werden muss
+  // (Platzierungs-Label, Datumsformat etc. sind sprachabhaengig).
+  const historyFilterInput = document.getElementById("placementHistoryFilter");
+  renderPlacementHistoryList(historyFilterInput ? historyFilterInput.value : "");
   if (currentDetailChamp && !document.getElementById("champDetail").classList.contains("hidden")) {
     openChampDetail(currentDetailChamp);
   }
@@ -1009,8 +1013,8 @@ document.addEventListener("keydown", (e) => {
         if (grid) grid.classList.remove("hidden");
         const t30 = document.getElementById("top30Trio");
         if (t30) t30.classList.remove("hidden");
-        const extTrio = document.getElementById("externalTrio");
-        if (extTrio) extTrio.classList.remove("hidden");
+        const mainHistory = document.getElementById("mainMatchHistorySection");
+        if (mainHistory) mainHistory.classList.remove("hidden");
         const rp = document.getElementById("rankingPanel");
         if (rp) rp.classList.remove("hidden");
         break;
@@ -1289,6 +1293,10 @@ function applyStats(stats) {
   saveState();
   renderGrid();
   updateSeasonProgress();
+  // Spielverlauf auf der Hauptseite (ersetzt die vorherigen Meta-Trios)
+  // nach jedem Laden/Sync neu befuellen.
+  const historyFilterInput = document.getElementById("placementHistoryFilter");
+  renderPlacementHistoryList(historyFilterInput ? historyFilterInput.value : "");
 }
 
 function formatLastSync(lastSync) {
@@ -1515,10 +1523,6 @@ function showChampTooltip(e, champ) {
 // der Platzierungsstatistik) - spart einen Umweg ueber die Match-Liste.
 function openMatchFromTooltip(champ, g, historyIndex) {
   hideChampTooltip();
-  const overlay = document.getElementById("placementStatsOverlay");
-  if (!overlay) return;
-  overlay.classList.remove("hidden");
-  switchPlacementStatsTab("history");
   openMatchDetail({ ...g, champKey: champ.key, champ, historyIndex });
 }
 
@@ -3689,7 +3693,7 @@ function openChampDetail(champ) {
   hideChampTooltip();
   document.getElementById("grid").classList.add("hidden");
   document.getElementById("top30Trio").classList.add("hidden");
-  document.getElementById("externalTrio").classList.add("hidden");
+  document.getElementById("mainMatchHistorySection")?.classList.add("hidden");
   document.getElementById("champBuildSidebar").classList.remove("hidden");
   document.getElementById("rankingPanel").classList.add("hidden");
   const detail = document.getElementById("champDetail");
@@ -3896,7 +3900,7 @@ function closeChampDetail() {
   document.getElementById("champDetail").classList.add("hidden");
   document.getElementById("grid").classList.remove("hidden");
   document.getElementById("top30Trio").classList.remove("hidden");
-  document.getElementById("externalTrio").classList.remove("hidden");
+  document.getElementById("mainMatchHistorySection")?.classList.remove("hidden");
   document.getElementById("champBuildSidebar").classList.add("hidden");
   document.getElementById("rankingPanel").classList.remove("hidden");
 }
@@ -4843,26 +4847,32 @@ async function renderPlacementHistoryList(filterText) {
 
     // Item 3348 ("Ozanes Beharrlichkeit"/Standard-Trinket) wird nicht in
     // der Vorschau angezeigt - kein echter Build-Slot, jeder Spieler hat es.
+    // Items als 3-spaltiges Grid (wie im League-Client) statt einer langen
+    // Reihe - Augments stehen in einem eigenen Grid daneben, durch eine
+    // Trennlinie klar von den Items abgesetzt (statt vorher alles vermischt
+    // in einer einzigen Reihe).
     const visibleItems = (m.items || []).filter((id) => id !== 3348);
-    const itemsRowHtml = visibleItems.length
-      ? `<span class="matchHistoryItemsRow">${visibleItems.map((id) => {
+    const itemsGridHtml = visibleItems.length
+      ? `<div class="matchHistoryItemsGrid">${visibleItems.map((id) => {
           const r = resolveItemIcon(id);
           return r.icon
             ? `<img class="matchHistoryItemIcon" src="${r.icon}" alt="${r.name}" title="${r.name}" />`
-            : "";
-        }).join("")}</span>`
+            : `<span class="matchHistoryItemIcon matchHistoryItemIconFallback" title="${r.name}"></span>`;
+        }).join("")}</div>`
       : "";
 
-    // NEU: Augments direkt hinter den Items in der Vorschau - gleiche
-    // Logik/Groesse wie Items, Tier-Farbe am Rand wie in der Detailansicht.
-    const augmentsRowHtml = (m.augments || []).length
-      ? `<span class="matchHistoryItemsRow">${m.augments.map((id) => {
+    const augmentsGridHtml = (m.augments || []).length
+      ? `<div class="matchHistoryAugmentsGrid">${m.augments.map((id) => {
           const r = resolveAugmentIcon(id);
           const tierClass = r.tier ? ` tier-${r.tier}` : "";
           return r.icon
             ? `<img class="matchHistoryItemIcon${tierClass}" src="${r.icon}" alt="${r.name}" title="${r.name}" />`
             : `<span class="matchHistoryItemIcon matchHistoryItemIconFallback${tierClass}" title="${r.name}"></span>`;
-        }).join("")}</span>`
+        }).join("")}</div>`
+      : "";
+
+    const loadoutHtml = (itemsGridHtml || augmentsGridHtml)
+      ? `<div class="matchHistoryLoadout">${itemsGridHtml}${itemsGridHtml && augmentsGridHtml ? '<span class="matchHistoryLoadoutDivider"></span>' : ""}${augmentsGridHtml}</div>`
       : "";
 
     return `
@@ -4874,12 +4884,9 @@ async function renderPlacementHistoryList(filterText) {
             <span class="placementChampTag${tagClass}">${placementLabel(m.placement)}</span>
             <span class="matchHistoryDate">${dateStr}</span>
           </div>
-          <div class="matchHistoryLine2">
-            ${kdaHtml}
-            ${itemsRowHtml}
-            ${augmentsRowHtml}
-            <span class="matchHistoryMates">${mateNames}</span>
-          </div>
+          ${kdaHtml}
+          ${loadoutHtml}
+          <span class="matchHistoryMates">${mateNames}</span>
         </div>
       </div>
     `;
@@ -4895,7 +4902,16 @@ async function renderPlacementHistoryList(filterText) {
 }
 
 async function openMatchDetail(m) {
-  document.getElementById("placementHistoryListView")?.classList.add("hidden");
+  // Der Spielverlauf lebt jetzt permanent auf der Hauptseite (kein eigener
+  // Tab mehr im "Meine Statistiken"-Fenster) - beim Klick auf ein Match
+  // oeffnen wir das Fenster direkt in der Detail-Ansicht, ohne Tab-Leiste,
+  // und ohne die (nicht mehr existierende) Listen-Unteransicht.
+  const overlay = document.getElementById("placementStatsOverlay");
+  if (overlay) overlay.classList.remove("hidden");
+  document.getElementById("placementStatsTabBar")?.classList.add("hidden");
+  document.getElementById("placementPanelPlacements")?.classList.add("hidden");
+  document.getElementById("placementPanelMates")?.classList.add("hidden");
+  document.getElementById("placementPanelHistory")?.classList.remove("hidden");
   document.getElementById("placementHistoryDetailView")?.classList.remove("hidden");
 
   const iconEl = document.getElementById("matchDetailIcon");
@@ -5062,9 +5078,14 @@ async function openMatchDetail(m) {
   `;
 }
 
+// Der Spielverlauf ist kein Tab im "Meine Statistiken"-Fenster mehr,
+// sondern eine permanente Section auf der Hauptseite (ersetzt dort die
+// vorherigen Meta-Trios). Der "Zurueck"-Pfeil in der Match-Detailansicht
+// schliesst deshalb jetzt das ganze Fenster, statt zurueck zu einer
+// (nicht mehr existierenden) Verlaufsliste im Fenster zu wechseln - die
+// Liste ist ja im Hintergrund auf der Hauptseite ohnehin schon sichtbar.
 function closeMatchDetail() {
-  document.getElementById("placementHistoryDetailView")?.classList.add("hidden");
-  document.getElementById("placementHistoryListView")?.classList.remove("hidden");
+  closePlacementStatsModal();
 }
 
 safeBind("placementHistoryDetailBack", "onclick", closeMatchDetail);
@@ -5072,28 +5093,24 @@ safeBind("placementHistoryDetailBack", "onclick", closeMatchDetail);
 function switchPlacementStatsTab(tab) {
   const btnPlacements = document.getElementById("placementTabBtnPlacements");
   const btnMates = document.getElementById("placementTabBtnMates");
-  const btnHistory = document.getElementById("placementTabBtnHistory");
   const panelPlacements = document.getElementById("placementPanelPlacements");
   const panelMates = document.getElementById("placementPanelMates");
-  const panelHistory = document.getElementById("placementPanelHistory");
   const isMates = tab === "mates";
-  const isHistory = tab === "history";
-  const isPlacements = !isMates && !isHistory;
+  const isPlacements = !isMates;
   btnPlacements?.classList.toggle("active", isPlacements);
   btnMates?.classList.toggle("active", isMates);
-  btnHistory?.classList.toggle("active", isHistory);
   panelPlacements?.classList.toggle("hidden", !isPlacements);
   panelMates?.classList.toggle("hidden", !isMates);
-  panelHistory?.classList.toggle("hidden", !isHistory);
+  // Match-Detail-Panel (falls gerade offen) und Tab-Leiste wieder in den
+  // Normalzustand bringen, wenn regulaer zwischen Champions/Mitspieler
+  // gewechselt wird.
+  document.getElementById("placementPanelHistory")?.classList.add("hidden");
+  document.getElementById("placementStatsTabBar")?.classList.remove("hidden");
   if (isMates) {
     closeTeammateDetail();
     const filterInput = document.getElementById("placementMateFilter");
     const sortSelect = document.getElementById("placementMateSort");
     renderPlacementMateList(filterInput ? filterInput.value : "", sortSelect ? sortSelect.value : "games");
-  } else if (isHistory) {
-    closeMatchDetail();
-    const filterInput = document.getElementById("placementHistoryFilter");
-    renderPlacementHistoryList(filterInput ? filterInput.value : "");
   } else {
     renderPlacementOverallSection();
     const filterInput = document.getElementById("placementChampFilter");
@@ -5105,8 +5122,7 @@ function switchPlacementStatsTab(tab) {
 // damit nicht unnoetig alle Tabs neu berechnet werden muessen.
 function renderPlacementStatsModal() {
   const matesActive = document.getElementById("placementTabBtnMates")?.classList.contains("active");
-  const historyActive = document.getElementById("placementTabBtnHistory")?.classList.contains("active");
-  switchPlacementStatsTab(historyActive ? "history" : matesActive ? "mates" : "placements");
+  switchPlacementStatsTab(matesActive ? "mates" : "placements");
 }
 
 function openPlacementStatsModal() {
@@ -5118,8 +5134,6 @@ function openPlacementStatsModal() {
   if (mateFilterInput) mateFilterInput.value = "";
   const mateSortSelect = document.getElementById("placementMateSort");
   if (mateSortSelect) mateSortSelect.value = "games";
-  const historyFilterInput = document.getElementById("placementHistoryFilter");
-  if (historyFilterInput) historyFilterInput.value = "";
   overlay.classList.remove("hidden");
   switchPlacementStatsTab("placements");
 }
@@ -5132,7 +5146,6 @@ safeBind("placementStatsBtn", "onclick", openPlacementStatsModal);
 safeBind("placementStatsClose", "onclick", closePlacementStatsModal);
 safeBind("placementTabBtnPlacements", "onclick", () => switchPlacementStatsTab("placements"));
 safeBind("placementTabBtnMates", "onclick", () => switchPlacementStatsTab("mates"));
-safeBind("placementTabBtnHistory", "onclick", () => switchPlacementStatsTab("history"));
 safeBind("placementChampFilter", "oninput", () => {
   const filterInput = document.getElementById("placementChampFilter");
   renderPlacementChampList(filterInput ? filterInput.value : "");
@@ -5160,7 +5173,10 @@ safeBind("placementHistoryFilter", "oninput", () => {
   await loadCommunityTierMap();
   renderGrid();
   loadMetaData();
-  loadExternalTrioMeta();
+  // Meta-Trios-Section (extern) entfernt - an ihrer Stelle steht jetzt der
+  // permanente Spielverlauf; einmal leer initialisieren, applyStats()
+  // befuellt ihn dann sobald die Server-Daten da sind.
+  renderPlacementHistoryList();
   ensureRankingLoaded();
 
   if (state.riotId && state.serverUrl) {

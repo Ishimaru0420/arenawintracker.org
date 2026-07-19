@@ -8,7 +8,7 @@
   <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
   <link rel="stylesheet" href="theme.css?v=1" />
   <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=54" />
+  <link rel="stylesheet" href="app.css?v=55" />
 
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
@@ -139,7 +139,13 @@
       <div id="rightSidebarCol">
         <button id="openItemsAugmentsBtn" data-i18n="openItemsAugmentsBtn">📦 Items &amp; Augments</button>
         <section id="champBuildSidebar" class="hidden"></section>
-        <section id="externalTrio"></section>
+        <!-- Meta-Trios entfernt - stattdessen permanenter Spielverlauf hier
+             auf der Hauptseite (nicht mehr nur im "Meine Statistiken"-Fenster). -->
+        <section id="mainMatchHistorySection" class="detailSection">
+          <h3 data-i18n="placementHistoryHeading">Spielverlauf (alle Arena-Runden)</h3>
+          <input id="placementHistoryFilter" type="text" placeholder="Champion suchen..." data-i18n-placeholder="champSearchPlaceholder" />
+          <div id="placementHistoryList"></div>
+        </section>
       </div>
     </div>
 
@@ -256,7 +262,6 @@
       <div class="dbTabBar" id="placementStatsTabBar">
         <button class="dbTabBtn active" id="placementTabBtnPlacements" data-i18n="placementTabPlacements">Champions</button>
         <button class="dbTabBtn" id="placementTabBtnMates" data-i18n="placementTabMates">Mitspieler</button>
-        <button class="dbTabBtn" id="placementTabBtnHistory" data-i18n="placementTabHistory">Verlauf</button>
       </div>
       <div id="placementStatsBody">
         <div class="dbTabPanel" id="placementPanelPlacements">
@@ -293,14 +298,9 @@
         </div>
         <div class="dbTabPanel hidden" id="placementPanelHistory">
           <div class="detailSection" id="placementHistorySection">
-            <div id="placementHistoryListView">
-              <h3 data-i18n="placementHistoryHeading">Spielverlauf (alle Arena-Runden)</h3>
-              <input id="placementHistoryFilter" type="text" placeholder="Champion suchen..." data-i18n-placeholder="champSearchPlaceholder" />
-              <div id="placementHistoryList"></div>
-            </div>
-            <div id="placementHistoryDetailView" class="hidden">
+            <div id="placementHistoryDetailView">
               <div class="detailHeader">
-                <button class="backArrowBtn" id="placementHistoryDetailBack" title="Zurück" data-i18n-title="backToGridTitle">←</button>
+                <button class="backArrowBtn" id="placementHistoryDetailBack" title="Schließen" data-i18n-title="closeTitle">←</button>
                 <span id="matchDetailIcon"></span>
                 <h2 id="matchDetailTitle"></h2>
               </div>
@@ -313,6 +313,6 @@
   </div>
 
   <!-- Cache-Busting: v=65 (+ Augments in der Verlaufsliste) -->
-  <script src="app.js?v=66"></script>
+  <script src="app.js?v=67"></script>
 </body>
 </html>

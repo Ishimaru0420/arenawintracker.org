@@ -654,7 +654,7 @@ button.danger:hover { background: #c43b4a; }
 #mainRow #grid, #mainRow #champDetail { flex: 1 1 auto; min-width: 0; }
 #top30Trio { display: none !important; }
 #rightSidebarCol { flex: 0 0 18%; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
-#externalTrio { flex: 1 1 auto; min-height: 0; }
+#mainMatchHistorySection { flex: 1 1 auto; min-height: 0; }
 
 /* ---------- Top-30-Trio-Section: entfernt (siehe display:none oben), Styling bleibt fuer evtl. Reaktivierung ---------- */
 #top30Trio {
@@ -670,18 +670,28 @@ button.danger:hover { background: #c43b4a; }
   text-transform: uppercase; letter-spacing: 0.04em;
 }
 
-/* ---------- Meta-Trio-Section (extern) - jetzt die einzige rechte Spalte ---------- */
-#externalTrio {
+/* ---------- Spielverlauf-Section - jetzt die einzige rechte Spalte,
+   ersetzt die vorherigen Meta-Trios. Eigenes internes Scrollen (statt wie
+   Top30Trio komplett sichtbar), da hier potenziell hunderte Matches
+   reinkommen koennen. ---------- */
+#mainMatchHistorySection {
   -webkit-app-region: no-drag;
   background: linear-gradient(180deg, #1a1212, #150f0d);
   border: 1px solid #3a2620; border-radius: 6px;
   padding: 8px 10px;
-  max-height: none; overflow: visible;
+  max-height: calc(100vh - 230px); overflow-y: auto;
 }
-#externalTrio.hidden { display: none; }
-#externalTrio h3 {
+#mainMatchHistorySection.hidden { display: none; }
+#mainMatchHistorySection h3 {
   font-size: 13px; color: #ff7a3c; margin: 0 0 8px;
   text-transform: uppercase; letter-spacing: 0.04em;
+}
+#mainMatchHistorySection::-webkit-scrollbar { width: 6px; }
+#mainMatchHistorySection::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 3px; }
+#placementHistoryFilter {
+  width: 100%; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 6px 8px; border-radius: 5px; font-size: 12px; margin-bottom: 6px;
 }
 
 @media (max-width: 900px) {
@@ -1215,27 +1225,40 @@ input:focus, select:focus, textarea:focus {
 .placementChampName { font-size: 12.5px; color: #f5ece6; font-weight: 600; min-width: 90px; flex-shrink: 0; }
 .mateNameHoverable { cursor: help; }
 
-/* ---------- Spielverlauf-Tab (My Stats -> Verlauf) ---------- */
-/* Zweizeiliges Karten-Layout (aehnlich League-Client-Spielverlauf) - groesseres
-   Champion-Icon links, rechts oben Name/Platzierung/Datum, darunter K/D/A +
-   Item-Icons + Mitspieler in groesserer, uebersichtlicherer Darstellung. */
+/* ---------- Spielverlauf (jetzt permanente Section auf der Hauptseite,
+   ersetzt dort die vorherigen Meta-Trios) ---------- */
+/* Gestapeltes Karten-Layout - Champion-Icon links, rechts Name/Platzierung/
+   Datum, darunter K/D/A, dann Items/Augments als getrennte Grids (wie im
+   League-Client), dann Mitspieler. In der schmalen Sidebar spaltenweise
+   statt in einer einzigen langen Reihe, damit alles lesbar bleibt. */
 .matchHistoryRow {
-  display: flex; align-items: center; gap: 10px;
-  background: rgba(255,122,60,0.04); border-radius: 8px; padding: 8px 10px; margin-bottom: 6px;
+  display: flex; align-items: flex-start; gap: 8px;
+  background: rgba(255,122,60,0.04); border-radius: 8px; padding: 8px 9px; margin-bottom: 6px;
 }
 .matchHistoryChampIconLg img {
-  width: 44px; height: 44px; border-radius: 7px; border: 2px solid #4a3a34; display: block;
+  width: 40px; height: 40px; border-radius: 7px; border: 2px solid #4a3a34; display: block;
 }
 .matchHistoryInfo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
-.matchHistoryLine1 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.matchHistoryLine2 { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.matchHistoryDate { font-size: 11px; color: #9c8882; flex-shrink: 0; white-space: nowrap; }
+.matchHistoryLine1 { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.matchHistoryDate { font-size: 10.5px; color: #9c8882; flex-shrink: 0; white-space: nowrap; }
 .matchHistoryKda {
-  font-size: 14px; color: #f5ece6; font-weight: 800; flex-shrink: 0; white-space: nowrap;
+  font-size: 13px; color: #f5ece6; font-weight: 800; white-space: nowrap;
 }
-.matchHistoryItemsRow { display: flex; gap: 4px; flex-shrink: 0; }
+/* Items und Augments klar getrennt: je ein eigenes 3-/2-spaltiges Grid,
+   dazwischen eine duenne Trennlinie - vorher standen beide unsortiert in
+   einer einzigen Reihe und waren kaum auseinanderzuhalten. */
+.matchHistoryLoadout { display: flex; align-items: flex-start; gap: 7px; }
+.matchHistoryItemsGrid {
+  display: grid; grid-template-columns: repeat(3, 24px); grid-auto-rows: 24px; gap: 3px;
+}
+.matchHistoryAugmentsGrid {
+  display: grid; grid-template-columns: repeat(2, 24px); grid-auto-rows: 24px; gap: 3px;
+}
+.matchHistoryLoadoutDivider {
+  width: 1px; align-self: stretch; background: #3a2620; flex-shrink: 0;
+}
 .matchHistoryItemIcon {
-  width: 32px; height: 32px; border-radius: 5px; border: 1px solid #4a3a34;
+  width: 24px; height: 24px; border-radius: 4px; border: 1px solid #4a3a34;
   object-fit: cover; display: block;
 }
 .matchHistoryItemIconFallback {
@@ -1245,7 +1268,7 @@ input:focus, select:focus, textarea:focus {
 .matchHistoryItemIcon.tier-gold { border-color: #e0b25c; }
 .matchHistoryItemIcon.tier-prismatic { border-color: #d98fe0; }
 .matchHistoryMates {
-  font-size: 11.5px; color: #b3a39c; flex: 1; min-width: 80px;
+  font-size: 11px; color: #b3a39c; display: block; width: 100%;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
@@ -1333,7 +1356,6 @@ input:focus, select:focus, textarea:focus {
    getoggelt, hatte aber ohne diese CSS-Regeln gar keinen visuellen Effekt.
    Dadurch blieb die Liste beim Klick auf ein Match immer sichtbar stehen
    und die Detailansicht darunter sichtbar - wirkte wie "Klick tut nichts". */
-#placementHistoryListView.hidden { display: none; }
 #placementHistoryDetailView.hidden { display: none; }
 #placementMateDetailIcon img {
   width: 32px; height: 32px; border-radius: 6px; border: 2px solid #ff7a3c; flex-shrink: 0;
