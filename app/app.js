@@ -3818,14 +3818,12 @@ function bindRankCategoryTab(id, category) {
     document.getElementById("rankCatChampions").classList.toggle("active", category === "champions");
     document.getElementById("rankCatTotalWins").classList.toggle("active", category === "totalWins");
     document.getElementById("rankCatBestChamp").classList.toggle("active", category === "bestChampion");
-    document.getElementById("rankCatWinRate").classList.toggle("active", category === "winRate");
     loadRanking(currentRankingMode);
   });
 }
 bindRankCategoryTab("rankCatChampions", "champions");
 bindRankCategoryTab("rankCatTotalWins", "totalWins");
 bindRankCategoryTab("rankCatBestChamp", "bestChampion");
-bindRankCategoryTab("rankCatWinRate", "winRate");
 
 async function loadRanking(mode) {
   currentRankingMode = mode;
