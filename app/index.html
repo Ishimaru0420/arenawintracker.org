@@ -267,15 +267,25 @@
         </div>
         <div class="dbTabPanel hidden" id="placementPanelMates">
           <div class="detailSection" id="placementMatesSection">
-            <h3 data-i18n="placementMatesHeading">Mitspieler (nach gemeinsamen Spielen)</h3>
-            <div class="placementMatesToolbar">
-              <input id="placementMateFilter" type="text" placeholder="Mitspieler suchen..." data-i18n-placeholder="placementMateFilterPlaceholder" />
-              <select id="placementMateSort">
-                <option value="games" data-i18n="placementMateSortGames">Meiste Spiele</option>
-                <option value="wins" data-i18n="placementMateSortWins">Meiste Siege</option>
-              </select>
+            <div id="placementMateListView">
+              <h3 data-i18n="placementMatesHeading">Mitspieler (nach gemeinsamen Spielen)</h3>
+              <div class="placementMatesToolbar">
+                <input id="placementMateFilter" type="text" placeholder="Mitspieler suchen..." data-i18n-placeholder="placementMateFilterPlaceholder" />
+                <select id="placementMateSort">
+                  <option value="games" data-i18n="placementMateSortGames">Meiste Spiele</option>
+                  <option value="wins" data-i18n="placementMateSortWins">Meiste Siege</option>
+                </select>
+              </div>
+              <div id="placementMateList"></div>
             </div>
-            <div id="placementMateList"></div>
+            <div id="placementMateDetailView" class="hidden">
+              <div class="detailHeader">
+                <button class="backArrowBtn" id="placementMateDetailBack" title="Zurück" data-i18n-title="backToGridTitle">←</button>
+                <span id="placementMateDetailIcon"></span>
+                <h2 id="placementMateDetailName"></h2>
+              </div>
+              <div id="placementMateDetailBody"></div>
+            </div>
           </div>
         </div>
       </div>
