@@ -4256,7 +4256,7 @@ function computeTeammateStats() {
         if (!rawName) continue;
         const key = rawName.toLowerCase();
         if (!mates[key]) {
-          mates[key] = { name: rawName, games: 0, placementDist: {}, champCounts: {} };
+          mates[key] = { key, name: rawName, games: 0, placementDist: {}, champCounts: {} };
         }
         const entry = mates[key];
         entry.games++;
