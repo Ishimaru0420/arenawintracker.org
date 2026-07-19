@@ -1196,3 +1196,13 @@ input:focus, select:focus, textarea:focus {
 .placementStatsSummaryCard.win .placementStatsSummaryValue { color: #4ade80; }
 .placementStatsSummaryCard.second .placementStatsSummaryValue { color: #cfe3ff; }
 .placementStatsSummaryLabel { font-size: 9px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
+/* ---------- Mitspieler-Detailansicht (Klick auf einen Mitspieler) ---------- */
+.placementChampRow.clickableRow { cursor: pointer; transition: background 0.15s ease; }
+.placementChampRow.clickableRow:hover { background: rgba(255,122,60,0.10); }
+#placementMateDetailView.hidden { display: none; }
+#placementMateDetailView .detailHeader { margin-bottom: 8px; }
+#placementMateDetailIcon img {
+  width: 32px; height: 32px; border-radius: 6px; border: 2px solid #ff7a3c; flex-shrink: 0;
+}
+#placementMateDetailName { font-size: 15px; margin: 0; color: #ffb37a; flex: 1; }
