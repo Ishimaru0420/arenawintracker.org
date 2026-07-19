@@ -1,1 +1,1327 @@
 
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; height: 100%; font-family: "Segoe UI", Arial, sans-serif; }
+
+body {
+  background-color: #0b0707;
+  background-image:
+    radial-gradient(ellipse 480px 320px at 50% -8%, rgba(255,122,60,0.16), transparent 60%),
+    radial-gradient(ellipse 400px 400px at 100% 100%, rgba(155,61,219,0.10), transparent 65%),
+    url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><path d='M0 100 L20 92 L30 112 L52 102 L65 124 L90 110 L107 132 L134 116 L155 136 L180 122' stroke='%23ff7a3c' stroke-width='1' fill='none' opacity='0.09'/><path d='M45 0 L38 25 L57 34 L48 62 L70 72 L61 100' stroke='%23ff7a3c' stroke-width='1' fill='none' opacity='0.06'/><path d='M135 0 L144 20 L126 31 L132 53' stroke='%239b3ddb' stroke-width='1' fill='none' opacity='0.07'/><circle cx='30' cy='112' r='1.5' fill='%23ff7a3c' opacity='0.3'/><circle cx='134' cy='116' r='1.1' fill='%239b3ddb' opacity='0.25'/><circle cx='168' cy='35' r='1' fill='%23ff7a3c' opacity='0.18'/></svg>");
+  background-repeat: no-repeat, no-repeat, repeat;
+  color: #f5ece6;
+  -webkit-app-region: drag;
+}
+
+#app { display: flex; flex-direction: column; min-height: 100vh; padding: 10px; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  -webkit-app-region: drag;
+}
+header h1 { font-size: 16px; margin: 4px 0; color: #ffb37a; }
+#settingsToggle {
+  -webkit-app-region: no-drag;
+  background: none; border: none; color: #b3a39c; font-size: 18px; cursor: pointer;
+}
+
+#settingsPanel {
+  -webkit-app-region: no-drag;
+  background: linear-gradient(180deg, #221715, #1a1212);
+  border: 1px solid #3a2620;
+  box-shadow: inset 0 1px 0 rgba(255,200,170,0.07);
+  border-radius: 8px; padding: 10px; margin-bottom: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+#settingsPanel.hidden { display: none; }
+#settingsPanel label { font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+#settingsPanel input, #settingsPanel select {
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 5px 7px; border-radius: 5px; font-size: 13px;
+}
+.settingsActions { display: flex; gap: 8px; margin-top: 4px; }
+#settingsPanel .hint { font-size: 11px; color: #9c8882; margin: 4px 0 0; }
+
+.seasonStartRow { display: flex; gap: 6px; }
+.seasonStartRow input { flex: 1; }
+#resetSeasonStart {
+  flex-shrink: 0; font-size: 11px; padding: 5px 8px;
+  background: #2a1c17; color: #ccc;
+}
+#resetSeasonStart:hover { background: #3a2620; }
+
+button {
+  -webkit-app-region: no-drag;
+  background: #ff7a3c; color: #1f0e04; border: none; padding: 6px 10px;
+  border-radius: 5px; cursor: pointer; font-size: 12px; font-weight: 600;
+}
+button:hover { background: #ff9159; }
+button.danger { background: #9c2330; color: #fff; }
+button.danger:hover { background: #c43b4a; }
+
+#statusBar {
+  -webkit-app-region: no-drag;
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 12px; color: #b3a39c; margin-bottom: 8px;
+}
+
+#summary {
+  -webkit-app-region: no-drag;
+  display: flex; align-items: center; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;
+}
+#summaryText { font-size: 12px; color: #ffb37a; font-weight: 600; }
+#overallStatsText { font-size: 11px; color: #a89690; }
+
+/* ---------- Tages-Meta: Trio-Combos & Augment-Synergien ---------- */
+
+#metaSection {
+  -webkit-app-region: no-drag;
+  margin-top: 10px; padding-top: 10px; border-top: 1px solid #2a1c17;
+}
+#metaSection.hidden { display: none; }
+.metaTitle { font-size: 13px; color: #ffb37a; margin: 0 0 8px; }
+.metaColumns { display: flex; gap: 8px; }
+.metaCol {
+  flex: 1; min-width: 0; background: rgba(255,122,60,0.035);
+  border: 1px solid #2a1c17; border-radius: 6px; padding: 6px 8px;
+  max-height: 160px; overflow-y: auto;
+}
+.metaCol h3 { font-size: 11px; color: #a89690; margin: 0 0 6px; text-transform: uppercase; letter-spacing: 0.04em; }
+.metaItem { font-size: 10px; line-height: 1.4; padding: 4px 0; border-bottom: 1px solid rgba(255,122,60,0.07); }
+.metaItem:last-child { border-bottom: none; }
+.metaTier { color: #ffb37a; font-weight: 700; margin-right: 4px; }
+.metaName { color: #f5ece6; font-weight: 600; }
+.metaPartners { color: #a89690; display: block; }
+.metaUpdated { font-size: 10px; color: #8a766f; margin: 6px 0 0; text-align: right; }
+.metaCol::-webkit-scrollbar { width: 4px; }
+.metaCol::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
+#filterInput {
+  flex: 1; background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
+}
+.checkboxLabel { font-size: 11px; color: #b3a39c; display: flex; align-items: center; gap: 4px; }
+#sortMode {
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px; cursor: pointer;
+}
+
+/* ---------- Header: mehrere Buttons rechts ---------- */
+.headerBtns { display: flex; gap: 4px; -webkit-app-region: no-drag; }
+
+/* ---------- Freunde-Panel ---------- */
+#friendsPanel {
+  -webkit-app-region: no-drag;
+  background: linear-gradient(180deg, #221715, #1a1212);
+  border: 1px solid #3a2620;
+  box-shadow: inset 0 1px 0 rgba(255,200,170,0.07);
+  border-radius: 8px; padding: 10px; margin-bottom: 8px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+#friendsPanel.hidden { display: none; }
+#friendsPanel label { font-size: 12px; display: flex; flex-direction: column; gap: 3px; }
+#friendsPanel input {
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 5px 7px; border-radius: 5px; font-size: 13px;
+}
+#friendsList { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+#friendsList li {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(255,122,60,0.05); border-radius: 5px; padding: 5px 8px; font-size: 12px;
+}
+#friendsList .removeFriendBtn {
+  background: none; border: none; color: #f87171; cursor: pointer; font-size: 13px; padding: 0 4px;
+}
+#friendsList .friendEmpty { color: #9c8882; font-size: 12px; padding: 4px 0; }
+
+.suggestList { list-style: none; margin: 0 0 4px; padding: 0; display: flex; flex-direction: column; gap: 4px; max-height: 120px; overflow-y: auto; }
+.suggestList li {
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(255,122,60,0.07); border: 1px solid #2a1c17;
+  border-radius: 5px; padding: 5px 8px; font-size: 12px; cursor: pointer;
+}
+.suggestList li:hover { background: rgba(255,122,60,0.18); }
+.suggestList .suggestAdd { color: #ffb37a; font-weight: 700; font-size: 13px; }
+.suggestList .suggestEmpty { color: #9c8882; cursor: default; }
+.suggestList .suggestEmpty:hover { background: rgba(255,122,60,0.07); }
+.suggestList::-webkit-scrollbar { width: 4px; }
+.suggestList::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
+
+/* ---------- Ranking-Panel: jetzt feste linke Spalte in #mainRow ---------- */
+#rankingPanel {
+  background: rgba(20, 13, 11, 0.97); border: 1px solid #3a2620;
+  border-radius: 10px; padding: 12px; box-shadow: 0 4px 14px rgba(0,0,0,0.3);
+  display: flex; flex-direction: column; min-width: 0;
+}
+#rankingPanel.hidden { display: none; }
+.rankingStatsBtn { width: 100%; font-size: 12px; padding: 8px 10px; margin-bottom: 10px; }
+.rankingTabs { display: flex; gap: 6px; margin-bottom: 10px; }
+.rankingTab {
+  flex: 1; background: #221715; color: #b3a39c; border: 1px solid #3a2620;
+  padding: 8px 10px; border-radius: 6px; font-size: 13.5px; cursor: pointer;
+}
+.rankingTab.active { background: #ff7a3c; color: #1f0e04; border-color: #ff7a3c; }
+
+.rankingCategoryTabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.rankCatTab {
+  flex: 1; background: #16100d; color: #9c8882; border: 1px solid #2a1c17;
+  padding: 5px 4px; border-radius: 5px; font-size: 11px; cursor: pointer;
+}
+.rankCatTab.active { background: #2a1c17; color: #ffb37a; border-color: #ff7a3c; }
+
+#rankingList {
+  list-style: none; margin: 0; padding: 0; flex: 1;
+  display: flex; flex-direction: column; gap: 5px;
+}
+#rankingList li {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13.5px; padding: 7px 9px; border-radius: 6px;
+  background: rgba(255,122,60,0.035);
+}
+#rankingList li.me { background: rgba(255,122,60,0.22); border: 1px solid #ff7a3c; }
+#rankingList .rankNum { width: 22px; flex-shrink: 0; color: #a89690; font-weight: 700; text-align: right; }
+.rankBestChampIcon {
+  width: 22px; height: 22px; border-radius: 4px; border: 1px solid #4a3a34;
+  flex-shrink: 0; margin-left: auto;
+}
+
+/* Podium-Faerbung nach Platzierung - Rahmen + Nummer in der jeweiligen
+   Farbe, mit sanft pulsierendem Funkel-Glow (analog zu den Champion-
+   Tier-Raendern), damit Platz 1-3 wirklich auffallen statt nur grau/
+   blass zu wirken. */
+@keyframes rankGlowGold {
+  0%, 100% { box-shadow: inset 0 0 0 1px #ffcc33, 0 0 4px rgba(255, 204, 51, 0.5); }
+  50%      { box-shadow: inset 0 0 0 1px #fff066, 0 0 11px rgba(255, 204, 51, 1); }
+}
+@keyframes rankGlowSilver {
+  0%, 100% { box-shadow: inset 0 0 0 1px #cfe3ff, 0 0 3px rgba(207, 227, 255, 0.5); }
+  50%      { box-shadow: inset 0 0 0 1px #eaf3ff, 0 0 9px rgba(207, 227, 255, 0.95); }
+}
+@keyframes rankGlowBronze {
+  0%, 100% { box-shadow: inset 0 0 0 1px #e08a3f, 0 0 3px rgba(224, 138, 63, 0.45); }
+  50%      { box-shadow: inset 0 0 0 1px #f0a85c, 0 0 8px rgba(224, 138, 63, 0.85); }
+}
+
+#rankingList li.rank-gold {
+  background: rgba(255, 204, 51, 0.12); border: 1px solid #ffcc33;
+  animation: rankGlowGold 2s ease-in-out infinite;
+  position: relative;
+}
+#rankingList li.rank-gold .rankNum, #rankingList li.rank-gold .rankName { color: #ffcc33; }
+#rankingList li.rank-gold::after {
+  content: "✦";
+  position: absolute; top: -5px; right: 4px;
+  font-size: 9px; color: #fff066; text-shadow: 0 0 5px #ffcc33;
+  animation: tierSparkleSpin 2.6s linear infinite;
+  pointer-events: none;
+}
+
+#rankingList li.rank-silver {
+  background: rgba(207, 227, 255, 0.12); border: 1px solid #cfe3ff;
+  animation: rankGlowSilver 2.3s ease-in-out infinite;
+}
+#rankingList li.rank-silver .rankNum, #rankingList li.rank-silver .rankName { color: #dfeaff; }
+
+#rankingList li.rank-bronze {
+  background: rgba(224, 138, 63, 0.12); border: 1px solid #e08a3f;
+  animation: rankGlowBronze 2.6s ease-in-out infinite;
+}
+#rankingList li.rank-bronze .rankNum, #rankingList li.rank-bronze .rankName { color: #e08a3f; }
+
+@media (prefers-reduced-motion: reduce) {
+  #rankingList li.rank-gold, #rankingList li.rank-silver, #rankingList li.rank-bronze { animation: none; }
+  #rankingList li.rank-gold::after { animation: none; }
+}
+
+/* Running Gag: schlechte Holz-/Schlamm-Farbe, solange dieser Account
+   nicht selbst auf dem Podium steht (siehe app.js RUNNING_GAG_RIOTID). */
+#rankingList li.rank-lizard {
+  background: rgba(92, 64, 27, 0.25); border: 1px solid #5c401b;
+}
+#rankingList li.rank-lizard .rankNum, #rankingList li.rank-lizard .rankName { color: #8a6a3a; }
+#rankingList .rankName { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #f5ece6; }
+#rankingList .rankWins { color: #4ade80; font-weight: 700; flex-shrink: 0; }
+#rankingList .rankWinRate { color: #ff9f4a; font-weight: 700; flex-shrink: 0; font-size: 0.82em; margin-right: 6px; opacity: 0.85; }
+#rankingList .rankWinRateBig { color: #ff9f4a; font-weight: 700; flex-shrink: 0; font-size: 1em; margin-right: 8px; }
+#rankingList .rankWinRateTooFew { color: #a89690; font-weight: 400; }
+#rankingList .rankEmpty { color: #9c8882; padding: 6px 2px; font-size: 11px; }
+#rankingList::-webkit-scrollbar { width: 4px; }
+#rankingList::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 2px; }
+#rankingList li.clickable { cursor: pointer; }
+#rankingList li.clickable:hover { background: rgba(255,122,60,0.16); }
+.opggLink {
+  display: flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; flex-shrink: 0;
+  border: 1px solid #3a2620; border-radius: 4px; padding: 2px;
+  background: #16100d;
+}
+.opggLink img { width: 16px; height: 16px; object-fit: contain; display: block; }
+.opggLink:hover { border-color: #ff7a3c; }
+.rankingUpdateNote { font-size: 12px; color: #9c8882; margin: 10px 0 0; }
+
+/* ---------- Spieler-Fortschritts-Modal (Klick auf Ranking-Eintrag) ---------- */
+#playerViewOverlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(8, 5, 4, 0.78);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+#playerViewOverlay.hidden { display: none; }
+#playerViewBox {
+  background: #1a1212; border: 1px solid #3a2620; border-radius: 10px;
+  width: 100%; max-width: 480px; max-height: 85vh;
+  padding: 14px; display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+}
+#playerViewHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.playerViewHeaderBtns { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+#playerViewAddFriend {
+  font-size: 11px; padding: 5px 9px;
+}
+#playerViewAddFriend.hidden { display: none; }
+#playerViewAddFriend.already {
+  background: #2a1c17; color: #9c8882; cursor: default;
+}
+#playerViewAddFriend.already:hover { background: #2a1c17; }
+#playerViewName { font-size: 16px; margin: 0; color: #ffb37a; }
+#playerViewClose {
+  background: none; border: none; color: #b3a39c; font-size: 16px; cursor: pointer;
+  padding: 2px 6px;
+}
+#playerViewClose:hover { color: #fff; }
+#playerViewSummary { font-size: 12px; color: #a89690; margin: 0; }
+#playerViewFilter {
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 5px 7px; border-radius: 5px; font-size: 12px;
+}
+#playerViewGrid {
+  flex: 1; overflow-y: auto;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px; padding-right: 2px;
+}
+#playerViewGrid::-webkit-scrollbar { width: 6px; }
+#playerViewGrid::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 3px; }
+
+#grid {
+  -webkit-app-region: no-drag;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px; padding-right: 2px;
+  /* Ohne dies verteilt CSS Grid die Zeilen ueber die volle (fixe)
+     Container-Hoehe, sobald z.B. durch "nur offene anzeigen" nur noch
+     wenige Champions uebrig sind - das erzeugt grosse Luecken zwischen
+     den Zeilen. Zeilen sollen stattdessen oben zusammenbleiben. */
+  align-content: start;
+}
+#grid.hidden { display: none; }
+
+/* ---------- Items & Augments: Button ueber der Meta-Trios-Sidebar ---------- */
+#openItemsAugmentsBtn {
+  width: 100%; font-size: 12px; padding: 8px 10px;
+}
+
+/* ---------- Items & Augments: grosses Browser-Modal ---------- */
+#itemsAugmentsOverlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(8, 5, 4, 0.78);
+  display: flex; align-items: center; justify-content: center;
+  padding: 10px;
+}
+#itemsAugmentsOverlay.hidden { display: none; }
+#buildConvertPickerOverlay {
+  position: fixed; inset: 0; z-index: 250;
+  background: rgba(8, 5, 4, 0.85);
+  display: flex; align-items: center; justify-content: center;
+  padding: 10px;
+}
+#buildConvertPickerOverlay.hidden { display: none; }
+#buildConvertPickerBox {
+  background: #1a1212; border: 1px solid #3a2620; border-radius: 10px;
+  width: 100%; max-width: 700px; max-height: 80vh;
+  padding: 16px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+}
+#buildConvertPickerHeader { display: flex; align-items: center; gap: 8px; }
+#buildConvertPickerHeader h3 { margin: 0; font-size: 15px; color: #ffb37a; flex-shrink: 0; }
+#buildConvertPickerSearch {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 8px 10px; border-radius: 5px; font-size: 13px;
+}
+#buildConvertPickerClose {
+  background: none; border: none; color: #b3a39c; font-size: 16px; cursor: pointer;
+  padding: 2px 6px; flex-shrink: 0;
+}
+#buildConvertPickerClose:hover { color: #fff; }
+#buildConvertPickerHint { font-size: 11px; color: #a89690; margin: 0; }
+#buildConvertPickerGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+  gap: 6px; overflow-y: auto; padding-right: 4px;
+}
+.buildConvertPickerChamp {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  cursor: pointer; padding: 4px; border-radius: 6px; border: 1px solid transparent;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.buildConvertPickerChamp:hover { background: rgba(255,122,60,0.12); border-color: #ff7a3c; }
+.buildConvertPickerChamp img { width: 40px; height: 40px; border-radius: 5px; }
+.buildConvertPickerChamp span { font-size: 10px; color: #d9c9c1; text-align: center; line-height: 1.2; }
+#itemsAugmentsBox {
+  background: #1a1212; border: 1px solid #3a2620; border-radius: 10px;
+  width: 100%; max-width: 1900px; height: 96vh;
+  padding: 16px; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+}
+#itemsAugmentsHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+#itemsAugmentsHeader h2 { font-size: 19px; margin: 0; color: #ffb37a; }
+#itemsAugmentsClose {
+  background: none; border: none; color: #b3a39c; font-size: 18px; cursor: pointer;
+  padding: 2px 6px;
+}
+#itemsAugmentsClose:hover { color: #fff; }
+#itemsAugmentsClearFilter { font-size: 12px; padding: 6px 10px; }
+#itemsAugmentsClearFilter.hidden { display: none; }
+#itemsAugmentsHint { font-size: 12px; color: #a89690; margin: 0; }
+#iaSearchRow { display: flex; gap: 8px; }
+#iaSearchInput {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
+}
+#iaCategoryFilter, #iaEditCategoryFilter {
+  flex-shrink: 0; max-width: 180px;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px; cursor: pointer;
+}
+
+#itemsAugmentsBody { flex: 1; min-height: 0; display: flex; gap: 18px; }
+#itemsAugmentsBody.hidden { display: none; }
+#iaAugmentsCol, #iaItemsCol {
+  flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px;
+  overflow-y: auto; padding-right: 6px;
+}
+#iaAugmentsCol::-webkit-scrollbar, #iaItemsCol::-webkit-scrollbar { width: 7px; }
+#iaAugmentsCol::-webkit-scrollbar-thumb, #iaItemsCol::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 3px; }
+#iaAugmentsCol > h3, #iaItemsCol > h3 {
+  font-size: 15px; color: #ff7a3c; margin: 0;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+.iaTierGroup { margin-bottom: 14px; }
+.iaTierLabel {
+  font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+  margin: 10px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #3a2620;
+  cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 6px;
+}
+.iaTierLabel::before {
+  content: "▾"; display: inline-block; font-size: 10px; transition: transform 0.15s;
+}
+.iaTierGroup.collapsed .iaTierLabel::before { transform: rotate(-90deg); }
+.iaTierGroup.collapsed .iaGrid { display: none; }
+.iaTierLabel.tier-silver { color: #c0c0c0; }
+.iaTierLabel.tier-gold { color: #ffd700; }
+.iaTierLabel.tier-prismatic { color: #cfe3ff; }
+.iaTierLabel.tier-boots { color: #9c8882; }
+.iaTierLabel.tier-legendary { color: #ffb37a; }
+.iaTierLabel.tier-quest { color: #8de6a3; }
+.iaTierLabel.tier-anvil { color: #d8a8e0; }
+.iaTierLabel.tier-juice { color: #7fd4e0; }
+
+.iaGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 7px;
+}
+.iaTile {
+  position: relative; cursor: pointer;
+  border: 2px solid #4a3a34; border-radius: 7px; overflow: hidden;
+  background: #16100d; aspect-ratio: 1 / 1;
+  transition: border-color 0.15s, opacity 0.15s, filter 0.15s;
+}
+.iaTile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.iaTile:hover { border-color: #ff7a3c; }
+.iaTile.selected { border-color: #ff7a3c; box-shadow: 0 0 0 2px rgba(255,122,60,0.4); }
+.iaTile.dimmed { opacity: 0.25; filter: grayscale(0.6); pointer-events: none; }
+.iaTile.fallback {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: #9c8882; text-align: center; padding: 2px;
+}
+
+.iaTooltip {
+  position: fixed; z-index: 300;
+  background: rgba(10, 31, 53, 0.97); border: 1px solid #4a3a34; border-radius: 6px;
+  padding: 8px 10px; max-width: 280px; font-size: 12px; color: #f5ece6;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.5); pointer-events: none;
+}
+.iaTooltip.hidden { display: none; }
+.iaTooltip .iaTooltipTitle { font-weight: 700; color: #ffb37a; margin-bottom: 4px; }
+.iaTooltip .iaTooltipPrice { font-size: 11px; color: #ffd700; margin-bottom: 4px; }
+.iaTooltip .iaTooltipDesc { line-height: 1.4; }
+
+@media (max-width: 900px) {
+  #itemsAugmentsBody { flex-direction: column; }
+  #itemsAugmentsBox { height: 96vh; }
+}
+
+/* ---------- Items & Augments: Detail-/Filter-Ansicht nach Klick ---------- */
+#iaDetailView { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 4px; }
+#iaDetailView.hidden { display: none; }
+#iaSelectedCard {
+  display: flex; gap: 12px; align-items: flex-start; flex-shrink: 0;
+  background: linear-gradient(180deg, #1E2328, #161B22); border: 1px solid #5a463a; border-radius: 8px;
+  padding: 12px;
+}
+#iaSelectedCard img { width: 64px; height: 64px; border-radius: 8px; border: 2px solid #ff7a3c; flex-shrink: 0; }
+#iaSelectedCard .iaSelectedInfo { flex: 1; min-width: 0; }
+#iaSelectedCard .iaSelectedName { font-size: 15px; font-weight: 700; color: #ffb37a; margin-bottom: 4px; }
+#iaSelectedCard .iaSelectedPrice { font-size: 12px; color: #ffd700; margin-bottom: 4px; }
+#iaSelectedCard .iaSelectedDesc { font-size: 12.5px; line-height: 1.5; color: #f5ece6; }
+
+#iaSynergyResults h4 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690;
+  margin: 0 0 8px;
+}
+#iaSynergyResults .iaTierGroup { margin-bottom: 10px; }
+
+/* ---------- Items & Augments: Synergie-Editor ---------- */
+#iaEditModeBtn.active { background: linear-gradient(180deg, #4ade80, #22c55e) !important; color: #0b1f0f !important; }
+#iaEditView { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 12px; overflow-y: auto; padding-right: 6px; }
+#iaEditView.hidden { display: none; }
+
+#iaEditHint { font-size: 12px; color: #a89690; margin: 0; }
+#iaEditSelectedCard {
+  display: flex; gap: 12px; align-items: center; flex-shrink: 0; min-height: 48px;
+  background: linear-gradient(180deg, #1a1212, #150f0d); border: 1px solid #5a463a; border-radius: 8px;
+  padding: 12px 14px; font-size: 14px; color: #a89690;
+}
+#iaEditSelectedCard img { width: 56px; height: 56px; border-radius: 6px; border: 2px solid #4ade80; }
+#iaEditSelectedCard .iaSelectedName { font-size: 16px; font-weight: 700; color: #ffb37a; }
+
+#iaEditSearchRow { display: flex; gap: 8px; flex-shrink: 0; }
+#iaEditSearchInput {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
+}
+#iaEditItemsGrid { flex-shrink: 0; }
+#iaEditItemsGrid .iaGrid {
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+}
+#iaEditItemsGrid .iaTile.synergySelected { border-color: #4ade80; box-shadow: 0 0 0 2px rgba(74,222,128,0.45); }
+#iaEditItemsGrid .iaTile { position: relative; }
+
+/* ---------- Items & Augments: Preset-Erstellung ---------- */
+#iaPresetView { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 6px; }
+#iaPresetView.hidden { display: none; }
+.iaEditHintLike { font-size: 12px; color: #a89690; margin: 0; }
+
+#iaPresetExisting {
+  background: linear-gradient(180deg, #1a1212, #150f0d); border: 1px solid #3a2620;
+  border-radius: 8px; padding: 10px 12px; flex-shrink: 0;
+}
+#iaPresetExisting h4 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690; margin: 0 0 8px;
+}
+#iaPresetExistingList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; max-height: 140px; overflow-y: auto; }
+#iaPresetExistingList li {
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(255,122,60,0.05); border-radius: 5px; padding: 5px 8px; font-size: 12px;
+}
+.iaPresetListName { flex: 1; color: #f5ece6; font-weight: 600; }
+.iaPresetListNameClickable { cursor: pointer; }
+.iaPresetListNameClickable:hover { color: #ff7a3c; }
+.iaPresetListCount { color: #9c8882; font-size: 11px; }
+.iaPresetDeleteBtn {
+  background: none; border: none; color: #f87171; cursor: pointer; font-size: 13px; padding: 0 4px;
+}
+.iaPresetConvertBtn {
+  background: none; border: 1px solid #3a2620; color: #ffb37a; cursor: pointer;
+  font-size: 11px; padding: 2px 6px; border-radius: 4px; white-space: nowrap;
+}
+.iaPresetConvertBtn:hover { background: rgba(255,122,60,0.15); border-color: #ff7a3c; }
+.champBuildBlockHeader { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.champBuildEditBtn {
+  background: none; border: none; color: #9c8882; cursor: pointer; font-size: 13px; padding: 2px 6px; flex-shrink: 0;
+}
+.champBuildEditBtn:hover { color: #ff7a3c; }
+
+/* ---- Champion-Build-Sidebar (rechte Spalte, nur bei offener Champion-Ansicht) ---- */
+#champBuildSidebar {
+  background: linear-gradient(180deg, #1a1212, #150f0d);
+  border: 1px solid #3a2620; border-radius: 6px; padding: 8px 10px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+#champBuildSidebar.hidden { display: none; }
+#champBuildSidebar h3 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690; margin: 0 0 2px; }
+.champBuildSidebarPill {
+  display: flex; align-items: center; gap: 8px; cursor: pointer;
+  background: rgba(255,122,60,0.06); border: 1px solid #3a2620; border-radius: 6px;
+  padding: 6px 8px; transition: background 0.15s ease, border-color 0.15s ease;
+}
+.champBuildSidebarPill:hover, .champBuildSidebarPill.active { background: rgba(255,122,60,0.16); border-color: #ff7a3c; }
+.champBuildSidebarPill img { width: 26px; height: 26px; border-radius: 4px; flex-shrink: 0; }
+.champBuildSidebarPillName { font-size: 12px; color: #f5ece6; font-weight: 600; line-height: 1.25; }
+.champBuildSidebarPillCreator { font-size: 10px; color: #9c8882; font-weight: 400; display: block; }
+
+/* ---- Build-Vollansicht (ersetzt Quicksuche+Augments+Items im Hauptbereich) ---- */
+#champBuildFullView .detailHeader { margin-bottom: 4px; }
+.champBuildFullBackBtn {
+  background: none; border: 1px solid #3a2620; color: #ffb37a; cursor: pointer;
+  font-size: 11px; padding: 4px 10px; border-radius: 5px; margin-bottom: 8px;
+}
+.champBuildFullBackBtn:hover { background: rgba(255,122,60,0.12); border-color: #ff7a3c; }
+.champBuildEntryNote { font-size: 11px; color: #9c8882; font-style: italic; margin: 2px 0 8px; }
+
+/* ---- Skill-Path-Grid (Build-Editor) ---- */
+#buildSkillPathSection.hidden, #buildSelectedNotesSection.hidden { display: none; }
+#buildSkillPathSection h4, #buildSelectedNotesSection h4 {
+  font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690; margin: 10px 0 6px;
+}
+#buildSkillPathGrid { display: flex; flex-direction: column; gap: 2px; overflow-x: auto; }
+.buildSkillRow { display: flex; align-items: center; gap: 3px; }
+.buildSkillRowLabel {
+  width: 22px; flex-shrink: 0; text-align: center; font-size: 11px; font-weight: 700;
+  color: #ffb37a; background: rgba(255,122,60,0.1); border-radius: 4px; padding: 3px 0;
+}
+.buildSkillCell {
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: 4px;
+  background: #16100d; border: 1px solid #3a2620; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 700; color: #6a4a44;
+}
+.buildSkillCell:hover { border-color: #ff7a3c; }
+.buildSkillCell.filled { background: #ff7a3c; color: #1a1212; border-color: #ff7a3c; }
+#buildSkillPathReset { font-size: 11px; padding: 5px 10px; margin-top: 6px; }
+
+/* ---- Notizen-Liste im Build-Editor ---- */
+#buildSelectedNotesList { display: flex; flex-direction: column; gap: 5px; max-height: 160px; overflow-y: auto; }
+.buildNoteRow { display: flex; align-items: center; gap: 6px; background: rgba(255,122,60,0.05); border-radius: 5px; padding: 4px 6px; }
+.buildNoteRow img { width: 22px; height: 22px; border-radius: 4px; flex-shrink: 0; }
+.buildNoteRowName { font-size: 11px; color: #f5ece6; flex-shrink: 0; min-width: 90px; }
+.buildNoteRowInput {
+  flex: 1; min-width: 0; box-sizing: border-box; background: #16100d; border: 1px solid #3a2620;
+  color: #fff; padding: 4px 6px; border-radius: 4px; font-size: 11px;
+}
+.iaPresetEmpty { color: #9c8882; font-size: 12px; padding: 4px 0; }
+.iaPresetListCreator, .champPresetBlockCreator {
+  font-size: 11px; font-weight: 400; color: #9c8882; margin-left: 4px;
+}
+
+#iaPresetNameRow { display: flex; gap: 8px; flex-shrink: 0; }
+#iaPresetNameInput {
+  flex: 2; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px; font-weight: 600;
+}
+#iaPresetCreatorInput {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
+}
+#iaPresetSearchRow { display: flex; gap: 8px; flex-shrink: 0; }
+#iaPresetSearchInput {
+  flex: 1; min-width: 0; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 9px 11px; border-radius: 5px; font-size: 13px;
+}
+#iaPresetItemsGrid { flex-shrink: 0; }
+#iaPresetItemsGrid .iaGrid {
+  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+}
+#iaPresetItemsGrid h4 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690;
+  margin: 12px 0 8px;
+}
+#iaEditItemsGrid .iaTile .iaEditBadge {
+  position: absolute; bottom: -4px; right: -4px;
+  width: 18px; height: 18px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 700; line-height: 1;
+  background: #4a3a34; color: #f5ece6; border: 1px solid #16100d;
+}
+#iaEditItemsGrid .iaTile.synergySelected .iaEditBadge { background: #ef4444; color: #fff; }
+#iaEditItemsGrid .iaTile:not(.synergySelected) .iaEditBadge { background: #22c55e; color: #fff; }
+#iaEditItemsGrid h4 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690;
+  margin: 12px 0 8px;
+}
+#iaEditActions { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding-top: 8px; }
+#iaEditActions button { font-size: 13px; padding: 8px 14px; }
+#iaEditStatus { font-size: 11px; color: #4ade80; }
+
+/* ---------- Hauptzeile: Leaderboard | Grid/Detailansicht | Top-30-Trios ---------- */
+#mainRow {
+  flex: 1; display: flex; gap: 10px;
+}
+#rankingPanel { flex: 0 0 24%; }
+#mainRow #grid, #mainRow #champDetail { flex: 1 1 auto; min-width: 0; }
+#top30Trio { display: none !important; }
+#rightSidebarCol { flex: 0 0 18%; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+#externalTrio { flex: 1 1 auto; min-height: 0; }
+
+/* ---------- Top-30-Trio-Section: entfernt (siehe display:none oben), Styling bleibt fuer evtl. Reaktivierung ---------- */
+#top30Trio {
+  -webkit-app-region: no-drag;
+  background: linear-gradient(180deg, #1a1212, #150f0d);
+  border: 1px solid #3a2620; border-radius: 6px;
+  padding: 8px 10px;
+  max-height: none; overflow: visible; /* komplett sichtbar, kein internes Scrollen */
+}
+#top30Trio.hidden { display: none; }
+#top30Trio h3 {
+  font-size: 13px; color: #ff7a3c; margin: 0 0 8px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+/* ---------- Meta-Trio-Section (extern) - jetzt die einzige rechte Spalte ---------- */
+#externalTrio {
+  -webkit-app-region: no-drag;
+  background: linear-gradient(180deg, #1a1212, #150f0d);
+  border: 1px solid #3a2620; border-radius: 6px;
+  padding: 8px 10px;
+  max-height: none; overflow: visible;
+}
+#externalTrio.hidden { display: none; }
+#externalTrio h3 {
+  font-size: 13px; color: #ff7a3c; margin: 0 0 8px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+
+@media (max-width: 900px) {
+  #mainRow { flex-direction: column; }
+  #rankingPanel, #rightSidebarCol { flex: 1 1 auto; }
+}
+
+.champ {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 4px; border-radius: 6px; background: rgba(255,122,60,0.035);
+  position: relative; cursor: pointer; transition: background 0.15s ease;
+}
+.champ:hover { background: rgba(255,122,60,0.09); }
+
+/* Einheitlicher Fokus-Zustand fuer alle Eingabefelder/Dropdowns im
+   gesamten Dashboard - vorher hatte keines einen sichtbaren Fokus-Rahmen. */
+input:focus, select:focus, textarea:focus {
+  outline: none; border-color: #ff7a3c !important;
+  box-shadow: 0 0 0 2px rgba(255,122,60,0.25);
+}
+.champ img {
+  width: 48px; height: 48px; border-radius: 6px; border: 2px solid #4a3a34;
+}
+.champ.won img { border-color: #22c55e; }
+.champ.lost img { border-color: #ef4444; opacity: 0.9; }
+.champ.missing img { border-color: #555; opacity: 0.7; }
+.champ span { font-size: 10px; text-align: center; line-height: 1.1; }
+.champ.won span { color: #4ade80; }
+.champ.lost span { color: #f87171; }
+.champ.missing span { color: #9c8882; }
+
+/* Win-Counter-Badge oben rechts auf dem Champion-Icon */
+.winBadge {
+  position: absolute; top: 1px; right: 1px;
+  background: rgba(20, 13, 11, 0.92);
+  color: #fff; font-size: 9px; font-weight: 700;
+  min-width: 16px; height: 16px; line-height: 16px;
+  text-align: center; border-radius: 8px; padding: 0 3px;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+
+/* Rahmen-Stufen ab bestimmter Win-Anzahl - der Aussenrahmen bleibt
+   IMMER gruen (won), die Tier-Farbe wird als Innenlinie (inset
+   box-shadow) hinzugefuegt, ueberlagert sich also nicht. Zusaetzlich
+   pulsiert der Glow sanft (Funkel-Effekt). */
+@keyframes tierGlowBronze {
+  0%, 100% { box-shadow: inset 0 0 0 2px #cd7f32, 0 0 3px rgba(205, 127, 50, 0.45); }
+  50%      { box-shadow: inset 0 0 0 2px #e29347, 0 0 8px rgba(205, 127, 50, 0.9); }
+}
+@keyframes tierGlowSilver {
+  0%, 100% { box-shadow: inset 0 0 0 2px #c0c0c0, 0 0 4px rgba(192, 192, 192, 0.55); }
+  50%      { box-shadow: inset 0 0 0 2px #e8e8e8, 0 0 10px rgba(220, 220, 220, 1); }
+}
+@keyframes tierGlowGold {
+  0%, 100% { box-shadow: inset 0 0 0 2px #ffd700, 0 0 5px rgba(255, 215, 0, 0.65); }
+  50%      { box-shadow: inset 0 0 0 2px #fff066, 0 0 12px rgba(255, 215, 0, 1); }
+}
+
+.champ.tier-bronze img {
+  border-color: #22c55e;
+  animation: tierGlowBronze 2.4s ease-in-out infinite;
+}
+.champ.tier-bronze .winBadge { background: #cd7f32; border-color: #a9682a; }
+
+.champ.tier-silver img {
+  border-color: #22c55e;
+  animation: tierGlowSilver 2.1s ease-in-out infinite;
+}
+.champ.tier-silver .winBadge { background: #c0c0c0; color: #16100d; border-color: #9a9a9a; }
+
+.champ.tier-gold img {
+  border-color: #22c55e;
+  animation: tierGlowGold 1.8s ease-in-out infinite;
+}
+.champ.tier-gold .winBadge { background: #ffd700; color: #16100d; border-color: #cca700; }
+
+/* Zusaetzliches Funkel-Glitzern auf dem Gold-Tier - kleiner rotierender
+   Lichtpunkt am Rand, fuer den hoechsten Status nochmal etwas Extra. */
+@keyframes tierSparkleSpin {
+  0%   { transform: rotate(0deg); opacity: 0.9; }
+  50%  { opacity: 0.3; }
+  100% { transform: rotate(360deg); opacity: 0.9; }
+}
+.champ.tier-gold {
+  position: relative;
+}
+.champ.tier-gold::after {
+  content: "✦";
+  position: absolute;
+  top: -3px; left: -3px;
+  font-size: 9px;
+  color: #fff066;
+  text-shadow: 0 0 4px #ffd700;
+  animation: tierSparkleSpin 2.6s linear infinite;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .champ.tier-bronze img, .champ.tier-silver img, .champ.tier-gold img { animation: none; }
+  .champ.tier-gold::after { animation: none; }
+}
+
+#grid::-webkit-scrollbar { width: 6px; }
+#grid::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 3px; }
+
+/* ---------- Diagnose ---------- */
+
+.diagBox h3 { font-size: 13px; color: #ffb37a; margin: 0 0 6px; }
+.diagHighlight { font-size: 12px; color: #4ade80; margin: 0 0 8px; }
+.diagTable { width: 100%; border-collapse: collapse; font-size: 11px; }
+.diagTable th, .diagTable td {
+  border: 1px solid #3a2620; padding: 4px 6px; text-align: left;
+}
+.diagTable th { background: rgba(255,122,60,0.06); }
+.diagRowArena { background: rgba(255,122,60,0.13); }
+
+/* ---------- Champion Hover-Tooltip ---------- */
+
+#champTooltip {
+  position: fixed;
+  z-index: 1000;
+  background: rgba(20, 13, 11, 0.97);
+  border: 1px solid #ff7a3c;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  max-width: 220px;
+  max-height: 260px;
+  overflow-y: auto;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+}
+#champTooltip.hidden { display: none; }
+.tooltipTitle { font-weight: 700; color: #ffb37a; margin-bottom: 4px; font-size: 12px; }
+.tooltipCount { color: #a89690; margin-bottom: 6px; }
+.tooltipEmpty { color: #9c8882; }
+.tooltipList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.tooltipList li { padding-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.tooltipList li:last-child { border-bottom: none; padding-bottom: 0; }
+.tooltipDate { color: #f5ece6; }
+.tooltipList li.tooltipWin .tooltipDate { color: #f5ece6; font-weight: 600; }
+.tooltipList li.tooltipLose .tooltipDate { color: #f5ece6; }
+.placementBadge { font-weight: 700; margin-left: 4px; }
+.placementWin {
+  color: #4ade80; text-shadow: 0 0 6px rgba(74, 222, 128, 0.85);
+}
+.placementLose { color: #f87171; }
+.tooltipMates { color: #a89690; font-size: 10px; margin-top: 3px; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+.tooltipMate { display: inline-flex; align-items: center; gap: 3px; }
+.tooltipMate img {
+  width: 16px; height: 16px; border-radius: 3px; border: 1px solid #4a3a34;
+  flex-shrink: 0;
+}
+#champTooltip::-webkit-scrollbar { width: 4px; }
+#champTooltip::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+
+#mateTrioTooltip {
+  position: fixed;
+  z-index: 1000;
+  background: rgba(20, 13, 11, 0.97);
+  border: 1px solid #ff7a3c;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 11px;
+  max-width: 240px;
+  max-height: 260px;
+  overflow-y: auto;
+  pointer-events: none;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.45);
+}
+#mateTrioTooltip.hidden { display: none; }
+#mateTrioTooltip::-webkit-scrollbar { width: 4px; }
+#mateTrioTooltip::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+.mateTrioRow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 3px 0;
+}
+.mateTrioName { color: #f5ece6; font-weight: 600; }
+.mateTrioMeta { color: #a89690; font-size: 10px; white-space: nowrap; }
+.mateTrioWinrate { color: #ffb35c; font-weight: 700; margin-right: 4px; }
+
+
+
+/* ---------- Champion-Detailansicht (Klick auf Champion-Kachel) ---------- */
+
+#champDetail {
+  -webkit-app-region: no-drag;
+  flex: 1; overflow-y: auto; padding-right: 2px;
+}
+#champDetail.hidden { display: none; }
+#champDetail::-webkit-scrollbar { width: 6px; }
+#champDetail::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 3px; }
+
+.detailGrid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  align-items: start;
+}
+.detailColMiddle { display: flex; flex-direction: column; gap: 10px; }
+
+@media (max-width: 640px) {
+  .detailGrid3 { grid-template-columns: 1fr; }
+}
+
+.detailHeader {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 8px; border-bottom: 1px solid #3a2620;
+}
+.detailHeader img {
+  width: 40px; height: 40px; border-radius: 6px; border: 2px solid #ff7a3c;
+}
+.detailHeader h2 { flex: 1; font-size: 15px; margin: 0; color: #ffb37a; }
+
+/* ---------- Champion-Seite: Preset-Auswahl (reine Anzeige) ---------- */
+.champPresetsToggle {
+  cursor: pointer; user-select: none; display: flex; align-items: center; gap: 6px;
+}
+.champPresetsToggle::before {
+  content: "▾"; display: inline-block; font-size: 10px; transition: transform 0.15s;
+}
+.champPresetsToggle.collapsed::before { transform: rotate(-90deg); }
+.champPresetsExplain { margin: 2px 0 8px; }
+#champPresetPills { display: flex; flex-wrap: wrap; gap: 6px; }
+.champPresetPill {
+  background: #16100d; border: 1px solid #3a2620; color: #f5ece6;
+  border-radius: 16px; padding: 5px 12px; font-size: 12px; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.champPresetPill:hover { border-color: #ff7a3c; }
+.champPresetPill.active { background: rgba(255,122,60,0.18); border-color: #ff7a3c; color: #ffb37a; font-weight: 700; }
+.champPresetPillCreator { font-weight: 400; color: #9c8882; font-size: 10.5px; }
+
+#champPresetEntries { margin-top: 10px; }
+.champPresetActiveName {
+  font-size: 14px; font-weight: 700; color: #ffb37a; margin: 0 0 8px;
+}
+.champPresetKindLabel {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: #a89690;
+  margin: 8px 0 4px;
+}
+#champPresetEntries .iaGrid {
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+}
+
+.backArrowBtn {
+  width: 28px; height: 28px; flex-shrink: 0; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; line-height: 1; border-radius: 50%;
+}
+
+.detailSection {
+  background: linear-gradient(180deg, #1a1212, #150f0d);
+  border: 1px solid #3a2620; border-radius: 6px; padding: 8px 10px;
+}
+.detailSection h3 {
+  font-size: 11px; color: #ff7a3c; margin: 0 0 6px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.detailEmpty { font-size: 11px; color: #9c8882; margin: 0; }
+
+.detailPartnerList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
+.detailPartnerList li {
+  display: flex; align-items: center; gap: 6px;
+  background: rgba(255,122,60,0.04); border-radius: 5px; padding: 4px 6px; font-size: 11px;
+}
+.detailPartnerGroup { flex: 1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.detailPartner { display: inline-flex; align-items: center; gap: 4px; color: #f5ece6; }
+.detailPartner img { width: 18px; height: 18px; border-radius: 3px; border: 1px solid #4a3a34; flex-shrink: 0; }
+.detailWinRate { color: #22c55e; font-weight: 700; flex-shrink: 0; }
+
+.detailTagList {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-wrap: wrap; gap: 5px;
+}
+.detailTagList li {
+  background: rgba(255,122,60,0.08); border: 1px solid #3a2620;
+  border-radius: 5px; padding: 3px 8px; font-size: 11px; color: #f5ece6;
+}
+.detailTagList li.clickableTag {
+  cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease;
+}
+.detailTagList li.clickableTag:hover {
+  background: rgba(255,122,60,0.18); border-color: #ff7a3c;
+}
+.dbIconList li.clickableTag {
+  cursor: pointer; transition: background 0.15s ease, border-color 0.15s ease;
+}
+.dbIconList li.clickableTag:hover {
+  background: rgba(255,122,60,0.18); border-color: #ff7a3c;
+}
+.detailTagList li img {
+  width: 28px; height: 28px; border-radius: 4px; display: block;
+}
+.detailTagList li:has(img) {
+  padding: 3px; background: rgba(255,122,60,0.06);
+}
+
+.detailTrioList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.detailTrioList li {
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(255,122,60,0.04); border-radius: 5px; padding: 5px 8px; font-size: 12.5px;
+}
+.detailTrioRank { width: 20px; flex-shrink: 0; color: #9c8882; font-weight: 700; text-align: right; font-size: 12.5px; }
+.detailTrioNames { flex: 1; min-width: 0; color: #f5ece6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12.5px; }
+.detailTrioRank { width: 16px; flex-shrink: 0; color: #9c8882; font-weight: 700; text-align: right; }
+.detailTrioNames { flex: 1; min-width: 0; color: #f5ece6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.detailStatCheck {
+  background: rgba(34,197,94,0.10); border: 1px solid #22c55e;
+  border-radius: 6px; padding: 7px 10px; font-size: 11px; color: #4ade80;
+}
+
+.detailSkillOrder {
+  background: linear-gradient(180deg, #1a1212, #150f0d);
+  border: 1px solid #3a2620; border-radius: 6px;
+  padding: 7px 10px; font-size: 12px; color: #f5ece6;
+}
+.detailSkillOrderLabel {
+  color: #ff7a3c; font-weight: 700; text-transform: uppercase;
+  font-size: 10.5px; letter-spacing: 0.04em; margin-right: 6px;
+}
+.detailEmptyInline { color: #9c8882; font-weight: 400; text-transform: none; }
+
+.detailTactics { }
+.detailTacticsList {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px;
+}
+.detailTacticsList li {
+  position: relative; padding-left: 14px; font-size: 11.5px; color: #f5ece6; line-height: 1.4;
+}
+.detailTacticsList li::before {
+  content: "•"; position: absolute; left: 0; color: #ff7a3c; font-weight: 700;
+}
+
+/* ---------- Standard-Datenbank / KI-Analyse (Champion-Detailansicht) ---------- */
+.dbHeaderRow { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+
+/* Meta-Tier-Badge (S+/S/A/B/C/D aus der Standard-Datenbank) - bewusst eigene
+   Klasse/Farbpalette, getrennt von .champ.tier-gold/-silver/-bronze (das ist
+   die WIN-STREAK-Faerbung im Grid, ein anderes Konzept). */
+.metaTierBadge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 26px; height: 22px; padding: 0 6px; border-radius: 5px;
+  font-size: 12px; font-weight: 800; letter-spacing: 0.02em; flex-shrink: 0;
+  border: 1px solid transparent;
+}
+.metaTier-splus { background: rgba(255,61,61,0.18); color: #ff6b6b; border-color: #ff3d3d; }
+.metaTier-s     { background: rgba(255,122,60,0.18); color: #ffb37a; border-color: #ff7a3c; }
+.metaTier-a     { background: rgba(255,215,0,0.14); color: #ffd86b; border-color: #cca700; }
+.metaTier-b     { background: rgba(155,219,140,0.12); color: #9bdb8c; border-color: #5fa852; }
+.metaTier-c     { background: rgba(155,170,219,0.12); color: #aebbe6; border-color: #6a7bb0; }
+.metaTier-d     { background: rgba(156,136,130,0.12); color: #9c8882; border-color: #5a4a44; }
+.metaTier-unknown { background: rgba(156,136,130,0.10); color: #9c8882; border-color: #4a3a34; }
+
+/* Stat-Kacheln (Winrate/Top3/Pickrate/Banrate/KDA/Platzierung/Spiele) */
+.dbStatGrid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(64px, 1fr));
+  gap: 6px; margin-bottom: 4px;
+}
+.dbStatCard {
+  background: rgba(255,122,60,0.05); border: 1px solid #3a2620; border-radius: 6px;
+  padding: 6px 4px; text-align: center;
+}
+.dbStatValue { font-size: 14px; font-weight: 800; color: #ffb37a; line-height: 1.2; }
+.dbStatLabel { font-size: 9px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
+/* Tabs fuer die Augment-"Spielstile" (Gesamt/Silber/Gold/Prismatic) */
+.dbTabBar { display: flex; gap: 4px; flex-wrap: wrap; margin: 6px 0 8px; }
+.dbTabBtn {
+  background: rgba(255,122,60,0.05); border: 1px solid #3a2620; color: #b3a39c;
+  border-radius: 5px; padding: 4px 10px; font-size: 11px; cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.dbTabBtn:hover { border-color: #ff7a3c; color: #f5ece6; }
+.dbTabBtn.active { background: rgba(255,122,60,0.18); border-color: #ff7a3c; color: #ffb37a; font-weight: 700; }
+.dbTabPanel.hidden { display: none; }
+
+/* Die beiden Haupt-Tabs "Champions" / "Mitspieler" im Statistik-Modal
+   sollen groesser und auffaelliger wirken als die kleineren
+   Unter-Tabs (z.B. Augment-Spielstile) - daher hier gezielt auf den
+   Wrapper #placementStatsTabBar beschraenkt statt global auf .dbTabBtn. */
+#placementStatsTabBar { justify-content: center; gap: 8px; margin: 4px 0 12px; }
+#placementStatsTabBar .dbTabBtn {
+  font-size: 14px; font-weight: 700; padding: 9px 18px; border-radius: 7px;
+  background: #241812; border: 1px solid #3a2620; color: #9c8882;
+}
+#placementStatsTabBar .dbTabBtn:hover { border-color: #ff7a3c; color: #f5ece6; }
+#placementStatsTabBar .dbTabBtn.active {
+  background: #ff7a3c; border-color: #ff7a3c; color: #1f0e04;
+  box-shadow: 0 0 0 2px rgba(255,122,60,0.35);
+}
+
+/* Icon+Name(+Prozent)-Reihen: Augments, Items, Champion-Synergien */
+.dbIconList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.dbIconRow {
+  display: flex; align-items: center; gap: 7px;
+  background: rgba(255,122,60,0.04); border-radius: 5px; padding: 4px 7px; font-size: 12px;
+  cursor: default;
+}
+.dbIconRow-icon { width: 24px; height: 24px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.dbIconRow-icon img { width: 24px; height: 24px; border-radius: 4px; border: 1px solid #4a3a34; display: block; }
+.dbIconFallback {
+  width: 24px; height: 24px; border-radius: 4px; border: 1px solid #4a3a34;
+  background: #1a1212; color: #9c8882; font-size: 9px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+}
+.dbIconRow-name { flex: 1; min-width: 0; color: #f5ece6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dbIconRow-pct { color: #4ade80; font-weight: 700; font-size: 11px; flex-shrink: 0; white-space: nowrap; }
+.dbDiffTag { color: #ffb37a; font-weight: 600; margin-left: 4px; font-size: 10.5px; }
+
+/* ---------- Tier-Listen-Sortierung im Hauptmenue (eigene Abschnitte, alle offen) ---------- */
+.tierSectionHeader {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; gap: 8px;
+  margin: 10px 0 4px; padding-bottom: 4px; border-bottom: 1px solid #3a2620;
+}
+.tierSectionHeader:first-child { margin-top: 0; }
+.tierSectionLabel { font-size: 11px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; }
+.tierSectionCount { margin-left: auto; font-size: 11px; color: #9c8882; }
+.tierSectionGrid {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 6px;
+}
+
+/* Zwei-Spalten-Layout der Standard-Datenbank (Augments+Items links,
+   Synergien+Stark-gegen+Skill-Reihenfolge rechts) - macht die Sektion
+   deutlich groesser/uebersichtlicher als die alte einspaltige Liste. */
+.dbTwoCol {
+  display: grid; grid-template-columns: 1.3fr 1fr; gap: 18px; margin-top: 10px;
+}
+@media (max-width: 640px) {
+  .dbTwoCol { grid-template-columns: 1fr; }
+}
+
+/* Skill-Reihenfolge als Q/W/E/R-Icon-Kette mit Pfeilen, statt nur Text */
+.dbSkillOrderRow { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.dbSkillIcon img {
+  width: 30px; height: 30px; border-radius: 5px; border: 1px solid #4a3a34; display: block;
+}
+.dbSkillArrow { color: #9c8882; font-size: 13px; margin: 0 2px; }
+
+/* Tier-Listen-Sortierung: Score unter dem Champion-Icon, Beschreibungszeile
+   mit den Top-Champions der Stufe (klickbar -> oeffnet Detailansicht) */
+.champScoreLabel { font-size: 9px; color: #ffb37a; font-weight: 700; }
+.tierSectionDesc {
+  grid-column: 1 / -1;
+  font-size: 11px; color: #9c8882; margin: -2px 0 6px;
+}
+.tierTopChampLink {
+  color: #ff7a3c; text-decoration: underline; cursor: pointer; font-weight: 600;
+}
+.tierTopChampLink:hover { color: #ffb37a; }
+
+/* Top-30-Trio-Sidebar: Champion-Icons statt Namenstext */
+.trioIconGroup { display: flex; align-items: center; gap: 4px; flex-wrap: nowrap; cursor: default; }
+.trioChampIcon { width: 28px; height: 28px; border-radius: 5px; border: 1px solid #4a3a34; flex-shrink: 0; }
+.trioChampIconFallback {
+  width: 28px; height: 28px; font-size: 10px; flex-shrink: 0;
+}
+
+/* ============================================================
+   NEU (19.07.2026): Eigene Statistik-Seite - Platzierungsverteilung
+   Zeigt: 1) Gesamt-Verteilung aller Platzierungen (1., 2., 3. Platz...)
+          2) Dieselbe Verteilung pro Champion, durchsuchbar
+   Rein clientseitig aus dem bereits geladenen state.matchHistory
+   berechnet - kein neuer Server-Endpunkt noetig.
+   ============================================================ */
+#placementStatsBtn {
+  font-size: 15px; padding: 6px 9px; line-height: 1;
+}
+#placementStatsOverlay {
+  position: fixed; inset: 0; z-index: 210;
+  background: rgba(8, 5, 4, 0.78);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+#placementStatsOverlay.hidden { display: none; }
+#placementStatsBox {
+  background: #1a1212; border: 1px solid #3a2620; border-radius: 10px;
+  width: 100%; max-width: 1180px; max-height: 90vh;
+  padding: 16px; display: flex; flex-direction: column; gap: 12px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5);
+}
+#placementStatsHeader { display: flex; justify-content: center; align-items: center; gap: 8px; position: relative; }
+#placementStatsHeader h2 { font-size: 17px; margin: 0; color: #ffb37a; text-align: center; }
+#placementStatsClose {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: #b3a39c; font-size: 18px; cursor: pointer;
+  padding: 2px 6px;
+}
+#placementStatsClose:hover { color: #fff; }
+#placementStatsBody { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; padding-right: 4px; }
+#placementStatsBody::-webkit-scrollbar { width: 6px; }
+#placementStatsBody::-webkit-scrollbar-thumb { background: #4a3a34; border-radius: 3px; }
+
+.placementBarList { display: flex; flex-direction: column; gap: 6px; margin-top: 6px; }
+.placementBarRow { display: flex; align-items: center; gap: 8px; }
+.placementBarLabel { width: 64px; flex-shrink: 0; font-size: 12px; color: #d9c9c1; }
+.placementBarTrack {
+  flex: 1; height: 14px; background: rgba(255,122,60,0.06);
+  border: 1px solid #3a2620; border-radius: 7px; overflow: hidden;
+}
+.placementBarFill {
+  height: 100%; background: linear-gradient(90deg, #ff7a3c, #ffb37a);
+  border-radius: 7px 0 0 7px; transition: width 0.3s ease;
+}
+.placementBarRow.placementBarWin .placementBarFill {
+  background: linear-gradient(90deg, #22c55e, #4ade80);
+}
+.placementBarRow.placementBarSecond .placementBarFill {
+  background: linear-gradient(90deg, #cfe3ff, #eaf3ff);
+}
+.placementBarRow.placementBarWin .placementBarLabel { color: #4ade80; font-weight: 700; }
+.placementBarRow.placementBarSecond .placementBarLabel { color: #cfe3ff; font-weight: 700; }
+.placementBarCount { width: 96px; flex-shrink: 0; text-align: right; font-size: 11px; color: #a89690; }
+
+#placementChampFilter {
+  width: 100%; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 8px 10px; border-radius: 5px; font-size: 13px; margin: 4px 0 8px;
+}
+.placementChampRow {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: rgba(255,122,60,0.04); border-radius: 6px; padding: 6px 8px; margin-bottom: 5px;
+}
+.placementChampIcon img {
+  width: 28px; height: 28px; border-radius: 5px; border: 1px solid #4a3a34; display: block;
+}
+.placementChampName { font-size: 12.5px; color: #f5ece6; font-weight: 600; min-width: 90px; flex-shrink: 0; }
+.mateNameHoverable { cursor: help; }
+
+/* ---------- Spielverlauf-Tab (My Stats -> Verlauf) ---------- */
+.matchHistoryRow {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: rgba(255,122,60,0.04); border-radius: 6px; padding: 6px 8px; margin-bottom: 5px;
+}
+.matchHistoryDate { font-size: 11px; color: #9c8882; flex-shrink: 0; white-space: nowrap; }
+.matchHistoryMates {
+  font-size: 11px; color: #b3a39c; flex: 1; min-width: 80px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Klickbare Zeilen im Champion-Hover-Tooltip (Spielverlauf) */
+.tooltipList li.clickableRow { cursor: pointer; border-radius: 4px; transition: background 0.15s ease; padding: 4px; margin: -4px; }
+.tooltipList li.clickableRow:hover { background: rgba(255,122,60,0.14); }
+
+/* Stats-Sektion (K/D/A, Level, Gold, Schaden) in der Match-Detailansicht */
+.matchDetailStatsGrid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 8px;
+}
+.matchDetailStatCard {
+  background: rgba(255,122,60,0.05); border: 1px solid #3a2620; border-radius: 6px;
+  padding: 8px 6px; text-align: center;
+}
+.matchDetailStatValue { font-size: 16px; font-weight: 800; color: #ffb37a; line-height: 1.2; }
+.matchDetailStatLabel { font-size: 9px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
+.matchDetailDate { font-size: 12px; color: #9c8882; margin: -4px 0 8px; }
+.matchDetailMatesRow { display: flex; flex-wrap: wrap; gap: 10px; }
+.matchDetailMate { font-size: 12px; color: #f5ece6; }
+.matchDetailMate img { width: 22px; height: 22px; }
+
+.matchDetailIaGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 7px;
+}
+.matchDetailIaTile {
+  position: relative;
+  border: 2px solid #4a3a34; border-radius: 7px; overflow: hidden;
+  background: #16100d; aspect-ratio: 1 / 1;
+}
+.matchDetailIaTile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.matchDetailIaTile.fallback {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #9c8882; text-align: center; padding: 2px;
+}
+.matchDetailIaTile.tier-silver { border-color: #b9c4cc; }
+.matchDetailIaTile.tier-gold { border-color: #e0b25c; }
+.matchDetailIaTile.tier-prismatic { border-color: #d98fe0; }
+
+.matchDetailMatchId { font-size: 10px; color: #6b5c56; margin-top: 4px; }
+.placementChampGames { font-size: 11px; color: #9c8882; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
+.placementChampWinrate { font-size: 11px; color: #ffb35c; font-weight: 700; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
+.placementChampBreakdown { display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; }
+.placementChampBreakdown .placementChampTag { white-space: nowrap; flex-shrink: 0; }
+.placementMatesToolbar { display: flex; gap: 8px; align-items: center; margin: 4px 0 8px; }
+.placementMatesToolbar #placementMateFilter { flex: 1; margin: 0; }
+#placementMateSort {
+  flex-shrink: 0; background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 8px 10px; border-radius: 5px; font-size: 13px; cursor: pointer;
+}
+.placementChampTag {
+  font-size: 10.5px; color: #d9c9c1; background: rgba(255,255,255,0.04);
+  border: 1px solid #3a2620; border-radius: 4px; padding: 1px 6px;
+}
+.placementChampTagWin {
+  color: #4ade80; border-color: #22c55e; background: rgba(34,197,94,0.12); font-weight: 700;
+}
+.placementChampTagSecond {
+  color: #cfe3ff; border-color: #cfe3ff; background: rgba(207,227,255,0.12); font-weight: 700;
+}
+.placementStatsSummaryRow {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 2px;
+}
+.placementStatsSummaryCard {
+  flex: 1; min-width: 90px;
+  background: rgba(255,122,60,0.05); border: 1px solid #3a2620; border-radius: 6px;
+  padding: 8px 6px; text-align: center;
+}
+.placementStatsSummaryValue { font-size: 18px; font-weight: 800; color: #ffb37a; line-height: 1.2; }
+.placementStatsSummaryCard.win .placementStatsSummaryValue { color: #4ade80; }
+.placementStatsSummaryCard.second .placementStatsSummaryValue { color: #cfe3ff; }
+.placementStatsSummaryLabel { font-size: 9px; color: #9c8882; text-transform: uppercase; letter-spacing: 0.03em; margin-top: 2px; }
+
+/* ---------- Mitspieler-Detailansicht (Klick auf einen Mitspieler) ---------- */
+.placementChampRow.clickableRow { cursor: pointer; transition: background 0.15s ease; }
+.placementChampRow.clickableRow:hover { background: rgba(255,122,60,0.10); }
+#placementMateListView.hidden { display: none; }
+#placementMateDetailView.hidden { display: none; }
+#placementMateDetailView .detailHeader { margin-bottom: 8px; }
+
+/* ---------- Spielverlauf-Detailansicht (Klick auf ein Match) ----------
+   FIX: diese beiden Regeln haben komplett gefehlt - die .hidden-Klasse
+   wurde von openMatchDetail()/closeMatchDetail() zwar korrekt per JS
+   getoggelt, hatte aber ohne diese CSS-Regeln gar keinen visuellen Effekt.
+   Dadurch blieb die Liste beim Klick auf ein Match immer sichtbar stehen
+   und die Detailansicht darunter sichtbar - wirkte wie "Klick tut nichts". */
+#placementHistoryListView.hidden { display: none; }
+#placementHistoryDetailView.hidden { display: none; }
+#placementMateDetailIcon img {
+  width: 32px; height: 32px; border-radius: 6px; border: 2px solid #ff7a3c; flex-shrink: 0;
+}
+#placementMateDetailName { font-size: 15px; margin: 0; color: #ffb37a; flex: 1; }
+.placementMateChampHeading {
+  font-size: 11px; color: #ff7a3c; margin: 14px 0 6px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+#placementMateDetailChampFilter {
+  width: 100%; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 8px 10px; border-radius: 5px; font-size: 13px; margin: 0 0 8px;
+}
