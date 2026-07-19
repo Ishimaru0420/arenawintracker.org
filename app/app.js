@@ -4846,13 +4846,19 @@ function renderPlacementHistoryList(filterText) {
 
     return `
       <div class="matchHistoryRow clickableRow" data-match-key="${matchDetailKey(m)}">
-        <span class="placementChampIcon">${champIconHtml}</span>
-        <span class="placementChampName">${m.champ ? m.champ.name : "?"}</span>
-        <span class="matchHistoryDate">${dateStr}</span>
-        <span class="placementChampTag${tagClass}">${placementLabel(m.placement)}</span>
-        ${kdaHtml}
-        ${itemsRowHtml}
-        <span class="matchHistoryMates">${mateNames}</span>
+        <span class="placementChampIcon matchHistoryChampIconLg">${champIconHtml}</span>
+        <div class="matchHistoryInfo">
+          <div class="matchHistoryLine1">
+            <span class="placementChampName">${m.champ ? m.champ.name : "?"}</span>
+            <span class="placementChampTag${tagClass}">${placementLabel(m.placement)}</span>
+            <span class="matchHistoryDate">${dateStr}</span>
+          </div>
+          <div class="matchHistoryLine2">
+            ${kdaHtml}
+            ${itemsRowHtml}
+            <span class="matchHistoryMates">${mateNames}</span>
+          </div>
+        </div>
       </div>
     `;
   }).join("");
