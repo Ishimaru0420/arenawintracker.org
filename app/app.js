@@ -3849,6 +3849,7 @@ async function loadRanking(mode) {
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || t("rankLoadFailed"));
     renderRanking(data.ranking || []);
+    rememberProfileIcons(data.ranking || []);
   } catch (err) {
     console.error(err);
     list.innerHTML = `<li class="rankEmpty">${t("errorPrefix")}${err.message}</li>`;
@@ -3881,6 +3882,37 @@ function buildOpggUrl(riotId, region) {
 // Braun-Farbe, ausser er schafft es selbst auf einen Podiumsplatz - dann
 // gilt fuer ihn ganz normal die Gold/Silber/Bronze-Farbe wie fuer alle.
 const RUNNING_GAG_RIOTID = "xlizardx#4747";
+
+const DEFAULT_PROFILE_ICON_ID = 29;
+
+// Merkt sich zu jedem bekannten Ranking-Namen (Teil vor dem "#") das
+// zuletzt gesehene profileIconId - genutzt, um im Mitspieler-Tab
+// dieselben echten Profilicons wie im Ranking anzuzeigen, statt
+// Champion-Icons. Bei Namensueberschneidungen (zwei Accounts mit
+// gleichem Namen, unterschiedlichem Tag) gewinnt der zuletzt geladene
+// Eintrag - ein Kompromiss, da Mitspieler-Daten selbst kein Tag speichern.
+let knownProfileIconsByName = {};
+
+function rememberProfileIcons(ranking) {
+  for (const entry of ranking) {
+    if (!entry.riotId) continue;
+    const gameName = entry.riotId.split("#")[0];
+    if (!gameName) continue;
+    knownProfileIconsByName[gameName.toLowerCase()] = entry.profileIconId || DEFAULT_PROFILE_ICON_ID;
+  }
+}
+
+// Baut dasselbe <img>-Markup wie im Ranking (echtes Profilicon + Fallback
+// auf Standard-Icon 29 bei Ladefehler). Ist der Name nicht aus dem
+// Ranking bekannt (Mitspieler nutzt die App selbst nicht/nicht
+// registriert), wird direkt das Standard-Icon verwendet.
+function buildProfileIconImg(displayName) {
+  const iconId = knownProfileIconsByName[displayName.toLowerCase()] || DEFAULT_PROFILE_ICON_ID;
+  if (!ddragonVersion) return `<span class="dbIconFallback">${displayName.slice(0, 2).toUpperCase()}</span>`;
+  const iconUrl = `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/profileicon/${iconId}.png`;
+  const fallbackUrl = `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/profileicon/${DEFAULT_PROFILE_ICON_ID}.png`;
+  return `<img src="${iconUrl}" alt="${displayName}" onerror="this.onerror=null;this.src='${fallbackUrl}';" />`;
+}
 
 function renderRanking(ranking) {
   const list = document.getElementById("rankingList");
@@ -4308,21 +4340,9 @@ function renderPlacementMateList(filterText, sortMode) {
       return `<span class="placementChampTag${tagClass}">${placementLabel(p)}: ${r.placementDist[p]}</span>`;
     }).join("");
 
-    // Rein kosmetisch: Icon des Champions, den dieser Mitspieler am
-    // haeufigsten gespielt hat, wenn er mit einem zusammen unterwegs
-    // war (der Mitspieler selbst hat ja keinen festen "eigenen" Champion).
-    let topChampKey = null;
-    let topChampCount = -1;
-    for (const apiName in r.champCounts) {
-      if (r.champCounts[apiName] > topChampCount) {
-        topChampCount = r.champCounts[apiName];
-        topChampKey = apiName;
-      }
-    }
-    const topChamp = topChampKey ? championByApiName[topChampKey] : null;
-    const iconHtml = topChamp
-      ? `<img src="${topChamp.icon}" alt="${topChamp.name}" title="${topChamp.name}" />`
-      : `<span class="dbIconFallback">${r.name.slice(0, 2).toUpperCase()}</span>`;
+    // Dasselbe Profilicon wie im Ranking (falls der Mitspieler dort als
+    // registrierter Nutzer bekannt ist), statt eines Champion-Icons.
+    const iconHtml = buildProfileIconImg(r.name);
     const mateKeyAttr = r.key.replace(/"/g, "&quot;");
 
     return `
@@ -4355,19 +4375,8 @@ function openTeammateDetail(mateKey) {
   const nameEl = document.getElementById("placementMateDetailName");
   if (nameEl) nameEl.textContent = entry.name;
 
-  let topChampKey = null;
-  let topChampCount = -1;
-  for (const apiName in entry.champCounts) {
-    if (entry.champCounts[apiName] > topChampCount) {
-      topChampCount = entry.champCounts[apiName];
-      topChampKey = apiName;
-    }
-  }
-  const topChamp = topChampKey ? championByApiName[topChampKey] : null;
   const iconEl = document.getElementById("placementMateDetailIcon");
-  if (iconEl) {
-    iconEl.innerHTML = topChamp ? `<img src="${topChamp.icon}" alt="${topChamp.name}" title="${topChamp.name}" />` : "";
-  }
+  if (iconEl) iconEl.innerHTML = buildProfileIconImg(entry.name);
 
   const bodyEl = document.getElementById("placementMateDetailBody");
   if (bodyEl) {
