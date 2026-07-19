@@ -4871,22 +4871,24 @@ async function renderPlacementHistoryList(filterText) {
         }).join("")}</div>`
       : "";
 
-    const loadoutHtml = (itemsGridHtml || augmentsGridHtml)
-      ? `<div class="matchHistoryLoadout">${itemsGridHtml}${itemsGridHtml && augmentsGridHtml ? '<span class="matchHistoryLoadoutDivider"></span>' : ""}${augmentsGridHtml}</div>`
+    // Mitspieler-Namen stehen jetzt direkt neben Items/Augments statt in
+    // einer eigenen Zeile darunter - spart Hoehe, macht die Karte
+    // kompakter. Champion-Name entfaellt (steht bereits im Icon-Tooltip).
+    const matesHtml = mateNames ? `<span class="matchHistoryMates">${mateNames}</span>` : "";
+    const loadoutHtml = (itemsGridHtml || augmentsGridHtml || matesHtml)
+      ? `<div class="matchHistoryLoadout">${itemsGridHtml}${itemsGridHtml && augmentsGridHtml ? '<span class="matchHistoryLoadoutDivider"></span>' : ""}${augmentsGridHtml}${matesHtml}</div>`
       : "";
 
     return `
-      <div class="matchHistoryRow clickableRow" data-match-key="${matchDetailKey(m)}">
+      <div class="matchHistoryRow clickableRow" data-match-key="${matchDetailKey(m)}" title="${m.champ ? m.champ.name : "?"}">
         <span class="placementChampIcon matchHistoryChampIconLg">${champIconHtml}</span>
         <div class="matchHistoryInfo">
           <div class="matchHistoryLine1">
-            <span class="placementChampName">${m.champ ? m.champ.name : "?"}</span>
             <span class="placementChampTag${tagClass}">${placementLabel(m.placement)}</span>
             <span class="matchHistoryDate">${dateStr}</span>
           </div>
           ${kdaHtml}
           ${loadoutHtml}
-          <span class="matchHistoryMates">${mateNames}</span>
         </div>
       </div>
     `;

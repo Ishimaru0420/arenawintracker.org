@@ -1,3 +1,4 @@
+
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; height: 100%; font-family: "Segoe UI", Arial, sans-serif; }
 
@@ -1250,7 +1251,7 @@ input:focus, select:focus, textarea:focus {
 /* Items und Augments klar getrennt: je ein eigenes 3-/2-spaltiges Grid,
    dazwischen eine duenne Trennlinie - vorher standen beide unsortiert in
    einer einzigen Reihe und waren kaum auseinanderzuhalten. */
-.matchHistoryLoadout { display: flex; align-items: flex-start; gap: 7px; }
+.matchHistoryLoadout { display: flex; align-items: center; gap: 7px; }
 .matchHistoryItemsGrid {
   display: grid; grid-template-columns: repeat(3, 24px); grid-auto-rows: 24px; gap: 3px;
 }
@@ -1271,7 +1272,7 @@ input:focus, select:focus, textarea:focus {
 .matchHistoryItemIcon.tier-gold { border-color: #e0b25c; }
 .matchHistoryItemIcon.tier-prismatic { border-color: #d98fe0; }
 .matchHistoryMates {
-  font-size: 11px; color: #b3a39c; display: block; width: 100%;
+  font-size: 11px; color: #b3a39c; flex: 1; min-width: 0; margin-left: 4px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
