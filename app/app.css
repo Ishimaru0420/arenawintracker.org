@@ -1272,8 +1272,11 @@ input:focus, select:focus, textarea:focus {
 .matchHistoryItemIcon.tier-gold { border-color: #e0b25c; }
 .matchHistoryItemIcon.tier-prismatic { border-color: #d98fe0; }
 .matchHistoryMates {
+  display: flex; flex-direction: column; gap: 2px;
   font-size: 11px; color: #b3a39c; flex: 1; min-width: 0; margin-left: 4px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.matchHistoryMateName {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%;
 }
 
 /* Klickbare Zeilen im Champion-Hover-Tooltip (Spielverlauf) */

@@ -4834,7 +4834,7 @@ async function renderPlacementHistoryList(filterText) {
       ? `<img src="${m.champ.icon}" alt="${m.champ.name}" />`
       : `<span class="dbIconFallback">${String(m.champKey).slice(0, 2)}</span>`;
     const dateStr = formatDateDDMMYYYY(m.date);
-    const mateNames = (m.teammates || []).map((tm) => tm.summoner).filter(Boolean).join(", ");
+    const mateNames = (m.teammates || []).map((tm) => tm.summoner).filter(Boolean);
 
     // NEU: kompakte Vorschau direkt in der Liste (K/D/A + Items), aehnlich
     // dem League-Client-Spielverlauf - spart bei vielen Matches den Klick
@@ -4874,7 +4874,12 @@ async function renderPlacementHistoryList(filterText) {
     // Mitspieler-Namen stehen jetzt direkt neben Items/Augments statt in
     // einer eigenen Zeile darunter - spart Hoehe, macht die Karte
     // kompakter. Champion-Name entfaellt (steht bereits im Icon-Tooltip).
-    const matesHtml = mateNames ? `<span class="matchHistoryMates">${mateNames}</span>` : "";
+    // Jeder Name in eigener Zeile (statt mit Komma aneinandergereiht),
+    // damit bei laengeren Namen alle lesbar bleiben statt abgeschnitten
+    // zu werden.
+    const matesHtml = mateNames.length
+      ? `<span class="matchHistoryMates">${mateNames.map((n) => `<span class="matchHistoryMateName" title="${n}">${n}</span>`).join("")}</span>`
+      : "";
     const loadoutHtml = (itemsGridHtml || augmentsGridHtml || matesHtml)
       ? `<div class="matchHistoryLoadout">${itemsGridHtml}${itemsGridHtml && augmentsGridHtml ? '<span class="matchHistoryLoadoutDivider"></span>' : ""}${augmentsGridHtml}${matesHtml}</div>`
       : "";
