@@ -4826,12 +4826,32 @@ function renderPlacementHistoryList(filterText) {
     const dateStr = formatDateDDMMYYYY(m.date);
     const mateNames = (m.teammates || []).map((tm) => tm.summoner).filter(Boolean).join(", ");
 
+    // NEU: kompakte Vorschau direkt in der Liste (K/D/A + Items), aehnlich
+    // dem League-Client-Spielverlauf - spart bei vielen Matches den Klick
+    // in die Detailansicht, nur um die grobe Runde einzuschaetzen. Nur
+    // vorhanden bei Matches, die schon Stats haben (siehe syncUser.js).
+    const hasStats = typeof m.kills === "number";
+    const kdaHtml = hasStats
+      ? `<span class="matchHistoryKda">${m.kills}/${m.deaths}/${m.assists}</span>`
+      : "";
+
+    const itemsRowHtml = (m.items || []).length
+      ? `<span class="matchHistoryItemsRow">${m.items.map((id) => {
+          const r = resolveItemIcon(id);
+          return r.icon
+            ? `<img class="matchHistoryItemIcon" src="${r.icon}" alt="${r.name}" title="${r.name}" />`
+            : "";
+        }).join("")}</span>`
+      : "";
+
     return `
       <div class="matchHistoryRow clickableRow" data-match-key="${matchDetailKey(m)}">
         <span class="placementChampIcon">${champIconHtml}</span>
         <span class="placementChampName">${m.champ ? m.champ.name : "?"}</span>
         <span class="matchHistoryDate">${dateStr}</span>
         <span class="placementChampTag${tagClass}">${placementLabel(m.placement)}</span>
+        ${kdaHtml}
+        ${itemsRowHtml}
         <span class="matchHistoryMates">${mateNames}</span>
       </div>
     `;
