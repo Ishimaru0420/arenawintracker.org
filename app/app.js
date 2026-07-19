@@ -442,7 +442,8 @@ const I18N = {
     placementMateFilterPlaceholder: "Mitspieler suchen...",
     placementMatesNone: "Noch keine Mitspieler-Daten vorhanden.",
     placementMateSortGames: "Meiste Spiele",
-    placementMateSortWins: "Meiste Siege"
+    placementMateSortWins: "Meiste Siege",
+    placementMateChampHeading: "Champions dieses Mitspielers (mit dir zusammen)"
   },
   en: {
     rankingToggleTitle: "Show ranking",
@@ -670,7 +671,8 @@ const I18N = {
     placementMateFilterPlaceholder: "Search teammate...",
     placementMatesNone: "No teammate data yet.",
     placementMateSortGames: "Most games",
-    placementMateSortWins: "Most wins"
+    placementMateSortWins: "Most wins",
+    placementMateChampHeading: "This teammate's champions (with you)"
   }
 };
 
@@ -4245,7 +4247,11 @@ function renderPlacementChampList(filterText) {
 // Champion), daher entsteht beim Durchlaufen aller champKeys keine
 // Doppelzaehlung.
 function computeTeammateStats() {
-  const mates = {}; // key: Name in Kleinbuchstaben -> { name, games, placementDist, champCounts }
+  // key: Name in Kleinbuchstaben -> { name, games, placementDist, champCounts, champPlacements }
+  // champPlacements[championApiName][placement] = Anzahl - Platzierung des Mitspielers
+  // auf genau diesem Champion, wenn er mit einem selbst zusammen gespielt hat (Arena ist
+  // Team-basiert, die Platzierung des Matches gilt fuer beide gleichermassen).
+  const mates = {};
   for (const champKey in state.matchHistory) {
     const games = state.matchHistory[champKey] || [];
     for (const g of games) {
@@ -4256,13 +4262,15 @@ function computeTeammateStats() {
         if (!rawName) continue;
         const key = rawName.toLowerCase();
         if (!mates[key]) {
-          mates[key] = { key, name: rawName, games: 0, placementDist: {}, champCounts: {} };
+          mates[key] = { key, name: rawName, games: 0, placementDist: {}, champCounts: {}, champPlacements: {} };
         }
         const entry = mates[key];
         entry.games++;
         entry.placementDist[g.placement] = (entry.placementDist[g.placement] || 0) + 1;
         if (m.champion) {
           entry.champCounts[m.champion] = (entry.champCounts[m.champion] || 0) + 1;
+          if (!entry.champPlacements[m.champion]) entry.champPlacements[m.champion] = {};
+          entry.champPlacements[m.champion][g.placement] = (entry.champPlacements[m.champion][g.placement] || 0) + 1;
         }
       }
     }
@@ -4362,7 +4370,63 @@ function openTeammateDetail(mateKey) {
   }
 
   const bodyEl = document.getElementById("placementMateDetailBody");
-  if (bodyEl) bodyEl.innerHTML = renderPlacementBarsAndSummary(entry.placementDist, entry.games);
+  if (bodyEl) {
+    bodyEl.innerHTML = renderPlacementBarsAndSummary(entry.placementDist, entry.games) + `
+      <h3 class="placementMateChampHeading">${t("placementMateChampHeading")}</h3>
+      <input id="placementMateDetailChampFilter" type="text" placeholder="${t("champSearchPlaceholder")}" />
+      <div id="placementMateDetailChampList"></div>
+    `;
+    const champFilterInput = document.getElementById("placementMateDetailChampFilter");
+    champFilterInput?.addEventListener("input", () => {
+      renderTeammateChampBreakdown(entry, champFilterInput.value);
+    });
+    renderTeammateChampBreakdown(entry, "");
+  }
+}
+
+// Zeigt, auf welchen Champions dieser Mitspieler mit einem zusammen
+// gespielt hat, jeweils mit derselben Platzierungs-Aufschluesselung wie
+// die Haupt-Champion-Liste im "Platzierungen"-Tab - nur eben bezogen auf
+// die gemeinsamen Spiele mit genau diesem Mitspieler.
+function renderTeammateChampBreakdown(entry, filterText) {
+  const listEl = document.getElementById("placementMateDetailChampList");
+  if (!listEl) return;
+  const term = (filterText || "").toLowerCase();
+
+  const rows = Object.keys(entry.champPlacements || {})
+    .map((apiName) => {
+      const champ = championByApiName[apiName];
+      const name = champ ? champ.name : apiName;
+      const dist = entry.champPlacements[apiName];
+      const games = Object.values(dist).reduce((a, b) => a + b, 0);
+      return { champ, name, dist, games };
+    })
+    .filter((r) => r.name.toLowerCase().includes(term))
+    .sort((a, b) => b.games - a.games || a.name.localeCompare(b.name));
+
+  if (!rows.length) {
+    listEl.innerHTML = `<p class="detailEmpty">${t("placementPerChampNone")}</p>`;
+    return;
+  }
+
+  listEl.innerHTML = rows.map((r) => {
+    const placements = Object.keys(r.dist).map(Number).sort((a, b) => a - b);
+    const breakdown = placements.map((p) => {
+      const tagClass = p === 1 ? " placementChampTagWin" : p === 2 ? " placementChampTagSecond" : "";
+      return `<span class="placementChampTag${tagClass}">${placementLabel(p)}: ${r.dist[p]}</span>`;
+    }).join("");
+    const iconHtml = r.champ
+      ? `<img src="${r.champ.icon}" alt="${r.name}" />`
+      : `<span class="dbIconFallback">${r.name.slice(0, 2).toUpperCase()}</span>`;
+    return `
+      <div class="placementChampRow">
+        <span class="placementChampIcon">${iconHtml}</span>
+        <span class="placementChampName">${r.name}</span>
+        <span class="placementChampGames">${t("placementGamesShort", { count: r.games })}</span>
+        <span class="placementChampBreakdown">${breakdown}</span>
+      </div>
+    `;
+  }).join("");
 }
 
 function closeTeammateDetail() {
