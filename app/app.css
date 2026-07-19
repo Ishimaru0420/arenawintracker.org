@@ -1207,3 +1207,12 @@ input:focus, select:focus, textarea:focus {
   width: 32px; height: 32px; border-radius: 6px; border: 2px solid #ff7a3c; flex-shrink: 0;
 }
 #placementMateDetailName { font-size: 15px; margin: 0; color: #ffb37a; flex: 1; }
+.placementMateChampHeading {
+  font-size: 11px; color: #ff7a3c; margin: 14px 0 6px;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+#placementMateDetailChampFilter {
+  width: 100%; box-sizing: border-box;
+  background: #16100d; border: 1px solid #3a2620; color: #fff;
+  padding: 8px 10px; border-radius: 5px; font-size: 13px; margin: 0 0 8px;
+}
