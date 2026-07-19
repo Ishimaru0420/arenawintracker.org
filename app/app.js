@@ -4130,27 +4130,18 @@ function placementLabel(n) {
   return currentLang === "de" ? `${n}. Platz` : `${ordinal(n)} place`;
 }
 
-function renderPlacementOverallSection() {
-  const section = document.getElementById("placementOverallSection");
-  if (!section) return;
-  const { overall } = computePlacementStats();
-  const placements = Object.keys(overall).map(Number).sort((a, b) => a - b);
-  const totalGames = placements.reduce((sum, p) => sum + overall[p], 0);
+// Gemeinsamer Baustein fuer die Balken-Ansicht (Zusammenfassungs-Kacheln
+// 1./2. Platz/Spiele-gesamt + volle Balkenliste aller Platzierungen) -
+// wird sowohl fuer die eigene Gesamt-Verteilung als auch fuer die
+// Detailansicht eines einzelnen Mitspielers verwendet (siehe
+// openTeammateDetail() weiter unten), damit beide optisch identisch sind.
+function renderPlacementBarsAndSummary(dist, totalGames) {
+  const placements = Object.keys(dist).map(Number).sort((a, b) => a - b);
+  const firstCount = dist[1] || 0;
+  const secondCount = dist[2] || 0;
+  const maxCount = placements.length ? Math.max(...placements.map((p) => dist[p])) : 0;
 
-  if (!placements.length) {
-    section.innerHTML = `
-      <h3>${t("placementOverallHeading", { games: 0 })}</h3>
-      <p class="detailEmpty">${t("placementOverallNone")}</p>
-    `;
-    return;
-  }
-
-  const firstCount = overall[1] || 0;
-  const secondCount = overall[2] || 0;
-  const maxCount = Math.max(...placements.map((p) => overall[p]));
-
-  let html = `<h3>${t("placementOverallHeading", { games: totalGames })}</h3>`;
-  html += `
+  let html = `
     <div class="placementStatsSummaryRow">
       <div class="placementStatsSummaryCard win">
         <div class="placementStatsSummaryValue">${firstCount}</div>
@@ -4169,7 +4160,7 @@ function renderPlacementOverallSection() {
 
   html += `<div class="placementBarList">`;
   for (const p of placements) {
-    const count = overall[p];
+    const count = dist[p];
     const pct = totalGames > 0 ? ((count / totalGames) * 100).toFixed(1) : "0.0";
     const barPct = maxCount > 0 ? Math.round((count / maxCount) * 100) : 0;
     const rowClass = p === 1 ? " placementBarWin" : p === 2 ? " placementBarSecond" : "";
@@ -4182,8 +4173,26 @@ function renderPlacementOverallSection() {
     `;
   }
   html += `</div>`;
+  return html;
+}
 
-  section.innerHTML = html;
+function renderPlacementOverallSection() {
+  const section = document.getElementById("placementOverallSection");
+  if (!section) return;
+  const { overall } = computePlacementStats();
+  const placements = Object.keys(overall).map(Number);
+  const totalGames = placements.reduce((sum, p) => sum + overall[p], 0);
+
+  if (!placements.length) {
+    section.innerHTML = `
+      <h3>${t("placementOverallHeading", { games: 0 })}</h3>
+      <p class="detailEmpty">${t("placementOverallNone")}</p>
+    `;
+    return;
+  }
+
+  section.innerHTML = `<h3>${t("placementOverallHeading", { games: totalGames })}</h3>`
+    + renderPlacementBarsAndSummary(overall, totalGames);
 }
 
 function renderPlacementChampList(filterText) {
@@ -4306,9 +4315,10 @@ function renderPlacementMateList(filterText, sortMode) {
     const iconHtml = topChamp
       ? `<img src="${topChamp.icon}" alt="${topChamp.name}" title="${topChamp.name}" />`
       : `<span class="dbIconFallback">${r.name.slice(0, 2).toUpperCase()}</span>`;
+    const mateKeyAttr = r.key.replace(/"/g, "&quot;");
 
     return `
-      <div class="placementChampRow">
+      <div class="placementChampRow clickableRow" data-mate-key="${mateKeyAttr}">
         <span class="placementChampIcon">${iconHtml}</span>
         <span class="placementChampName">${r.name}</span>
         <span class="placementChampGames">${t("placementGamesShort", { count: r.games })}</span>
@@ -4316,7 +4326,51 @@ function renderPlacementMateList(filterText, sortMode) {
       </div>
     `;
   }).join("");
+
+  listEl.querySelectorAll(".placementChampRow[data-mate-key]").forEach((rowEl) => {
+    rowEl.addEventListener("click", () => openTeammateDetail(rowEl.dataset.mateKey));
+  });
 }
+
+// ---- Detailansicht: Klick auf einen Mitspieler zeigt dessen eigene
+// Platzierungs-Verteilung (bezogen auf die gemeinsam gespielten Matches -
+// mehr Daten ueber den Mitspieler hat die App nicht, da nur der eigene
+// Match-Verlauf gesynct wird) im selben Balken-Stil wie der "Platzierungen"-Tab.
+function openTeammateDetail(mateKey) {
+  const mates = computeTeammateStats();
+  const entry = mates[mateKey];
+  if (!entry) return;
+
+  document.getElementById("placementMateListView")?.classList.add("hidden");
+  document.getElementById("placementMateDetailView")?.classList.remove("hidden");
+
+  const nameEl = document.getElementById("placementMateDetailName");
+  if (nameEl) nameEl.textContent = entry.name;
+
+  let topChampKey = null;
+  let topChampCount = -1;
+  for (const apiName in entry.champCounts) {
+    if (entry.champCounts[apiName] > topChampCount) {
+      topChampCount = entry.champCounts[apiName];
+      topChampKey = apiName;
+    }
+  }
+  const topChamp = topChampKey ? championByApiName[topChampKey] : null;
+  const iconEl = document.getElementById("placementMateDetailIcon");
+  if (iconEl) {
+    iconEl.innerHTML = topChamp ? `<img src="${topChamp.icon}" alt="${topChamp.name}" title="${topChamp.name}" />` : "";
+  }
+
+  const bodyEl = document.getElementById("placementMateDetailBody");
+  if (bodyEl) bodyEl.innerHTML = renderPlacementBarsAndSummary(entry.placementDist, entry.games);
+}
+
+function closeTeammateDetail() {
+  document.getElementById("placementMateDetailView")?.classList.add("hidden");
+  document.getElementById("placementMateListView")?.classList.remove("hidden");
+}
+
+safeBind("placementMateDetailBack", "onclick", closeTeammateDetail);
 
 function switchPlacementStatsTab(tab) {
   const btnPlacements = document.getElementById("placementTabBtnPlacements");
@@ -4329,6 +4383,7 @@ function switchPlacementStatsTab(tab) {
   panelPlacements?.classList.toggle("hidden", isMates);
   panelMates?.classList.toggle("hidden", !isMates);
   if (isMates) {
+    closeTeammateDetail();
     const filterInput = document.getElementById("placementMateFilter");
     const sortSelect = document.getElementById("placementMateSort");
     renderPlacementMateList(filterInput ? filterInput.value : "", sortSelect ? sortSelect.value : "games");
