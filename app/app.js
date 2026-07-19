@@ -4841,8 +4841,11 @@ async function renderPlacementHistoryList(filterText) {
       ? `<span class="matchHistoryKda">${m.kills}/${m.deaths}/${m.assists}</span>`
       : "";
 
-    const itemsRowHtml = (m.items || []).length
-      ? `<span class="matchHistoryItemsRow">${m.items.map((id) => {
+    // Item 3348 ("Ozanes Beharrlichkeit"/Standard-Trinket) wird nicht in
+    // der Vorschau angezeigt - kein echter Build-Slot, jeder Spieler hat es.
+    const visibleItems = (m.items || []).filter((id) => id !== 3348);
+    const itemsRowHtml = visibleItems.length
+      ? `<span class="matchHistoryItemsRow">${visibleItems.map((id) => {
           const r = resolveItemIcon(id);
           return r.icon
             ? `<img class="matchHistoryItemIcon" src="${r.icon}" alt="${r.name}" title="${r.name}" />`
@@ -4923,8 +4926,11 @@ async function openMatchDetail(m) {
       }).join("")
     : `<p class="detailEmpty">${t("matchDetailNoTeammates")}</p>`;
 
-  const itemsHtml = (m.items || []).length
-    ? m.items.map((id) => {
+  // Item 3348 auch in der Detailansicht ausblenden (siehe Kommentar bei
+  // visibleItems in renderPlacementHistoryList).
+  const visibleDetailItems = (m.items || []).filter((id) => id !== 3348);
+  const itemsHtml = visibleDetailItems.length
+    ? visibleDetailItems.map((id) => {
         const r = resolveItemIcon(id);
         return r.icon
           ? `<div class="matchDetailIaTile" title="${r.name}"><img src="${r.icon}" alt="${r.name}" /></div>`
