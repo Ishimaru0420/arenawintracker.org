@@ -152,6 +152,7 @@ button.danger:hover { background: #c43b4a; }
   display: flex; flex-direction: column; min-width: 0;
 }
 #rankingPanel.hidden { display: none; }
+.rankingStatsBtn { width: 100%; font-size: 12px; padding: 8px 10px; margin-bottom: 10px; }
 .rankingTabs { display: flex; gap: 6px; margin-bottom: 10px; }
 .rankingTab {
   flex: 1; background: #221715; color: #b3a39c; border: 1px solid #3a2620;
@@ -303,6 +304,11 @@ button.danger:hover { background: #c43b4a; }
   -webkit-app-region: no-drag;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
   gap: 6px; padding-right: 2px;
+  /* Ohne dies verteilt CSS Grid die Zeilen ueber die volle (fixe)
+     Container-Hoehe, sobald z.B. durch "nur offene anzeigen" nur noch
+     wenige Champions uebrig sind - das erzeugt grosse Luecken zwischen
+     den Zeilen. Zeilen sollen stattdessen oben zusammenbleiben. */
+  align-content: start;
 }
 #grid.hidden { display: none; }
 

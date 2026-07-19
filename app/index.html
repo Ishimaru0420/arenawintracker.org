@@ -8,7 +8,7 @@
   <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
   <link rel="stylesheet" href="theme.css?v=1" />
   <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=44" />
+  <link rel="stylesheet" href="app.css?v=46" />
 
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
@@ -33,7 +33,6 @@
       <h1>Arena Win Tracker</h1>
       <div class="headerBtns">
         <button id="manualSyncBtn" title="Jetzt synchronisieren" data-i18n-title="manualSyncTitle">🔄</button>
-        <button id="placementStatsBtn" title="Meine Platzierungsstatistik" data-i18n-title="placementStatsBtnTitle">📊</button>
         <button id="friendsToggle" title="Freunde verwalten" data-i18n-title="friendsToggleTitle">👥</button>
         <button id="settingsToggle" title="Einstellungen" data-i18n-title="settingsToggleTitle">⚙</button>
       </div>
@@ -118,6 +117,7 @@
 
     <div id="mainRow">
       <section id="rankingPanel">
+        <button id="placementStatsBtn" class="rankingStatsBtn" title="Meine Platzierungsstatistik" data-i18n-title="placementStatsBtnTitle" data-i18n="placementStatsBtn">📊 Meine Statistik</button>
         <div class="rankingTabs">
           <button id="rankingTabGlobal" class="rankingTab active" data-i18n="tabGlobal">Global</button>
           <button id="rankingTabFriends" class="rankingTab" data-i18n="tabFriends">Freunde</button>

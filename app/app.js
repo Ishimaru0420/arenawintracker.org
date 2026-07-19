@@ -426,6 +426,7 @@ const I18N = {
     communityAiWeakness: "Schwäche-Hinweis",
 
     placementStatsBtnTitle: "Meine Platzierungsstatistik",
+    placementStatsBtn: "📊 Meine Statistik",
     placementStatsHeading: "📊 Meine Statistiken",
     placementOverallHeading: "Platzierungsverteilung (gesamt · {games} Spiele)",
     placementOverallNone: "Noch keine Arena-Spiele erfasst.",
@@ -659,6 +660,7 @@ const I18N = {
     communityAiWeakness: "Weakness note",
 
     placementStatsBtnTitle: "My placement stats",
+    placementStatsBtn: "📊 My Stats",
     placementStatsHeading: "📊 My stats",
     placementOverallHeading: "Placement distribution (total · {games} games)",
     placementOverallNone: "No Arena games recorded yet.",
