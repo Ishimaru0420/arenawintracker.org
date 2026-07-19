@@ -8,7 +8,7 @@
   <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
   <link rel="stylesheet" href="theme.css?v=1" />
   <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=46" />
+  <link rel="stylesheet" href="app.css?v=49" />
 
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
@@ -254,8 +254,9 @@
         <button id="placementStatsClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
       </div>
       <div class="dbTabBar" id="placementStatsTabBar">
-        <button class="dbTabBtn active" id="placementTabBtnPlacements" data-i18n="placementTabPlacements">Platzierungen</button>
+        <button class="dbTabBtn active" id="placementTabBtnPlacements" data-i18n="placementTabPlacements">Champions</button>
         <button class="dbTabBtn" id="placementTabBtnMates" data-i18n="placementTabMates">Mitspieler</button>
+        <button class="dbTabBtn" id="placementTabBtnHistory" data-i18n="placementTabHistory">Verlauf</button>
       </div>
       <div id="placementStatsBody">
         <div class="dbTabPanel" id="placementPanelPlacements">
@@ -290,11 +291,28 @@
             </div>
           </div>
         </div>
+        <div class="dbTabPanel hidden" id="placementPanelHistory">
+          <div class="detailSection" id="placementHistorySection">
+            <div id="placementHistoryListView">
+              <h3 data-i18n="placementHistoryHeading">Spielverlauf (alle Arena-Runden)</h3>
+              <input id="placementHistoryFilter" type="text" placeholder="Champion suchen..." data-i18n-placeholder="champSearchPlaceholder" />
+              <div id="placementHistoryList"></div>
+            </div>
+            <div id="placementHistoryDetailView" class="hidden">
+              <div class="detailHeader">
+                <button class="backArrowBtn" id="placementHistoryDetailBack" title="Zurück" data-i18n-title="backToGridTitle">←</button>
+                <span id="matchDetailIcon"></span>
+                <h2 id="matchDetailTitle"></h2>
+              </div>
+              <div id="matchDetailBody"></div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
   <!-- Cache-Busting: v=21 statt v=20 (Platzierungsstatistik ergänzt) -->
-  <script src="app.js?v=57"></script>
+  <script src="app.js?v=59"></script>
 </body>
 </html>

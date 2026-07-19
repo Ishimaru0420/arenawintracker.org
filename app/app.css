@@ -1059,6 +1059,21 @@ input:focus, select:focus, textarea:focus {
 .dbTabBtn.active { background: rgba(255,122,60,0.18); border-color: #ff7a3c; color: #ffb37a; font-weight: 700; }
 .dbTabPanel.hidden { display: none; }
 
+/* Die beiden Haupt-Tabs "Champions" / "Mitspieler" im Statistik-Modal
+   sollen groesser und auffaelliger wirken als die kleineren
+   Unter-Tabs (z.B. Augment-Spielstile) - daher hier gezielt auf den
+   Wrapper #placementStatsTabBar beschraenkt statt global auf .dbTabBtn. */
+#placementStatsTabBar { justify-content: center; gap: 8px; margin: 4px 0 12px; }
+#placementStatsTabBar .dbTabBtn {
+  font-size: 14px; font-weight: 700; padding: 9px 18px; border-radius: 7px;
+  background: #241812; border: 1px solid #3a2620; color: #9c8882;
+}
+#placementStatsTabBar .dbTabBtn:hover { border-color: #ff7a3c; color: #f5ece6; }
+#placementStatsTabBar .dbTabBtn.active {
+  background: #ff7a3c; border-color: #ff7a3c; color: #1f0e04;
+  box-shadow: 0 0 0 2px rgba(255,122,60,0.35);
+}
+
 /* Icon+Name(+Prozent)-Reihen: Augments, Items, Champion-Synergien */
 .dbIconList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
 .dbIconRow {
@@ -1151,9 +1166,10 @@ input:focus, select:focus, textarea:focus {
   padding: 16px; display: flex; flex-direction: column; gap: 12px;
   box-shadow: 0 8px 28px rgba(0,0,0,0.5);
 }
-#placementStatsHeader { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-#placementStatsHeader h2 { font-size: 17px; margin: 0; color: #ffb37a; }
+#placementStatsHeader { display: flex; justify-content: center; align-items: center; gap: 8px; position: relative; }
+#placementStatsHeader h2 { font-size: 17px; margin: 0; color: #ffb37a; text-align: center; }
 #placementStatsClose {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
   background: none; border: none; color: #b3a39c; font-size: 18px; cursor: pointer;
   padding: 2px 6px;
 }
@@ -1197,6 +1213,41 @@ input:focus, select:focus, textarea:focus {
 }
 .placementChampName { font-size: 12.5px; color: #f5ece6; font-weight: 600; min-width: 90px; flex-shrink: 0; }
 .mateNameHoverable { cursor: help; }
+
+/* ---------- Spielverlauf-Tab (My Stats -> Verlauf) ---------- */
+.matchHistoryRow {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: rgba(255,122,60,0.04); border-radius: 6px; padding: 6px 8px; margin-bottom: 5px;
+}
+.matchHistoryDate { font-size: 11px; color: #9c8882; flex-shrink: 0; white-space: nowrap; }
+.matchHistoryMates {
+  font-size: 11px; color: #b3a39c; flex: 1; min-width: 80px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.matchDetailDate { font-size: 12px; color: #9c8882; margin: -4px 0 8px; }
+.matchDetailMatesRow { display: flex; flex-wrap: wrap; gap: 10px; }
+.matchDetailMate { font-size: 12px; color: #f5ece6; }
+.matchDetailMate img { width: 22px; height: 22px; }
+
+.matchDetailIaGrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(48px, 1fr)); gap: 7px;
+}
+.matchDetailIaTile {
+  position: relative;
+  border: 2px solid #4a3a34; border-radius: 7px; overflow: hidden;
+  background: #16100d; aspect-ratio: 1 / 1;
+}
+.matchDetailIaTile img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.matchDetailIaTile.fallback {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9px; color: #9c8882; text-align: center; padding: 2px;
+}
+.matchDetailIaTile.tier-silver { border-color: #b9c4cc; }
+.matchDetailIaTile.tier-gold { border-color: #e0b25c; }
+.matchDetailIaTile.tier-prismatic { border-color: #d98fe0; }
+
+.matchDetailMatchId { font-size: 10px; color: #6b5c56; margin-top: 4px; }
 .placementChampGames { font-size: 11px; color: #9c8882; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
 .placementChampWinrate { font-size: 11px; color: #ffb35c; font-weight: 700; flex-shrink: 0; margin-right: 4px; white-space: nowrap; }
 .placementChampBreakdown { display: flex; gap: 4px; flex-wrap: nowrap; overflow-x: auto; }

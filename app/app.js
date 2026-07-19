@@ -437,8 +437,23 @@ const I18N = {
     placementStatFirst: "1. Plätze",
     placementStatSecond: "2. Plätze",
     placementStatGames: "Spiele gesamt",
-    placementTabPlacements: "Platzierungen",
+    placementTabPlacements: "Champions",
     placementTabMates: "Mitspieler",
+    placementTabHistory: "Verlauf",
+    placementHistoryHeading: "Spielverlauf (alle Arena-Runden)",
+    placementHistoryNone: "Noch keine Arena-Spiele gefunden.",
+    matchDetailTeammatesHeading: "Mitspieler",
+    matchDetailItemsHeading: "Items",
+    matchDetailAugmentsHeading: "Augments",
+    matchDetailPerksHeading: "Runen",
+    matchDetailSpellsHeading: "Beschwörerzauber",
+    matchDetailMatchIdLabel: "Match-ID",
+    matchDetailNoItems: "Keine Items erfasst.",
+    matchDetailNoAugments: "Keine Augments erfasst.",
+    matchDetailNoPerks: "Keine Runen erfasst.",
+    matchDetailNoSpells: "Keine Beschwörerzauber erfasst.",
+    matchDetailNoTeammates: "Kein Mitspieler erfasst.",
+    matchDetailLoading: "Lade Match-Details...",
     placementMatesHeading: "Mitspieler (nach gemeinsamen Spielen)",
     placementMateFilterPlaceholder: "Mitspieler suchen...",
     placementMatesNone: "Noch keine Mitspieler-Daten vorhanden.",
@@ -671,8 +686,23 @@ const I18N = {
     placementStatFirst: "1st places",
     placementStatSecond: "2nd places",
     placementStatGames: "Total games",
-    placementTabPlacements: "Placements",
+    placementTabPlacements: "Champions",
     placementTabMates: "Teammates",
+    placementTabHistory: "History",
+    placementHistoryHeading: "Match history (all Arena rounds)",
+    placementHistoryNone: "No Arena games found yet.",
+    matchDetailTeammatesHeading: "Teammates",
+    matchDetailItemsHeading: "Items",
+    matchDetailAugmentsHeading: "Augments",
+    matchDetailPerksHeading: "Runes",
+    matchDetailSpellsHeading: "Summoner Spells",
+    matchDetailMatchIdLabel: "Match ID",
+    matchDetailNoItems: "No items recorded.",
+    matchDetailNoAugments: "No augments recorded.",
+    matchDetailNoPerks: "No runes recorded.",
+    matchDetailNoSpells: "No summoner spells recorded.",
+    matchDetailNoTeammates: "No teammate recorded.",
+    matchDetailLoading: "Loading match details...",
     placementMatesHeading: "Teammates (by games together)",
     placementMateFilterPlaceholder: "Search teammate...",
     placementMatesNone: "No teammate data yet.",
@@ -1424,10 +1454,9 @@ function showChampTooltip(e, champ) {
   } else {
     html += `<div class="tooltipCount">${t("tooltipGamesCount", { count: history.length })}</div>`;
     html += `<ul class="tooltipList">`;
-    const dateLocale = currentLang === "de" ? "de-DE" : "en-US";
     for (const g of history) {
       const isWin = g.placement === 1;
-      const dateStr = new Date(g.date).toLocaleDateString(dateLocale, { day: "2-digit", month: "2-digit" });
+      const dateStr = formatDateDDMM(g.date);
       const placementText = currentLang === "de" ? `${g.placement}. Platz` : `${ordinal(g.placement)} place`;
       const placementBadge = `<span class="placementBadge ${isWin ? "placementWin" : "placementLose"}">${placementText}</span>`;
       const mates = g.teammates && g.teammates.length
@@ -1472,6 +1501,31 @@ function formatSeasonStart() {
   return state.seasonStart
     ? new Date(state.seasonStart).toLocaleDateString("de-DE")
     : "Season-Start";
+}
+
+// Datum immer in fester Tag/Monat(/Jahr)-Reihenfolge anzeigen, unabhaengig
+// von der Sprache/Locale - toLocaleDateString() wuerde bei "en-US" sonst
+// MM/DD/YYYY liefern, was hier explizit nicht gewuenscht ist.
+function formatDateDDMM(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}`;
+}
+function formatDateDDMMYYYY(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+function formatDateTimeDDMMYYYY(ms) {
+  if (!ms) return "";
+  const d = new Date(ms);
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${formatDateDDMMYYYY(ms)} ${hh}:${min}`;
 }
 
 function ordinal(n) {
@@ -1665,6 +1719,73 @@ let iaSelectedEntry = null; // { entry, kind: "augment"|"item" } oder null
 let iaAugmentByApiName = {};
 let iaAugmentByName = {};
 let iaItemByName = {};
+// Numerische Riot-IDs -> Augment/Item-Eintrag, fuer den Spielverlauf (die
+// rohen Match-Daten von Riot liefern nur numerische IDs, kein apiName).
+// Wird defensiv befuellt: falls die importierten CDragon-Datensaetze kein
+// numerisches id-Feld enthalten, bleibt die Map leer und die Anzeige faellt
+// auf einen Platzhalter mit der rohen ID zurueck, statt etwas zu erfinden.
+let iaAugmentById = {};
+let iaItemById = {};
+
+// Beschwoererzauber (Data Dragon) - fuer die Icon-Anzeige im Spielverlauf.
+// Numerische spell-ID (aus summoner1Id/summoner2Id) -> {name, icon}.
+let summonerSpellByKey = {};
+let summonerSpellDataLoaded = false;
+async function loadSummonerSpellData() {
+  if (summonerSpellDataLoaded) return true;
+  try {
+    if (!ddragonVersion) await loadChampionList();
+    const res = await fetch(
+      `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/${currentLang === "de" ? "de_DE" : "en_US"}/summoner.json`
+    );
+    const data = await res.json();
+    summonerSpellByKey = {};
+    for (const spell of Object.values(data.data || {})) {
+      summonerSpellByKey[String(spell.key)] = {
+        name: spell.name,
+        icon: `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/spell/${spell.image.full}`
+      };
+    }
+    summonerSpellDataLoaded = true;
+    return true;
+  } catch (err) {
+    console.error("[SummonerSpells] Laden fehlgeschlagen:", err);
+    return false;
+  }
+}
+
+// Runen (Data Dragon) - numerische Perk-ID -> {name, icon}. Nur die
+// einzelnen Runen selbst (nicht die Baum-Icons), da genau das in
+// g.perks pro Match gespeichert wird (siehe syncUser.js: perks =
+// styles.flatMap(selections).map(perk)).
+let runeById = {};
+let runeDataLoaded = false;
+async function loadRuneData() {
+  if (runeDataLoaded) return true;
+  try {
+    if (!ddragonVersion) await loadChampionList();
+    const res = await fetch(
+      `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/data/${currentLang === "de" ? "de_DE" : "en_US"}/runesReforged.json`
+    );
+    const data = await res.json();
+    runeById = {};
+    for (const tree of data || []) {
+      for (const slot of tree.slots || []) {
+        for (const rune of slot.runes || []) {
+          runeById[rune.id] = {
+            name: rune.name,
+            icon: `https://ddragon.leagueoflegends.com/cdn/img/${rune.icon}`
+          };
+        }
+      }
+    }
+    runeDataLoaded = true;
+    return true;
+  } catch (err) {
+    console.error("[Runes] Laden fehlgeschlagen:", err);
+    return false;
+  }
+}
 let iaSearchTerm = "";
 let iaEditMode = false;
 let iaEditingAnchor = null; // { entry, kind } - die Entitaet, die aktuell bearbeitet wird
@@ -1753,17 +1874,26 @@ async function loadArenaItemsAugments() {
     arenaItemsData = await itemRes.json();
     iaAugmentByApiName = {};
     iaAugmentByName = {};
+    iaAugmentById = {};
     for (const a of arenaAugmentsData) {
       iaAugmentByApiName[a.apiName] = a;
       if (a.name) {
         if (a.name.de) iaAugmentByName[normName(a.name.de)] = a;
         if (a.name.en) iaAugmentByName[normName(a.name.en)] = a;
       }
+      // Defensiv: nur befuellen, falls der importierte CDragon-Datensatz
+      // tatsaechlich eine numerische ID mitfuehrt (Feldname je nach
+      // Import-Version evtl. "id" oder "augmentId").
+      const numId = a.id ?? a.augmentId;
+      if (numId !== undefined && numId !== null) iaAugmentById[numId] = a;
     }
     iaItemByName = {};
+    iaItemById = {};
     for (const i of arenaItemsData) {
       iaItemByName[normName(i.name.de)] = i;
       iaItemByName[normName(i.name.en)] = i;
+      const numId = i.id ?? i.itemId;
+      if (numId !== undefined && numId !== null) iaItemById[numId] = i;
     }
     return true;
   } catch (err) {
@@ -4568,21 +4698,234 @@ function closeTeammateDetail() {
 
 safeBind("placementMateDetailBack", "onclick", closeTeammateDetail);
 
+// ============================================================
+// Spielverlauf-Tab: flache, chronologische Liste ALLER gespeicherten
+// Arena-Matches (ueber alle gespielten Champions hinweg), mit Klick auf
+// ein Match fuer die volle Detailansicht (Items/Augments/Runen/
+// Beschwoererzauber/Mitspieler). Nutzt ausschliesslich Daten, die
+// syncUser.js ohnehin schon pro Match speichert - kein neuer Server-Call.
+// ============================================================
+
+function flattenAllMatches() {
+  const all = [];
+  for (const champKey in state.matchHistory) {
+    const champ = championByKey[champKey];
+    const games = state.matchHistory[champKey] || [];
+    for (let i = 0; i < games.length; i++) {
+      const g = games[i];
+      if (typeof g.placement !== "number") continue;
+      all.push({ ...g, champKey, champ, historyIndex: i });
+    }
+  }
+  all.sort((a, b) => (b.date || 0) - (a.date || 0));
+  return all;
+}
+
+// Eindeutiger Schluessel pro Match fuer die Listen/Detail-Navigation -
+// matchId ist eigentlich schon eindeutig, aber champKey+historyIndex als
+// Fallback falls matchId mal fehlen sollte.
+function matchDetailKey(m) {
+  return m.matchId || `${m.champKey}::${m.historyIndex}`;
+}
+
+function resolveItemIcon(itemId) {
+  const entry = iaItemById[itemId];
+  if (entry) return { icon: entry.icon, name: iaEntryName(entry) };
+  return {
+    icon: ddragonVersion ? `https://ddragon.leagueoflegends.com/cdn/${ddragonVersion}/img/item/${itemId}.png` : null,
+    name: `#${itemId}`
+  };
+}
+
+function resolveAugmentIcon(augId) {
+  const entry = iaAugmentById[augId];
+  if (entry) return { icon: entry.icon, name: iaEntryName(entry), tier: entry.tier };
+  return { icon: null, name: `#${augId}`, tier: null };
+}
+
+function resolveSummonerSpellIcon(spellId) {
+  const entry = summonerSpellByKey[String(spellId)];
+  if (entry) return entry;
+  return { icon: null, name: `#${spellId}` };
+}
+
+function resolveRuneIcon(perkId) {
+  const entry = runeById[perkId];
+  if (entry) return entry;
+  return { icon: null, name: `#${perkId}` };
+}
+
+function renderPlacementHistoryList(filterText) {
+  const listEl = document.getElementById("placementHistoryList");
+  if (!listEl) return;
+  const term = (filterText || "").toLowerCase();
+
+  const matches = flattenAllMatches().filter((m) => {
+    const champName = m.champ ? m.champ.name.toLowerCase() : "";
+    return !term || champName.includes(term);
+  });
+
+  if (!matches.length) {
+    listEl.innerHTML = `<p class="detailEmpty">${t("placementHistoryNone")}</p>`;
+    return;
+  }
+
+  listEl.innerHTML = matches.map((m) => {
+    const isWin = m.placement === 1;
+    const tagClass = m.placement === 1 ? " placementChampTagWin" : m.placement === 2 ? " placementChampTagSecond" : "";
+    const champIconHtml = m.champ
+      ? `<img src="${m.champ.icon}" alt="${m.champ.name}" />`
+      : `<span class="dbIconFallback">${String(m.champKey).slice(0, 2)}</span>`;
+    const dateStr = formatDateDDMMYYYY(m.date);
+    const mateNames = (m.teammates || []).map((tm) => tm.summoner).filter(Boolean).join(", ");
+
+    return `
+      <div class="matchHistoryRow clickableRow" data-match-key="${matchDetailKey(m)}">
+        <span class="placementChampIcon">${champIconHtml}</span>
+        <span class="placementChampName">${m.champ ? m.champ.name : "?"}</span>
+        <span class="matchHistoryDate">${dateStr}</span>
+        <span class="placementChampTag${tagClass}">${placementLabel(m.placement)}</span>
+        <span class="matchHistoryMates">${mateNames}</span>
+      </div>
+    `;
+  }).join("");
+
+  const byKey = new Map(matches.map((m) => [matchDetailKey(m), m]));
+  listEl.querySelectorAll(".matchHistoryRow[data-match-key]").forEach((rowEl) => {
+    rowEl.addEventListener("click", () => {
+      const m = byKey.get(rowEl.dataset.matchKey);
+      if (m) openMatchDetail(m);
+    });
+  });
+}
+
+async function openMatchDetail(m) {
+  document.getElementById("placementHistoryListView")?.classList.add("hidden");
+  document.getElementById("placementHistoryDetailView")?.classList.remove("hidden");
+
+  const iconEl = document.getElementById("matchDetailIcon");
+  if (iconEl) {
+    iconEl.innerHTML = m.champ
+      ? `<img src="${m.champ.icon}" alt="${m.champ.name}" />`
+      : "";
+  }
+  const dateStr = formatDateTimeDDMMYYYY(m.date);
+  const titleEl = document.getElementById("matchDetailTitle");
+  if (titleEl) titleEl.textContent = `${m.champ ? m.champ.name : "?"} - ${placementLabel(m.placement)}`;
+
+  const bodyEl = document.getElementById("matchDetailBody");
+  if (!bodyEl) return;
+  bodyEl.innerHTML = `<p class="detailEmpty">${t("matchDetailLoading")}</p>`;
+
+  // Runen/Beschwoererzauber-Icons sowie die Augment/Item-Datenbank werden
+  // erst bei Bedarf geladen (kein unnoetiger Request beim App-Start).
+  await Promise.all([loadArenaItemsAugments(), loadSummonerSpellData(), loadRuneData()]);
+
+  const teammatesHtml = (m.teammates || []).length
+    ? m.teammates.map((tm) => {
+        const champData = championByApiName[tm.champion];
+        const icon = champData
+          ? `<img src="${champData.icon}" alt="${champData.name}" />`
+          : "";
+        return `<span class="tooltipMate matchDetailMate">${icon}${tm.summoner || "?"}</span>`;
+      }).join("")
+    : `<p class="detailEmpty">${t("matchDetailNoTeammates")}</p>`;
+
+  const itemsHtml = (m.items || []).length
+    ? m.items.map((id) => {
+        const r = resolveItemIcon(id);
+        return r.icon
+          ? `<div class="matchDetailIaTile" title="${r.name}"><img src="${r.icon}" alt="${r.name}" /></div>`
+          : `<div class="matchDetailIaTile fallback" title="${r.name}">${r.name.slice(0, 3)}</div>`;
+      }).join("")
+    : `<p class="detailEmpty">${t("matchDetailNoItems")}</p>`;
+
+  const augmentsHtml = (m.augments || []).length
+    ? m.augments.map((id) => {
+        const r = resolveAugmentIcon(id);
+        const tierClass = r.tier ? ` tier-${r.tier}` : "";
+        return r.icon
+          ? `<div class="matchDetailIaTile${tierClass}" title="${r.name}"><img src="${r.icon}" alt="${r.name}" /></div>`
+          : `<div class="matchDetailIaTile fallback${tierClass}" title="${r.name}">${r.name.slice(0, 3)}</div>`;
+      }).join("")
+    : `<p class="detailEmpty">${t("matchDetailNoAugments")}</p>`;
+
+  const perksHtml = (m.perks || []).length
+    ? m.perks.map((id) => {
+        const r = resolveRuneIcon(id);
+        return r.icon
+          ? `<div class="matchDetailIaTile" title="${r.name}"><img src="${r.icon}" alt="${r.name}" /></div>`
+          : `<div class="matchDetailIaTile fallback" title="${r.name}">${r.name.slice(0, 3)}</div>`;
+      }).join("")
+    : `<p class="detailEmpty">${t("matchDetailNoPerks")}</p>`;
+
+  const spellsHtml = (m.summonerSpells || []).length
+    ? m.summonerSpells.map((id) => {
+        const r = resolveSummonerSpellIcon(id);
+        return r.icon
+          ? `<div class="matchDetailIaTile" title="${r.name}"><img src="${r.icon}" alt="${r.name}" /></div>`
+          : `<div class="matchDetailIaTile fallback" title="${r.name}">${r.name.slice(0, 3)}</div>`;
+      }).join("")
+    : `<p class="detailEmpty">${t("matchDetailNoSpells")}</p>`;
+
+  bodyEl.innerHTML = `
+    <p class="matchDetailDate">${dateStr}</p>
+    <div class="detailSection">
+      <h3>${t("matchDetailTeammatesHeading")}</h3>
+      <div class="matchDetailMatesRow">${teammatesHtml}</div>
+    </div>
+    <div class="detailSection">
+      <h3>${t("matchDetailSpellsHeading")}</h3>
+      <div class="matchDetailIaGrid">${spellsHtml}</div>
+    </div>
+    <div class="detailSection">
+      <h3>${t("matchDetailItemsHeading")}</h3>
+      <div class="matchDetailIaGrid">${itemsHtml}</div>
+    </div>
+    <div class="detailSection">
+      <h3>${t("matchDetailAugmentsHeading")}</h3>
+      <div class="matchDetailIaGrid">${augmentsHtml}</div>
+    </div>
+    <div class="detailSection">
+      <h3>${t("matchDetailPerksHeading")}</h3>
+      <div class="matchDetailIaGrid">${perksHtml}</div>
+    </div>
+    <p class="matchDetailMatchId">${t("matchDetailMatchIdLabel")}: ${m.matchId || "-"}</p>
+  `;
+}
+
+function closeMatchDetail() {
+  document.getElementById("placementHistoryDetailView")?.classList.add("hidden");
+  document.getElementById("placementHistoryListView")?.classList.remove("hidden");
+}
+
+safeBind("placementHistoryDetailBack", "onclick", closeMatchDetail);
+
 function switchPlacementStatsTab(tab) {
   const btnPlacements = document.getElementById("placementTabBtnPlacements");
   const btnMates = document.getElementById("placementTabBtnMates");
+  const btnHistory = document.getElementById("placementTabBtnHistory");
   const panelPlacements = document.getElementById("placementPanelPlacements");
   const panelMates = document.getElementById("placementPanelMates");
+  const panelHistory = document.getElementById("placementPanelHistory");
   const isMates = tab === "mates";
-  btnPlacements?.classList.toggle("active", !isMates);
+  const isHistory = tab === "history";
+  const isPlacements = !isMates && !isHistory;
+  btnPlacements?.classList.toggle("active", isPlacements);
   btnMates?.classList.toggle("active", isMates);
-  panelPlacements?.classList.toggle("hidden", isMates);
+  btnHistory?.classList.toggle("active", isHistory);
+  panelPlacements?.classList.toggle("hidden", !isPlacements);
   panelMates?.classList.toggle("hidden", !isMates);
+  panelHistory?.classList.toggle("hidden", !isHistory);
   if (isMates) {
     closeTeammateDetail();
     const filterInput = document.getElementById("placementMateFilter");
     const sortSelect = document.getElementById("placementMateSort");
     renderPlacementMateList(filterInput ? filterInput.value : "", sortSelect ? sortSelect.value : "games");
+  } else if (isHistory) {
+    closeMatchDetail();
+    const filterInput = document.getElementById("placementHistoryFilter");
+    renderPlacementHistoryList(filterInput ? filterInput.value : "");
   } else {
     renderPlacementOverallSection();
     const filterInput = document.getElementById("placementChampFilter");
@@ -4591,10 +4934,11 @@ function switchPlacementStatsTab(tab) {
 }
 
 // Re-rendert nur den aktuell sichtbaren Tab - genutzt bei Sprachwechsel,
-// damit nicht unnoetig beide Tabs neu berechnet werden muessen.
+// damit nicht unnoetig alle Tabs neu berechnet werden muessen.
 function renderPlacementStatsModal() {
   const matesActive = document.getElementById("placementTabBtnMates")?.classList.contains("active");
-  switchPlacementStatsTab(matesActive ? "mates" : "placements");
+  const historyActive = document.getElementById("placementTabBtnHistory")?.classList.contains("active");
+  switchPlacementStatsTab(historyActive ? "history" : matesActive ? "mates" : "placements");
 }
 
 function openPlacementStatsModal() {
@@ -4606,6 +4950,8 @@ function openPlacementStatsModal() {
   if (mateFilterInput) mateFilterInput.value = "";
   const mateSortSelect = document.getElementById("placementMateSort");
   if (mateSortSelect) mateSortSelect.value = "games";
+  const historyFilterInput = document.getElementById("placementHistoryFilter");
+  if (historyFilterInput) historyFilterInput.value = "";
   overlay.classList.remove("hidden");
   switchPlacementStatsTab("placements");
 }
@@ -4618,6 +4964,7 @@ safeBind("placementStatsBtn", "onclick", openPlacementStatsModal);
 safeBind("placementStatsClose", "onclick", closePlacementStatsModal);
 safeBind("placementTabBtnPlacements", "onclick", () => switchPlacementStatsTab("placements"));
 safeBind("placementTabBtnMates", "onclick", () => switchPlacementStatsTab("mates"));
+safeBind("placementTabBtnHistory", "onclick", () => switchPlacementStatsTab("history"));
 safeBind("placementChampFilter", "oninput", () => {
   const filterInput = document.getElementById("placementChampFilter");
   renderPlacementChampList(filterInput ? filterInput.value : "");
@@ -4631,6 +4978,10 @@ safeBind("placementMateSort", "onchange", () => {
   const filterInput = document.getElementById("placementMateFilter");
   const sortSelect = document.getElementById("placementMateSort");
   renderPlacementMateList(filterInput ? filterInput.value : "", sortSelect ? sortSelect.value : "games");
+});
+safeBind("placementHistoryFilter", "oninput", () => {
+  const filterInput = document.getElementById("placementHistoryFilter");
+  renderPlacementHistoryList(filterInput ? filterInput.value : "");
 });
 
 // ---------- Start ----------
