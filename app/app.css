@@ -1302,6 +1302,15 @@ input:focus, select:focus, textarea:focus {
 #placementMateListView.hidden { display: none; }
 #placementMateDetailView.hidden { display: none; }
 #placementMateDetailView .detailHeader { margin-bottom: 8px; }
+
+/* ---------- Spielverlauf-Detailansicht (Klick auf ein Match) ----------
+   FIX: diese beiden Regeln haben komplett gefehlt - die .hidden-Klasse
+   wurde von openMatchDetail()/closeMatchDetail() zwar korrekt per JS
+   getoggelt, hatte aber ohne diese CSS-Regeln gar keinen visuellen Effekt.
+   Dadurch blieb die Liste beim Klick auf ein Match immer sichtbar stehen
+   und die Detailansicht darunter sichtbar - wirkte wie "Klick tut nichts". */
+#placementHistoryListView.hidden { display: none; }
+#placementHistoryDetailView.hidden { display: none; }
 #placementMateDetailIcon img {
   width: 32px; height: 32px; border-radius: 6px; border: 2px solid #ff7a3c; flex-shrink: 0;
 }
