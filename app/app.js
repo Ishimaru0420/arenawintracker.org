@@ -2123,6 +2123,27 @@ function renderIaSortedFlatList(entries, kind) {
   return html;
 }
 
+// Wie renderIaSortedFlatList, aber pro Rarity-Kategorie (Silver/Gold/...
+// bzw. Quest/Boots/...) statt komplett flach ueber alles - fuer Sort
+// Winrate/Pickrate MIT aktivem "Group"-Haken: Kategorien bleiben
+// getrennt, aber ohne S/A/B/C/D-Buckets, stattdessen durchgehend nach
+// dem gewaehlten Wert sortiert.
+function renderIaSortedTierGroup(entries, tier, kind) {
+  const tierEntries = entries.filter((e) => e.tier === tier);
+  if (tierEntries.length === 0) return "";
+  const resolved = tierEntries
+    .map((e) => ({ e, row: iaTierlistRowForEntry(e, kind) }))
+    .filter((x) => x.row);
+  if (!resolved.length) return "";
+  const sortKey = iaSortMode === "pickrate" ? "games" : "winrate";
+  resolved.sort((a, b) => b.row[sortKey] - a.row[sortKey] || b.row.games - a.row.games);
+  const label = t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1));
+  let html = `<div class="iaTierGroup"><div class="iaTierLabel tier-${tier}" data-tier-toggle>${label} (${resolved.length})</div><div class="iaGrid">`;
+  for (const { e, row } of resolved) html += renderIaTileHtml(e, kind, entries, row);
+  html += `</div></div>`;
+  return html;
+}
+
 const IA_AUGMENT_TIERS = ["silver", "gold", "prismatic"];
 const IA_ITEM_TIERS = ["quest", "boots", "legendary", "prismatic", "anvil", "juice"];
 
@@ -2340,21 +2361,26 @@ function renderItemsAugmentsModal() {
   // innerhalb jeder Kategorie kommt zusaetzlich eine S/A/B/C/D-
   // Perzentil-Einteilung dazu (siehe renderIaTierlistSubGroups).
   const tierlistActive = iaTierListMode && !!iaTierListByKey;
-  // "Winrate"/"Pickrate"-Sortierung loest die S/A/B/C/D-Buckets UND die
-  // Rarity-Gruppierung auf - eine einzige durchgehend sortierte Liste.
-  const useSortedFlatList = tierlistActive && iaSortMode !== "tier";
+  // "Winrate"/"Pickrate"-Sortierung loest nur die S/A/B/C/D-Buckets auf -
+  // die Rarity-Gruppierung (Group-Haken) bleibt weiterhin respektiert:
+  // an -> pro Kategorie sortiert, aus -> komplett flach sortiert.
+  const useSortedMode = tierlistActive && iaSortMode !== "tier";
 
   augList.innerHTML = !augments.length
     ? `<p class="detailEmpty">–</p>`
-    : useSortedFlatList
-      ? renderIaSortedFlatList(augments, "augment")
+    : useSortedMode
+      ? (iaBrowseGroupMode
+          ? IA_AUGMENT_TIERS.map((tier) => renderIaSortedTierGroup(augments, tier, "augment")).join("")
+          : renderIaSortedFlatList(augments, "augment"))
       : iaBrowseGroupMode
         ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", tierlistActive)).join("")
         : renderIaFlatList(augments, "augment", tierlistActive);
   itemList.innerHTML = !items.length
     ? `<p class="detailEmpty">–</p>`
-    : useSortedFlatList
-      ? renderIaSortedFlatList(items, "item")
+    : useSortedMode
+      ? (iaBrowseGroupMode
+          ? IA_ITEM_TIERS.map((tier) => renderIaSortedTierGroup(items, tier, "item")).join("")
+          : renderIaSortedFlatList(items, "item"))
       : iaBrowseGroupMode
         ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", tierlistActive)).join("")
         : renderIaFlatList(items, "item", tierlistActive);
