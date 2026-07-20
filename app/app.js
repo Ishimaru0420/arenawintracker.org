@@ -309,6 +309,10 @@ const I18N = {
     iaShowAllBtn: "Alle",
     iaShowAugmentsBtn: "Augments",
     iaShowItemsBtn: "Items",
+    iaSortModeHint: "Bestimmt die Reihenfolge der Kacheln, wenn Tier-Liste aktiv ist.",
+    iaSortTierOption: "Sortierung: Tier (S-D)",
+    iaSortWinrateOption: "Sortierung: Winrate",
+    iaSortPickrateOption: "Sortierung: Pickrate",
     iaTierListNoPartners: "Für dieses Augment/Item gibt es noch keine ausreichenden Partner-Daten.",
     iaTierListPartnersHeading: "Top 5 Partner (gemeinsame Winrate)",
     iaEditModeBtn: "✏️ Synergien bearbeiten",
@@ -584,6 +588,10 @@ const I18N = {
     iaShowAllBtn: "All",
     iaShowAugmentsBtn: "Augments",
     iaShowItemsBtn: "Items",
+    iaSortModeHint: "Determines the tile order when the tier list is active.",
+    iaSortTierOption: "Sort: Tier (S-D)",
+    iaSortWinrateOption: "Sort: Winrate",
+    iaSortPickrateOption: "Sort: Pickrate",
     iaTierListNoPartners: "Not enough partner data for this augment/item yet.",
     iaTierListPartnersHeading: "Top 5 partners (combined win rate)",
     iaEditModeBtn: "✏️ Edit synergies",
@@ -2021,12 +2029,15 @@ function openItemsAugmentsModal() {
   // S/A/B/C/D sehen statt erst nach Rarity-Kategorie sortiert).
   iaBrowseGroupMode = false;
   iaTierListMode = true;
+  iaSortMode = "tier";
   iaQuickSearchPresetId = null;
   iaQuickSearchPresetEntryIds = null;
   const groupCb = document.getElementById("iaBrowseGroupToggle");
   if (groupCb) groupCb.checked = false;
   const tierListCb = document.getElementById("iaTierListToggle");
   if (tierListCb) tierListCb.checked = true;
+  const sortSel = document.getElementById("iaSortModeSelect");
+  if (sortSel) { sortSel.value = "tier"; sortSel.disabled = false; }
   applyIaColumnFilter();
   initIaQuickSearchSection();
   renderItemsAugmentsModal();
@@ -2090,6 +2101,32 @@ function toggleIaBrowseGroupMode() {
   const cb = document.getElementById("iaBrowseGroupToggle");
   iaBrowseGroupMode = cb ? cb.checked : true;
   renderItemsAugmentsModal();
+}
+
+// Sortier-Modus (nur relevant, wenn Tier-Liste aktiv ist): "tier" zeigt
+// die gewohnten S/A/B/C/D-Buckets (mit Rarity-Gruppierung falls "Group"
+// an ist). "winrate"/"pickrate" loesen die Bucket-Grenzen auf und zeigen
+// stattdessen eine einzige, durchgehend nach dem jeweiligen Wert
+// sortierte Liste - unabhaengig vom "Group"-Haken.
+let iaSortMode = "tier"; // "tier" | "winrate" | "pickrate"
+
+function selectIaSortMode() {
+  const sel = document.getElementById("iaSortModeSelect");
+  iaSortMode = sel ? sel.value : "tier";
+  renderItemsAugmentsModal();
+}
+
+function renderIaSortedFlatList(entries, kind) {
+  const resolved = entries
+    .map((e) => ({ e, row: iaTierlistRowForEntry(e, kind) }))
+    .filter((x) => x.row);
+  if (!resolved.length) return `<p class="detailEmpty">–</p>`;
+  const sortKey = iaSortMode === "pickrate" ? "games" : "winrate";
+  resolved.sort((a, b) => b.row[sortKey] - a.row[sortKey] || b.row.games - a.row.games);
+  let html = `<div class="iaGrid">`;
+  for (const { e, row } of resolved) html += renderIaTileHtml(e, kind, entries, row);
+  html += `</div>`;
+  return html;
 }
 
 const IA_AUGMENT_TIERS = ["silver", "gold", "prismatic"];
@@ -2309,17 +2346,24 @@ function renderItemsAugmentsModal() {
   // innerhalb jeder Kategorie kommt zusaetzlich eine S/A/B/C/D-
   // Perzentil-Einteilung dazu (siehe renderIaTierlistSubGroups).
   const tierlistActive = iaTierListMode && !!iaTierListByKey;
+  // "Winrate"/"Pickrate"-Sortierung loest die S/A/B/C/D-Buckets UND die
+  // Rarity-Gruppierung auf - eine einzige durchgehend sortierte Liste.
+  const useSortedFlatList = tierlistActive && iaSortMode !== "tier";
 
   augList.innerHTML = !augments.length
     ? `<p class="detailEmpty">–</p>`
-    : iaBrowseGroupMode
-      ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", tierlistActive)).join("")
-      : renderIaFlatList(augments, "augment", tierlistActive);
+    : useSortedFlatList
+      ? renderIaSortedFlatList(augments, "augment")
+      : iaBrowseGroupMode
+        ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", tierlistActive)).join("")
+        : renderIaFlatList(augments, "augment", tierlistActive);
   itemList.innerHTML = !items.length
     ? `<p class="detailEmpty">–</p>`
-    : iaBrowseGroupMode
-      ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", tierlistActive)).join("")
-      : renderIaFlatList(items, "item", tierlistActive);
+    : useSortedFlatList
+      ? renderIaSortedFlatList(items, "item")
+      : iaBrowseGroupMode
+        ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", tierlistActive)).join("")
+        : renderIaFlatList(items, "item", tierlistActive);
 
   bindIaTileEvents(augList, augments);
   bindIaTileEvents(itemList, items);
@@ -3453,6 +3497,11 @@ function toggleIaTierListMode() {
   const cb = document.getElementById("iaTierListToggle");
   iaTierListMode = cb ? cb.checked : !iaTierListMode;
 
+  // Sortier-Auswahl (Winrate/Pickrate) ist ohne Tier-Liste bedeutungslos -
+  // ohne Daten deaktivieren statt eine wirkungslose Auswahl anzuzeigen.
+  const sortSel = document.getElementById("iaSortModeSelect");
+  if (sortSel) sortSel.disabled = !iaTierListMode;
+
   if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
   if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
   backToTierListOverview(); // Partner-Detailansicht verlassen, falls offen
@@ -3528,6 +3577,7 @@ safeBind("iaShowAllBtn", "onclick", () => selectIaColumnFilter("all"));
 safeBind("iaShowAugmentsBtn", "onclick", () => selectIaColumnFilter("augment"));
 safeBind("iaShowItemsBtn", "onclick", () => selectIaColumnFilter("item"));
 safeBind("iaBrowseGroupToggle", "onchange", toggleIaBrowseGroupMode);
+safeBind("iaSortModeSelect", "onchange", selectIaSortMode);
 safeBind("iaPartnerShowAllBtn", "onclick", () => selectIaPartnerColumnFilter("all"));
 safeBind("iaPartnerShowAugmentsBtn", "onclick", () => selectIaPartnerColumnFilter("augment"));
 safeBind("iaPartnerShowItemsBtn", "onclick", () => selectIaPartnerColumnFilter("item"));

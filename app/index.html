@@ -184,6 +184,11 @@
       </div>
       <p id="itemsAugmentsHint" data-i18n="itemsAugmentsHint">Auf ein Augment oder Item klicken, um nur dazu passende Treffer zu sehen.</p>
       <div id="iaColumnToggleRow">
+        <select id="iaSortModeSelect" data-i18n-title="iaSortModeHint" title="Bestimmt die Reihenfolge der Kacheln, wenn Tier-Liste aktiv ist.">
+          <option value="tier" data-i18n="iaSortTierOption">Sortierung: Tier (S-D)</option>
+          <option value="winrate" data-i18n="iaSortWinrateOption">Sortierung: Winrate</option>
+          <option value="pickrate" data-i18n="iaSortPickrateOption">Sortierung: Pickrate</option>
+        </select>
         <label class="checkboxLabel iaStatsGroupToggle" data-i18n-title="iaTierListHint" title="Winrate + Spielanzahl über alle Spieler. Sortiert die Kacheln je Kategorie nach Winrate; Klick auf ein Item/Augment zeigt die Partner-Tierliste.">
           <input id="iaTierListToggle" type="checkbox" checked />
           <span data-i18n="iaTierListBtn">📊 Tier-Liste</span>

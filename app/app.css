@@ -396,7 +396,7 @@ button.danger:hover { background: #c43b4a; }
    damit man sich auf eine der beiden Listen konzentrieren kann. Reine
    Sichtbarkeits-Klasse auf den fest im DOM stehenden Spalten-Containern
    - kein Neu-Rendern der Kacheln noetig. */
-#iaColumnToggleRow { display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; }
+#iaColumnToggleRow { position: relative; display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; }
 #iaColumnToggleRow button {
   font-size: 12.5px; padding: 6px 18px; border-radius: 6px;
   background: #16100d; border: 1px solid #3a2620; color: #b3a39c; cursor: pointer;
@@ -407,6 +407,18 @@ button.danger:hover { background: #c43b4a; }
   background: linear-gradient(180deg, #ff9c5c, #ff7a3c); border-color: #ff7a3c; color: #2a1204; font-weight: 700;
 }
 #iaColumnToggleRow .iaStatsGroupToggle { font-size: 12.5px; color: #b3a39c; }
+/* Sortier-Auswahl (Tier/Winrate/Pickrate) - links im Rahmen verankert,
+   waehrend der Rest der Leiste weiterhin zentriert bleibt. */
+#iaSortModeSelect {
+  position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+  font-size: 12px; padding: 6px 10px; border-radius: 6px;
+  background: #16100d; border: 1px solid #3a2620; color: #b3a39c; cursor: pointer;
+}
+#iaSortModeSelect:hover { border-color: #ff7a3c; color: #fff; }
+#iaSortModeSelect:disabled { opacity: 0.4; cursor: not-allowed; }
+@media (max-width: 900px) {
+  #iaSortModeSelect { position: static; transform: none; margin: 0 auto; }
+}
 #iaAugmentsCol.iaColHidden, #iaItemsCol.iaColHidden,
 #iaPartnerAugmentsCol.iaColHidden, #iaPartnerItemsCol.iaColHidden { display: none; }
 #iaSearchRow { display: flex; gap: 8px; }
