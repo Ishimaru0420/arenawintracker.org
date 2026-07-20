@@ -460,6 +460,9 @@ const I18N = {
     championStatsNoEntityData: "Noch keine Augment/Item-Daten für diesen Champion.",
     championStatsTopWinrate: "Beste nach Winrate",
     championStatsTopPickrate: "Beste nach Pickrate",
+    championStatsCompsByWinrate: "Beste Team-Comps (Winrate)",
+    championStatsCompsByPickrate: "Beste Team-Comps (Pickrate)",
+    championStatsNoCompData: "Noch keine Team-Comp-Daten für diesen Champion.",
     communityAiHeading: "KI-Analyse · Testphase",
     communityAiNone: "Noch keine KI-Analyse für diesen Champion.",
     communityAiStrengths: "Stärken",
@@ -744,6 +747,9 @@ const I18N = {
     championStatsNoEntityData: "No augment/item data for this champion yet.",
     championStatsTopWinrate: "Best by winrate",
     championStatsTopPickrate: "Best by pickrate",
+    championStatsCompsByWinrate: "Best team comps (winrate)",
+    championStatsCompsByPickrate: "Best team comps (pickrate)",
+    championStatsNoCompData: "No team comp data for this champion yet.",
     communityAiHeading: "AI analysis · Beta test",
     communityAiNone: "No AI analysis for this champion yet.",
     communityAiStrengths: "Strengths",
@@ -4044,6 +4050,7 @@ let championStatsRowByKey = null; // Map "kind:id" -> Zeile (Winrate/Games/Pickr
 let championStatsGroupMode = false; // Gruppieren-Haken: an = nach Rarity-Kategorie (Silver/Gold/... bzw. Quest/Boots/...), aus (Standard) = flache S-D-Liste ueber alle Kategorien hinweg
 let championStatsCurrentStats = null; // fuer Re-Render beim Umschalten des Gruppieren-Hakens ohne Neu-Laden
 let championStatsCurrentRows = null;
+let championStatsCurrentComps = null; // beste Duo-Partner-Champions (championCompStats), ebenfalls fuer Re-Render zwischengespeichert
 
 function championStatsRowForEntry(entry, kind) {
   if (!championStatsRowByKey || !entry) return null;
@@ -4077,7 +4084,30 @@ function renderChampionTopList(list) {
   return html;
 }
 
-function renderChampionStatsContent(stats, rows) {
+// Gleiche Optik wie renderChampionTopList, aber fuer Champions statt
+// Items/Augments (Icon+Name kommen aus championByKey - "id" in einer
+// championCompStats-Zeile ist die numerische championId, dieselbe, die
+// das Data-Dragon "key"-Feld liefert).
+function renderChampionCompList(list) {
+  if (!list.length) return `<p class="detailEmpty">${t("championStatsNoCompData")}</p>`;
+  let html = `<div class="iaPartnerList">`;
+  list.forEach((c, i) => {
+    const champ = championByKey[String(c.allyChampionId)];
+    const name = champ ? champ.name : `#${c.allyChampionId}`;
+    html += `
+      <div class="iaPartnerRow" data-comp-champkey="${c.allyChampionId}">
+        <span class="iaPartnerRank">${i + 1}</span>
+        ${champ?.icon ? `<img class="iaPartnerIcon" src="${champ.icon}" alt="${name}" loading="lazy" />` : `<div class="iaPartnerIcon iaPartnerIconFallback">${name.slice(0, 3)}</div>`}
+        <span class="iaPartnerName">${name}</span>
+        <span class="iaPartnerWr">${c.winrate}%</span>
+        <span class="iaPartnerGames">${c.games}×</span>
+      </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function renderChampionStatsContent(stats, rows, comps) {
   let html = `<div class="iaColumnToggleRow" style="justify-content:space-between; margin-bottom:10px;">
     <h3 style="margin:0;">${t("championStatsHeading")}</h3>
     <label class="checkboxLabel iaStatsGroupToggle">
@@ -4090,11 +4120,10 @@ function renderChampionStatsContent(stats, rows) {
     return html;
   }
 
+  // Nur Winrate (zaehlt ausschliesslich 1. Platz - siehe bumpChamp/isWin im
+  // Agent-Script) und Spiele - Top3/Pickrate/Avg.Placement bewusst raus.
   const statCards = [
     renderStatCard(t("communityDbWinrate"), stats.winrate != null ? `${stats.winrate}%` : null),
-    renderStatCard(t("communityDbTop3"), stats.top3Rate != null ? `${stats.top3Rate}%` : null),
-    renderStatCard(t("communityDbPickRate"), stats.pickRate != null ? `${stats.pickRate}%` : null),
-    renderStatCard(t("communityDbAvgPlace"), stats.avgPlacement),
     renderStatCard(t("communityDbGames"), stats.games),
   ].filter(Boolean);
   if (statCards.length) html += `<div class="dbStatGrid">${statCards.join("")}</div>`;
@@ -4141,6 +4170,16 @@ function renderChampionStatsContent(stats, rows) {
   html += `<div><p class="detailSkillOrderLabel">${t("championStatsTopPickrate")}</p>${renderChampionTopList(topByPickrate)}</div>`;
   html += `</div>`;
 
+  // Beste Team-Comps (Duo-Partner-Champion in Arena), einmal nach Winrate
+  // und einmal nach Pickrate sortiert, Top 10. Datenbasis aktuell nur
+  // registrierte Nutzer (siehe MIN_GAMES_COMP-Kommentar im Agent-Script).
+  const compsByWinrate = (comps || []).slice().sort((a, b) => b.winrate - a.winrate || b.games - a.games).slice(0, 10);
+  const compsByPickrate = (comps || []).slice().sort((a, b) => b.games - a.games).slice(0, 10);
+  html += `<div class="dbTwoCol" style="margin-top:14px;">`;
+  html += `<div><p class="detailSkillOrderLabel">${t("championStatsCompsByWinrate")}</p>${renderChampionCompList(compsByWinrate)}</div>`;
+  html += `<div><p class="detailSkillOrderLabel">${t("championStatsCompsByPickrate")}</p>${renderChampionCompList(compsByPickrate)}</div>`;
+  html += `</div>`;
+
   return html;
 }
 
@@ -4168,7 +4207,7 @@ function bindChampionStatsInteractions(section) {
   if (groupToggle) {
     groupToggle.addEventListener("change", () => {
       championStatsGroupMode = groupToggle.checked;
-      section.innerHTML = renderChampionStatsContent(championStatsCurrentStats, championStatsCurrentRows || []);
+      section.innerHTML = renderChampionStatsContent(championStatsCurrentStats, championStatsCurrentRows || [], championStatsCurrentComps || []);
       bindChampionStatsInteractions(section);
     });
   }
@@ -4206,6 +4245,18 @@ function bindChampionStatsInteractions(section) {
       openItemOrAugmentDetail(row.dataset.champtopName, row.dataset.champtopKind);
     });
   });
+
+  // Klick auf einen Team-Comp-Eintrag -> direkt zur Detailseite dieses
+  // Partner-Champions springen (gleiches Muster wie der Champion-Picker
+  // in confirmConvertPresetToBuild - championByKey liefert dasselbe
+  // {key, name, icon}-Objekt, das openChampDetail erwartet).
+  section.querySelectorAll("[data-comp-champkey]").forEach((row) => {
+    row.style.cursor = "pointer";
+    row.addEventListener("click", () => {
+      const champ = championByKey[row.dataset.compChampkey];
+      if (champ) openChampDetail(champ);
+    });
+  });
 }
 
 async function loadChampionStatsSection(champ) {
@@ -4216,13 +4267,15 @@ async function loadChampionStatsSection(champ) {
   // Champion zu behalten.
   championStatsGroupMode = false;
   try {
-    const [statsRes, entityRes] = await Promise.all([
+    const [statsRes, entityRes, compRes] = await Promise.all([
       authFetch(serverUrl(`/champion-stats/${champ.key}`)),
       authFetch(serverUrl(`/champion-item-augment-stats/${champ.key}`)),
+      authFetch(serverUrl(`/champion-comp-stats/${champ.key}`)),
       loadArenaItemsAugments()
     ]);
     const stats = statsRes.ok ? await statsRes.json() : null;
     const rows = entityRes.ok ? await entityRes.json() : [];
+    const comps = compRes.ok ? await compRes.json() : [];
 
     // Perzentil-Rang je Zeile (Augments+Items dieses Champions
     // zusammen) - gleiche Logik wie loadItemAugmentTierlist, aber auf
@@ -4237,15 +4290,17 @@ async function loadChampionStatsSection(champ) {
     championStatsRowByKey = new Map(rows.map((r) => [`${r.kind}:${r.id}`, r]));
     championStatsCurrentStats = stats;
     championStatsCurrentRows = rows;
+    championStatsCurrentComps = comps;
 
-    section.innerHTML = renderChampionStatsContent(stats, rows);
+    section.innerHTML = renderChampionStatsContent(stats, rows, comps);
     bindChampionStatsInteractions(section);
   } catch (err) {
     console.error("[ChampionStats] Laden fehlgeschlagen:", err);
     championStatsRowByKey = null;
     championStatsCurrentStats = null;
     championStatsCurrentRows = null;
-    section.innerHTML = renderChampionStatsContent(null, []);
+    championStatsCurrentComps = null;
+    section.innerHTML = renderChampionStatsContent(null, [], []);
   }
 }
 
