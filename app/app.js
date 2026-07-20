@@ -4006,6 +4006,9 @@ function bindCommunityDbInteractions(section, data) {
 // eigenen Matchdaten nicht.
 // ============================================================
 let championStatsRowByKey = null; // Map "kind:id" -> Zeile (Winrate/Games/Pickrate) fuer den aktuellen Champion
+let championStatsGroupMode = true; // Gruppieren-Haken: an = nach Rarity-Kategorie (Silver/Gold/... bzw. Quest/Boots/...), aus = flache S-D-Liste ueber alle Kategorien hinweg
+let championStatsCurrentStats = null; // fuer Re-Render beim Umschalten des Gruppieren-Hakens ohne Neu-Laden
+let championStatsCurrentRows = null;
 
 function championStatsRowForEntry(entry, kind) {
   if (!championStatsRowByKey || !entry) return null;
@@ -4040,7 +4043,13 @@ function renderChampionTopList(list) {
 }
 
 function renderChampionStatsContent(stats, rows) {
-  let html = `<h3 style="margin:0 0 10px;">${t("championStatsHeading")}</h3>`;
+  let html = `<div class="iaColumnToggleRow" style="justify-content:space-between; margin-bottom:10px;">
+    <h3 style="margin:0;">${t("championStatsHeading")}</h3>
+    <label class="checkboxLabel iaStatsGroupToggle">
+      <input id="championStatsGroupToggle" type="checkbox" ${championStatsGroupMode ? "checked" : ""} />
+      <span data-i18n="iaStatsGroupToggleLabel">${t("iaStatsGroupToggleLabel")}</span>
+    </label>
+  </div>`;
   if (!stats) {
     html += `<p class="detailEmpty">${t("championStatsNone")}</p>`;
     return html;
@@ -4066,12 +4075,16 @@ function renderChampionStatsContent(stats, rows) {
   html += `<div class="dbTwoCol" style="margin-top:14px;">`;
   html += `<div><p class="detailSkillOrderLabel">${t("iaAugmentsHeading")}</p>`;
   html += augments.length
-    ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", true, championStatsRowForEntry)).join("")
+    ? (championStatsGroupMode
+        ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", true, championStatsRowForEntry)).join("")
+        : renderIaFlatList(augments, "augment", true, championStatsRowForEntry))
     : `<p class="detailEmpty">${t("championStatsNoEntityData")}</p>`;
   html += `</div>`;
   html += `<div><p class="detailSkillOrderLabel">${t("iaItemsHeading")}</p>`;
   html += items.length
-    ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", true, championStatsRowForEntry)).join("")
+    ? (championStatsGroupMode
+        ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", true, championStatsRowForEntry)).join("")
+        : renderIaFlatList(items, "item", true, championStatsRowForEntry))
     : `<p class="detailEmpty">${t("championStatsNoEntityData")}</p>`;
   html += `</div>`;
   html += `</div>`;
@@ -4111,6 +4124,14 @@ function bindChampionStatsInteractions(section) {
     if (!label) return;
     label.closest(".iaTierGroup")?.classList.toggle("collapsed");
   });
+  const groupToggle = section.querySelector("#championStatsGroupToggle");
+  if (groupToggle) {
+    groupToggle.addEventListener("change", () => {
+      championStatsGroupMode = groupToggle.checked;
+      section.innerHTML = renderChampionStatsContent(championStatsCurrentStats, championStatsCurrentRows || []);
+      bindChampionStatsInteractions(section);
+    });
+  }
   const bindTiles = (entries, kind) => {
     section.querySelectorAll(`.iaTile[data-kind="${kind}"]`).forEach((tile) => {
       const idx = parseInt(tile.dataset.idx, 10);
@@ -4162,12 +4183,16 @@ async function loadChampionStatsSection(champ) {
       row.percentileTier = tierInfo.key;
     });
     championStatsRowByKey = new Map(rows.map((r) => [`${r.kind}:${r.id}`, r]));
+    championStatsCurrentStats = stats;
+    championStatsCurrentRows = rows;
 
     section.innerHTML = renderChampionStatsContent(stats, rows);
     bindChampionStatsInteractions(section);
   } catch (err) {
     console.error("[ChampionStats] Laden fehlgeschlagen:", err);
     championStatsRowByKey = null;
+    championStatsCurrentStats = null;
+    championStatsCurrentRows = null;
     section.innerHTML = renderChampionStatsContent(null, []);
   }
 }
