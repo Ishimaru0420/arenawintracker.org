@@ -207,7 +207,26 @@
       <div id="iaTierListDetailView" class="hidden">
         <button id="iaTierListBack" class="backArrowBtn" title="Zurück" data-i18n-title="backToGridTitle">←</button>
         <div id="iaTierListSelectedCard"></div>
-        <div id="iaTierListPartners"></div>
+        <p class="iaPartnerListHeading" data-i18n="iaTierListPartnersHeading">Partner-Tierliste (gemeinsame Winrate)</p>
+        <div id="iaColumnToggleRow">
+          <button id="iaPartnerShowAllBtn" class="active" data-i18n="iaShowAllBtn">All</button>
+          <button id="iaPartnerShowAugmentsBtn" data-i18n="iaShowAugmentsBtn">Augments</button>
+          <button id="iaPartnerShowItemsBtn" data-i18n="iaShowItemsBtn">Items</button>
+          <label class="checkboxLabel iaStatsGroupToggle">
+            <input id="iaPartnerGroupToggle" type="checkbox" checked />
+            <span data-i18n="iaStatsGroupToggleLabel">Gruppieren</span>
+          </label>
+        </div>
+        <div id="iaTierListPartners">
+          <section id="iaPartnerAugmentsCol">
+            <h3 data-i18n="iaAugmentsHeading">Augments</h3>
+            <div id="iaPartnerAugmentsList"></div>
+          </section>
+          <section id="iaPartnerItemsCol">
+            <h3 data-i18n="iaItemsHeading">Items</h3>
+            <div id="iaPartnerItemsList"></div>
+          </section>
+        </div>
       </div>
       <div id="iaPresetView" class="hidden">
         <div id="iaPresetExisting">

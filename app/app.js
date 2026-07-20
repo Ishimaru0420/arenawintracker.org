@@ -2150,11 +2150,12 @@ const IA_PERCENTILE_TIER_ORDER = ["S", "A", "B", "C", "D"];
 // loadItemAugmentTierlist), jeweils intern nach Winrate sortiert.
 // Eintraege ohne ausreichende Tierlist-Daten landen in einem eigenen
 // "ohne Daten"-Abschnitt am Ende statt einfach zu verschwinden.
-function renderIaTierlistSubGroups(tierEntries, kind, allEntries) {
+function renderIaTierlistSubGroups(tierEntries, kind, allEntries, rowLookupFn) {
+  const lookup = rowLookupFn || iaTierlistRowForEntry;
   const buckets = { S: [], A: [], B: [], C: [], D: [] };
   const noData = [];
   for (const e of tierEntries) {
-    const row = iaTierlistRowForEntry(e, kind);
+    const row = lookup(e, kind);
     if (row && row.percentileTier) buckets[row.percentileTier].push({ e, row });
     else noData.push({ e, row: null });
   }
@@ -2176,13 +2177,13 @@ function renderIaTierlistSubGroups(tierEntries, kind, allEntries) {
   return html;
 }
 
-function renderIaTierGroup(entries, tier, kind, showTierlistStats) {
+function renderIaTierGroup(entries, tier, kind, showTierlistStats, rowLookupFn) {
   const tierEntries = entries.filter((e) => e.tier === tier);
   if (tierEntries.length === 0) return "";
   const label = t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1));
   let html = `<div class="iaTierGroup"><div class="iaTierLabel tier-${tier}" data-tier-toggle>${label} (${tierEntries.length})</div>`;
   if (showTierlistStats) {
-    html += renderIaTierlistSubGroups(tierEntries, kind, entries);
+    html += renderIaTierlistSubGroups(tierEntries, kind, entries, rowLookupFn);
   } else {
     html += `<div class="iaGrid">`;
     for (const e of tierEntries) html += renderIaTileHtml(e, kind, entries, null);
@@ -2198,9 +2199,9 @@ function renderIaTierGroup(entries, tier, kind, showTierlistStats) {
 // der Sinn des Tier-Liste-Knopfs) - nur eben ueber ALLE Eintraege
 // hinweg statt pro Kategorie. Ohne aktive Tier-Liste (keine Winrate-
 // Daten) gibt es dafuer einfach ein einziges flaches Grid ohne Badges.
-function renderIaFlatList(entries, kind, showTierlistStats) {
+function renderIaFlatList(entries, kind, showTierlistStats, rowLookupFn) {
   if (showTierlistStats) {
-    return renderIaTierlistSubGroups(entries, kind, entries);
+    return renderIaTierlistSubGroups(entries, kind, entries, rowLookupFn);
   }
   let html = `<div class="iaGrid">`;
   for (const e of entries) html += renderIaTileHtml(e, kind, entries, null);
@@ -3228,41 +3229,114 @@ function iaTierlistEntryLookup(row) {
   return map[row.id] || null;
 }
 
-// Rangliste der 5 besten Partner (kommt schon fertig sortiert vom
-// Server) - bewusst als nummerierte Liste statt Tier-Gruppen wie bei
-// den handkuratierten Synergien, weil hier die genaue Reihenfolge
-// (Platz 1-5) selbst die Kerninformation ist.
-function renderIaTopPartnersRanked(topPartners) {
-  const container = document.getElementById("iaTierListPartners");
-  if (!container) return;
+// Partner-Tierliste (Variante B): zeigt ALLE Partner-Kombinationen einer
+// angeklickten Kachel (nicht mehr nur die Top 5) als eigene S/A/B/C/D-
+// Tierliste - mit denselben Rarity-Spalten (Augments/Items), demselben
+// All/Augments/Items-Filter und derselben Group-Checkbox wie die normale
+// Browse-Ansicht (renderItemsAugmentsModal). Die S/A/B/C/D-Einteilung
+// wird dabei NEU und NUR ueber diese Partner-Menge berechnet (eigene
+// Map iaPartnerRowByKey, nicht die globale iaTierListByKey) - "S"
+// bedeutet hier "bester Partner FUER DIESES Item/Augment", nicht
+// "bestes Item/Augment insgesamt".
+let iaPartnerRowByKey = null; // Map "kind:id" -> {games, winrate, percentileTier}
+let iaPartnerAugmentEntries = [];
+let iaPartnerItemEntries = [];
+let iaPartnerGroupMode = true;
+let iaPartnerColumnFilter = null; // null = beide Spalten
+let iaCurrentPartnerTopPartners = null; // Rohdaten der aktuell offenen Kachel (fuer Re-Render bei Group-Toggle)
+
+function iaPartnerTierlistRowForEntry(entry, kind) {
+  if (!iaPartnerRowByKey || !entry) return null;
+  const numId = entry.id ?? entry.augmentId ?? entry.itemId;
+  if (numId === undefined || numId === null) return null;
+  return iaPartnerRowByKey.get(`${kind}:${numId}`) || null;
+}
+
+function renderIaPartnerTierlist(topPartners) {
+  iaCurrentPartnerTopPartners = topPartners;
+  const augList = document.getElementById("iaPartnerAugmentsList");
+  const itemList = document.getElementById("iaPartnerItemsList");
+  if (!augList || !itemList) return;
+
   const resolved = (topPartners || [])
     .map((p) => ({ p, entry: iaTierlistEntryLookup(p) }))
     .filter((x) => x.entry);
 
   if (!resolved.length) {
-    container.innerHTML = `<p class="detailEmpty">${t("iaTierListNoPartners")}</p>`;
+    augList.innerHTML = `<p class="detailEmpty">${t("iaTierListNoPartners")}</p>`;
+    itemList.innerHTML = "";
+    iaPartnerRowByKey = null;
+    iaPartnerAugmentEntries = [];
+    iaPartnerItemEntries = [];
     return;
   }
 
-  let html = `<div class="iaPartnerListHeading">${t("iaTierListPartnersHeading")}</div><div class="iaPartnerList">`;
-  resolved.forEach(({ p, entry }, i) => {
-    const name = iaEntryName(entry);
-    html += `
-      <div class="iaPartnerRow">
-        <span class="iaPartnerRank">${i + 1}</span>
-        ${entry.icon ? `<img class="iaPartnerIcon" src="${entry.icon}" alt="${name}" loading="lazy" />` : `<div class="iaPartnerIcon iaPartnerIconFallback">${name.slice(0, 3)}</div>`}
-        <span class="iaPartnerName">${name}</span>
-        <span class="iaPartnerWr">${p.winrate}%</span>
-        <span class="iaPartnerGames">${p.games}×</span>
-      </div>`;
+  // Lokale Perzentil-Einteilung NUR ueber diese Partner-Menge (gleiches
+  // Prinzip wie loadItemAugmentTierlist, aber auf diesen Ausschnitt
+  // gescoped statt global ueber alle Items/Augments).
+  const sorted = resolved.slice().sort((a, b) => b.p.winrate - a.p.winrate || b.p.games - a.p.games);
+  const n = sorted.length;
+  iaPartnerRowByKey = new Map();
+  sorted.forEach(({ p }, i) => {
+    const percentile = (i + 1) / n;
+    const tierInfo = IA_TIER_PERCENTILES.find((tp) => percentile <= tp.upTo) || IA_TIER_PERCENTILES[IA_TIER_PERCENTILES.length - 1];
+    iaPartnerRowByKey.set(`${p.kind}:${p.id}`, { games: p.games, winrate: p.winrate, percentileTier: tierInfo.key });
   });
-  html += `</div>`;
-  container.innerHTML = html;
+
+  iaPartnerAugmentEntries = resolved.filter((x) => x.p.kind === "augment").map((x) => x.entry);
+  iaPartnerItemEntries = resolved.filter((x) => x.p.kind === "item").map((x) => x.entry);
+
+  augList.innerHTML = !iaPartnerAugmentEntries.length
+    ? `<p class="detailEmpty">–</p>`
+    : iaPartnerGroupMode
+      ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(iaPartnerAugmentEntries, tier, "augment", true, iaPartnerTierlistRowForEntry)).join("")
+      : renderIaFlatList(iaPartnerAugmentEntries, "augment", true, iaPartnerTierlistRowForEntry);
+  itemList.innerHTML = !iaPartnerItemEntries.length
+    ? `<p class="detailEmpty">–</p>`
+    : iaPartnerGroupMode
+      ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(iaPartnerItemEntries, tier, "item", true, iaPartnerTierlistRowForEntry)).join("")
+      : renderIaFlatList(iaPartnerItemEntries, "item", true, iaPartnerTierlistRowForEntry);
+
+  bindIaTileEvents(augList, iaPartnerAugmentEntries);
+  bindIaTileEvents(itemList, iaPartnerItemEntries);
+  applyIaPartnerColumnFilter();
 }
 
-// Zeigt zu einer angeklickten Kachel (im Tier-Liste-Modus) die Top-5-
-// Partner an - blendet dafuer die normale Browse-Ansicht kurz aus,
-// genau wie die alte handkuratierte Synergie-Detailansicht.
+// "All"/"Augments"/"Items"-Filter fuer die Partner-Tierliste - exakt
+// dasselbe Prinzip wie selectIaColumnFilter/applyIaColumnFilter fuer die
+// normale Browse-Ansicht, nur auf die Partner-Spalten bezogen.
+function selectIaPartnerColumnFilter(kind) {
+  iaPartnerColumnFilter = kind === "all" ? null : kind;
+  applyIaPartnerColumnFilter();
+}
+
+function applyIaPartnerColumnFilter() {
+  const allBtn = document.getElementById("iaPartnerShowAllBtn");
+  const augBtn = document.getElementById("iaPartnerShowAugmentsBtn");
+  const itemBtn = document.getElementById("iaPartnerShowItemsBtn");
+  const augCol = document.getElementById("iaPartnerAugmentsCol");
+  const itemCol = document.getElementById("iaPartnerItemsCol");
+  allBtn?.classList.toggle("active", iaPartnerColumnFilter === null);
+  augBtn?.classList.toggle("active", iaPartnerColumnFilter === "augment");
+  itemBtn?.classList.toggle("active", iaPartnerColumnFilter === "item");
+  augCol?.classList.toggle("iaColHidden", iaPartnerColumnFilter === "item");
+  itemCol?.classList.toggle("iaColHidden", iaPartnerColumnFilter === "augment");
+}
+
+// "Gruppieren"-Checkbox fuer die Partner-Tierliste - exakt dasselbe
+// Prinzip wie toggleIaBrowseGroupMode, nur fuer diese Ansicht.
+function toggleIaPartnerGroupMode() {
+  const cb = document.getElementById("iaPartnerGroupToggle");
+  iaPartnerGroupMode = cb ? cb.checked : true;
+  renderIaPartnerTierlist(iaCurrentPartnerTopPartners);
+}
+
+// Zeigt zu einer angeklickten Kachel (im Tier-Liste-Modus) die volle
+// Partner-Tierliste an - blendet dafuer die normale Browse-Ansicht kurz
+// aus, genau wie die alte handkuratierte Synergie-Detailansicht. Klick
+// auf eine Partner-Kachel ruft ueber bindIaTileEvents erneut diese
+// Funktion auf (mit der GLOBALEN Tierlist-Zeile des Partners) - man kann
+// sich so beliebig tief weiterklicken.
 function selectTierListEntry(row, entry) {
   hideIaTooltip();
   document.getElementById("itemsAugmentsBody").classList.add("hidden");
@@ -3270,7 +3344,12 @@ function selectTierListEntry(row, entry) {
   document.getElementById("itemsAugmentsHint")?.classList.add("hidden");
   document.getElementById("iaTierListDetailView").classList.remove("hidden");
   renderIaSelectedCard(entry, "iaTierListSelectedCard");
-  renderIaTopPartnersRanked(row.topPartners);
+  iaPartnerColumnFilter = null;
+  iaPartnerGroupMode = true;
+  const groupCb = document.getElementById("iaPartnerGroupToggle");
+  if (groupCb) groupCb.checked = true;
+  applyIaPartnerColumnFilter();
+  renderIaPartnerTierlist(row.topPartners);
 }
 
 function backToTierListOverview() {
@@ -3365,6 +3444,10 @@ safeBind("iaShowAllBtn", "onclick", () => selectIaColumnFilter("all"));
 safeBind("iaShowAugmentsBtn", "onclick", () => selectIaColumnFilter("augment"));
 safeBind("iaShowItemsBtn", "onclick", () => selectIaColumnFilter("item"));
 safeBind("iaBrowseGroupToggle", "onchange", toggleIaBrowseGroupMode);
+safeBind("iaPartnerShowAllBtn", "onclick", () => selectIaPartnerColumnFilter("all"));
+safeBind("iaPartnerShowAugmentsBtn", "onclick", () => selectIaPartnerColumnFilter("augment"));
+safeBind("iaPartnerShowItemsBtn", "onclick", () => selectIaPartnerColumnFilter("item"));
+safeBind("iaPartnerGroupToggle", "onchange", toggleIaPartnerGroupMode);
 safeBind("iaEditModeBtn", "onclick", toggleIaEditMode);
 safeBind("iaPresetModeBtn", "onclick", toggleIaPresetMode);
 safeBind("iaPresetSave", "onclick", saveIaPreset);
