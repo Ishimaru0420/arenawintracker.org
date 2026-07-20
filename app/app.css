@@ -380,6 +380,21 @@ button.danger:hover { background: #c43b4a; }
 #itemsAugmentsClearFilter { font-size: 12px; padding: 6px 10px; }
 #itemsAugmentsClearFilter.hidden { display: none; }
 #itemsAugmentsHint { font-size: 12px; color: #a89690; margin: 0; }
+/* Zentrierter Umschalter "Augments"/"Items" - blendet im Browser eine
+   der beiden Spalten aus, damit man sich auf eine der beiden Listen
+   konzentrieren kann. Erneuter Klick auf die aktive Schaltflaeche
+   schaltet zurueck auf die normale Zweispalten-Ansicht. */
+#iaColumnToggleRow { display: flex; justify-content: center; gap: 8px; }
+#iaColumnToggleRow button {
+  font-size: 12.5px; padding: 6px 18px; border-radius: 6px;
+  background: #16100d; border: 1px solid #3a2620; color: #b3a39c; cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+#iaColumnToggleRow button:hover { border-color: #ff7a3c; color: #fff; }
+#iaColumnToggleRow button.active {
+  background: linear-gradient(180deg, #ff9c5c, #ff7a3c); border-color: #ff7a3c; color: #2a1204; font-weight: 700;
+}
+#iaAugmentsCol.iaColHidden, #iaItemsCol.iaColHidden { display: none; }
 #iaSearchRow { display: flex; gap: 8px; }
 #iaSearchInput {
   flex: 1; min-width: 0; box-sizing: border-box;

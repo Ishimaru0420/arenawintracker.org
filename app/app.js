@@ -305,6 +305,8 @@ const I18N = {
     iaTierListBtn: "📊 Tier-Liste",
     iaTierListHint: "Winrate + Spielanzahl über alle Spieler. Sortiert die Kacheln je Kategorie nach Winrate; Klick auf ein Item/Augment zeigt die 5 besten Partner-Kombinationen.",
     iaTierListNoData: "Ohne Daten",
+    iaShowAugmentsBtn: "Augments",
+    iaShowItemsBtn: "Items",
     iaTierListNoPartners: "Für dieses Augment/Item gibt es noch keine ausreichenden Partner-Daten.",
     iaTierListPartnersHeading: "Top 5 Partner (gemeinsame Winrate)",
     iaEditModeBtn: "✏️ Synergien bearbeiten",
@@ -576,6 +578,8 @@ const I18N = {
     iaTierListBtn: "📊 Tier list",
     iaTierListHint: "Win rate + game count across all players. Sorts tiles within each category by win rate; click an item/augment to see its 5 best partner combinations.",
     iaTierListNoData: "No data",
+    iaShowAugmentsBtn: "Augments",
+    iaShowItemsBtn: "Items",
     iaTierListNoPartners: "Not enough partner data for this augment/item yet.",
     iaTierListPartnersHeading: "Top 5 partners (combined win rate)",
     iaEditModeBtn: "✏️ Edit synergies",
@@ -1887,6 +1891,7 @@ let iaEditingAnchor = null; // { entry, kind } - die Entitaet, die aktuell bearb
 let iaEditingPartnerIds = new Set(); // "type:key" der aktuellen Synergie-Partner des Ankers
 let iaEditSearchTerm = ""; // Suchbegriff im Synergie-Editor-Grid
 let iaCategoryFilter = ""; // "" = alle, sonst Key aus IA_CATEGORIES
+let iaColumnFilter = null; // null = beide Spalten, "augment" = nur Augments, "item" = nur Items
 let iaTierListMode = false; // true = Kacheln in der normalen Browse-Ansicht werden nach Tierlist-Winrate sortiert + mit Winrate-Badge versehen
 let iaTierListData = null; // Array aus /item-augment-tierlist: {kind,id,games,wins,winrate,topPartners,percentileTier}
 let iaTierListByKey = null; // Map "kind:id" -> Zeile aus iaTierListData, fuer schnellen Lookup pro Kachel
@@ -2005,6 +2010,7 @@ function openItemsAugmentsModal() {
   const searchInput = document.getElementById("iaSearchInput");
   if (searchInput) searchInput.value = "";
   iaSearchTerm = "";
+  applyIaColumnFilter(); // startet immer wieder mit beiden Spalten sichtbar
   renderItemsAugmentsModal();
   loadArenaItemsAugments().then((ok) => {
     if (ok) renderItemsAugmentsModal();
@@ -2023,6 +2029,29 @@ function closeItemsAugmentsModal() {
     document.getElementById("iaTierListBtn")?.classList.remove("active");
   }
   backToTierListOverview();
+  iaColumnFilter = null;
+  applyIaColumnFilter();
+}
+
+// Zentrierter "Augments"/"Items"-Umschalter oben im Items&Augments-
+// Browser: blendet wahlweise eine der beiden Spalten aus, um sich auf
+// eine Liste zu konzentrieren. Erneuter Klick auf die aktive
+// Schaltflaeche zeigt wieder beide Spalten. Reine Sichtbarkeits-
+// Umschaltung per CSS-Klasse - kein Neu-Rendern noetig.
+function toggleIaColumnFilter(kind) {
+  iaColumnFilter = iaColumnFilter === kind ? null : kind;
+  applyIaColumnFilter();
+}
+
+function applyIaColumnFilter() {
+  const augBtn = document.getElementById("iaShowAugmentsBtn");
+  const itemBtn = document.getElementById("iaShowItemsBtn");
+  const augCol = document.getElementById("iaAugmentsCol");
+  const itemCol = document.getElementById("iaItemsCol");
+  augBtn?.classList.toggle("active", iaColumnFilter === "augment");
+  itemBtn?.classList.toggle("active", iaColumnFilter === "item");
+  augCol?.classList.toggle("iaColHidden", iaColumnFilter === "item");
+  itemCol?.classList.toggle("iaColHidden", iaColumnFilter === "augment");
 }
 
 const IA_AUGMENT_TIERS = ["silver", "gold", "prismatic"];
@@ -3290,6 +3319,8 @@ safeBind("itemsAugmentsClose", "onclick", closeItemsAugmentsModal);
 safeBind("itemsAugmentsClearFilter", "onclick", backToItemsAugmentsBrowse);
 safeBind("iaTierListBtn", "onclick", toggleIaTierListMode);
 safeBind("iaTierListBack", "onclick", backToTierListOverview);
+safeBind("iaShowAugmentsBtn", "onclick", () => toggleIaColumnFilter("augment"));
+safeBind("iaShowItemsBtn", "onclick", () => toggleIaColumnFilter("item"));
 safeBind("iaEditModeBtn", "onclick", toggleIaEditMode);
 safeBind("iaPresetModeBtn", "onclick", toggleIaPresetMode);
 safeBind("iaPresetSave", "onclick", saveIaPreset);
