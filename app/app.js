@@ -455,6 +455,11 @@ const I18N = {
     communityDbDiff: "Differenz",
     communityDbSkillOrder: "Skill-Reihenfolge",
     communityDbNoBuildDetails: "Nur Tier-Liste-Daten vorhanden, noch keine Build-Details.",
+    championStatsHeading: "Champion-Statistik",
+    championStatsNone: "Noch keine Daten für diesen Champion.",
+    championStatsNoEntityData: "Noch keine Augment/Item-Daten für diesen Champion.",
+    championStatsTopWinrate: "Beste nach Winrate",
+    championStatsTopPickrate: "Beste nach Pickrate",
     communityAiHeading: "KI-Analyse · Testphase",
     communityAiNone: "Noch keine KI-Analyse für diesen Champion.",
     communityAiStrengths: "Stärken",
@@ -734,6 +739,11 @@ const I18N = {
     communityDbDiff: "Difference",
     communityDbSkillOrder: "Skill order",
     communityDbNoBuildDetails: "Only tier-list data available, no build details yet.",
+    championStatsHeading: "Champion stats",
+    championStatsNone: "No data for this champion yet.",
+    championStatsNoEntityData: "No augment/item data for this champion yet.",
+    championStatsTopWinrate: "Best by winrate",
+    championStatsTopPickrate: "Best by pickrate",
     communityAiHeading: "AI analysis · Beta test",
     communityAiNone: "No AI analysis for this champion yet.",
     communityAiStrengths: "Strengths",
@@ -3094,6 +3104,7 @@ function renderChampBuildSidebar(champ, builds) {
 function openBuildFullView(build) {
   const section = document.getElementById("champPresetsSection");
   if (!section) return;
+  section.classList.remove("hidden");
   const augments = build.augments || [];
   const items = build.items || [];
 
@@ -3987,6 +3998,180 @@ function bindCommunityDbInteractions(section, data) {
   bindSkillOrderTooltips(section, build);
 }
 
+// ============================================================
+// Champion-Statistik - ersetzt die alte externe "Standard-Datenbank"
+// komplett durch echte, aus den eigenen Matchdaten berechnete Zahlen
+// (arena-meta-agent: computeChampionItemAugmentTierlist.js). Kein KDA/
+// Banrate/Synergien/Skill-Order - diese Felder gibt es in unseren
+// eigenen Matchdaten nicht.
+// ============================================================
+let championStatsRowByKey = null; // Map "kind:id" -> Zeile (Winrate/Games/Pickrate) fuer den aktuellen Champion
+
+function championStatsRowForEntry(entry, kind) {
+  if (!championStatsRowByKey || !entry) return null;
+  const numId = entry.id ?? entry.augmentId ?? entry.itemId;
+  if (numId === undefined || numId === null) return null;
+  return championStatsRowByKey.get(`${kind}:${numId}`) || null;
+}
+
+function renderChampionStatsPlaceholder() {
+  return `<div class="detailSection" id="championStatsSection"><h3>${t("championStatsHeading")}</h3><p class="detailEmpty">...</p></div>`;
+}
+
+// Kompakte Rangliste (gleiche Optik wie die fruehere Top-5-Partner-
+// Ansicht in Items & Augments) fuer die "Beste nach Winrate"/"Beste
+// nach Pickrate"-Bloecke unten auf der Champion-Seite.
+function renderChampionTopList(list) {
+  if (!list.length) return `<p class="detailEmpty">${t("championStatsNoEntityData")}</p>`;
+  let html = `<div class="iaPartnerList">`;
+  list.forEach(({ r, entry, kind }, i) => {
+    const name = iaEntryName(entry);
+    html += `
+      <div class="iaPartnerRow" data-champtop-name="${name}" data-champtop-kind="${kind}">
+        <span class="iaPartnerRank">${i + 1}</span>
+        ${entry.icon ? `<img class="iaPartnerIcon" src="${entry.icon}" alt="${name}" loading="lazy" />` : `<div class="iaPartnerIcon iaPartnerIconFallback">${name.slice(0, 3)}</div>`}
+        <span class="iaPartnerName">${name}</span>
+        <span class="iaPartnerWr">${r.winrate}%</span>
+        <span class="iaPartnerGames">${r.games}×</span>
+      </div>`;
+  });
+  html += `</div>`;
+  return html;
+}
+
+function renderChampionStatsContent(stats, rows) {
+  let html = `<h3 style="margin:0 0 10px;">${t("championStatsHeading")}</h3>`;
+  if (!stats) {
+    html += `<p class="detailEmpty">${t("championStatsNone")}</p>`;
+    return html;
+  }
+
+  const statCards = [
+    renderStatCard(t("communityDbWinrate"), stats.winrate != null ? `${stats.winrate}%` : null),
+    renderStatCard(t("communityDbTop3"), stats.top3Rate != null ? `${stats.top3Rate}%` : null),
+    renderStatCard(t("communityDbPickRate"), stats.pickRate != null ? `${stats.pickRate}%` : null),
+    renderStatCard(t("communityDbAvgPlace"), stats.avgPlacement),
+    renderStatCard(t("communityDbGames"), stats.games),
+  ].filter(Boolean);
+  if (statCards.length) html += `<div class="dbStatGrid">${statCards.join("")}</div>`;
+
+  const augments = (arenaAugmentsData || []).filter((e) => championStatsRowForEntry(e, "augment"));
+  const items = (arenaItemsData || []).filter((e) => championStatsRowForEntry(e, "item"));
+
+  if (!augments.length && !items.length) {
+    html += `<p class="detailEmpty" style="margin-top:10px;">${t("championStatsNoEntityData")}</p>`;
+    return html;
+  }
+
+  html += `<div class="dbTwoCol" style="margin-top:14px;">`;
+  html += `<div><p class="detailSkillOrderLabel">${t("iaAugmentsHeading")}</p>`;
+  html += augments.length
+    ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", true, championStatsRowForEntry)).join("")
+    : `<p class="detailEmpty">${t("championStatsNoEntityData")}</p>`;
+  html += `</div>`;
+  html += `<div><p class="detailSkillOrderLabel">${t("iaItemsHeading")}</p>`;
+  html += items.length
+    ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", true, championStatsRowForEntry)).join("")
+    : `<p class="detailEmpty">${t("championStatsNoEntityData")}</p>`;
+  html += `</div>`;
+  html += `</div>`;
+
+  // Augments+Items gemischt, einmal nach Winrate und einmal nach
+  // Pickrate (=Spielanzahl) sortiert, Top 10.
+  const resolved = rows
+    .map((r) => {
+      const map = r.kind === "augment" ? iaAugmentById : iaItemById;
+      const entry = map[r.id];
+      return entry ? { r, entry, kind: r.kind } : null;
+    })
+    .filter(Boolean);
+  const topByWinrate = resolved.slice().sort((a, b) => b.r.winrate - a.r.winrate || b.r.games - a.r.games).slice(0, 10);
+  const topByPickrate = resolved.slice().sort((a, b) => b.r.games - a.r.games).slice(0, 10);
+
+  html += `<div class="dbTwoCol" style="margin-top:14px;">`;
+  html += `<div><p class="detailSkillOrderLabel">${t("championStatsTopWinrate")}</p>${renderChampionTopList(topByWinrate)}</div>`;
+  html += `<div><p class="detailSkillOrderLabel">${t("championStatsTopPickrate")}</p>${renderChampionTopList(topByPickrate)}</div>`;
+  html += `</div>`;
+
+  return html;
+}
+
+// Klick-/Hover-Verhalten fuer die Kacheln: gleiches Muster wie
+// openBuildFullView's bindTiles (NICHT bindIaTileEvents - das ist an
+// den Items&Augments-Modus/Modal gebunden und wuerde hier nur an
+// unsichtbaren Modal-Elementen herumfummeln, ohne dass der Nutzer
+// etwas sieht).
+function bindChampionStatsInteractions(section) {
+  // Auf-/Zuklapp-Listener fuer die Tier-Gruppen: der globale Listener bei
+  // #itemsAugmentsOverlay (siehe weiter unten) greift hier nicht, da diese
+  // Sektion auf der Champion-Detailseite liegt, nicht im Items&Augments-
+  // Modal - deshalb ein eigener, auf "section" gescopter Listener.
+  section.addEventListener("click", (e) => {
+    const label = e.target.closest("[data-tier-toggle]");
+    if (!label) return;
+    label.closest(".iaTierGroup")?.classList.toggle("collapsed");
+  });
+  const bindTiles = (entries, kind) => {
+    section.querySelectorAll(`.iaTile[data-kind="${kind}"]`).forEach((tile) => {
+      const idx = parseInt(tile.dataset.idx, 10);
+      const entry = entries[idx];
+      if (!entry) return;
+      tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
+      tile.addEventListener("mousemove", positionIaTooltip);
+      tile.addEventListener("mouseleave", hideIaTooltip);
+      tile.style.cursor = "pointer";
+      tile.addEventListener("click", () => {
+        hideIaTooltip();
+        openItemOrAugmentDetail(iaEntryName(entry), kind);
+      });
+    });
+  };
+  const augments = (arenaAugmentsData || []).filter((e) => championStatsRowForEntry(e, "augment"));
+  const items = (arenaItemsData || []).filter((e) => championStatsRowForEntry(e, "item"));
+  if (augments.length) bindTiles(augments, "augment");
+  if (items.length) bindTiles(items, "item");
+
+  section.querySelectorAll("[data-champtop-name]").forEach((row) => {
+    row.style.cursor = "pointer";
+    row.addEventListener("click", () => {
+      openItemOrAugmentDetail(row.dataset.champtopName, row.dataset.champtopKind);
+    });
+  });
+}
+
+async function loadChampionStatsSection(champ) {
+  const section = document.getElementById("championStatsSection");
+  if (!section) return;
+  try {
+    const [statsRes, entityRes] = await Promise.all([
+      authFetch(serverUrl(`/champion-stats/${champ.key}`)),
+      authFetch(serverUrl(`/champion-item-augment-stats/${champ.key}`)),
+      loadArenaItemsAugments()
+    ]);
+    const stats = statsRes.ok ? await statsRes.json() : null;
+    const rows = entityRes.ok ? await entityRes.json() : [];
+
+    // Perzentil-Rang je Zeile (Augments+Items dieses Champions
+    // zusammen) - gleiche Logik wie loadItemAugmentTierlist, aber auf
+    // diesen einen Champion gescoped statt global.
+    const sorted = rows.slice().sort((a, b) => b.winrate - a.winrate || b.games - a.games);
+    const n = sorted.length;
+    sorted.forEach((row, i) => {
+      const percentile = (i + 1) / n;
+      const tierInfo = IA_TIER_PERCENTILES.find((tp) => percentile <= tp.upTo) || IA_TIER_PERCENTILES[IA_TIER_PERCENTILES.length - 1];
+      row.percentileTier = tierInfo.key;
+    });
+    championStatsRowByKey = new Map(rows.map((r) => [`${r.kind}:${r.id}`, r]));
+
+    section.innerHTML = renderChampionStatsContent(stats, rows);
+    bindChampionStatsInteractions(section);
+  } catch (err) {
+    console.error("[ChampionStats] Laden fehlgeschlagen:", err);
+    championStatsRowByKey = null;
+    section.innerHTML = renderChampionStatsContent(null, []);
+  }
+}
+
 async function loadCommunityDbSection(champ) {
   const section = document.getElementById("communityDbSection");
   if (!section) return;
@@ -4259,31 +4444,18 @@ function openChampDetail(champ) {
       <img src="${champ.icon}" alt="${champ.name}" />
       <h2>${champ.name}</h2>
     </div>
-    <div class="detailSection" id="champPresetsSection">
-      <h3 class="champPresetsToggle collapsed" id="champPresetsToggle" data-i18n="champPresetsHeading">Schnellsuchen</h3>
-      <div id="champPresetsBody" class="hidden">
-        <div id="champPresetPills"><p class="detailEmpty">...</p></div>
-        <div id="champPresetEntries"></div>
-      </div>
-    </div>
-    ${renderCommunityDbPlaceholder()}
-    ${renderCommunityAiPlaceholder()}
+    <div class="detailSection hidden" id="champPresetsSection"></div>
+    ${renderChampionStatsPlaceholder()}
   `;
 
   applyStaticTranslations();
 
   document.getElementById("champDetailBackBtn").addEventListener("click", closeChampDetail);
-  document.getElementById("champPresetsToggle").addEventListener("click", () => {
-    document.getElementById("champPresetsBody").classList.toggle("hidden");
-    document.getElementById("champPresetsToggle").classList.toggle("collapsed");
-  });
   detail.querySelectorAll(".clickableTag").forEach((li) => {
     li.addEventListener("click", () => openItemOrAugmentDetail(li.dataset.name, li.dataset.type));
   });
-  loadChampPresetPicker(champ);
   loadChampBuildsSidebar(champ);
-  loadCommunityDbSection(champ);
-  loadCommunityAiSection(champ);
+  loadChampionStatsSection(champ);
 }
 
 // ---------- Champion-Seite: reine Anzeige/Auswahl der GLOBALEN Presets ----------
