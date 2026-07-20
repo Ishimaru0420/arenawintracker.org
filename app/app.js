@@ -303,8 +303,7 @@ const I18N = {
     iaSearchPlaceholder: "Augment oder Item suchen...",
     iaCategoryAll: "Alle Kategorien",
     iaTierListBtn: "📊 Tier-Liste",
-    iaTierListHint: "Winrate + Spielanzahl über alle Spieler. Auf ein Item/Augment klicken, um die 5 besten Partner-Kombinationen zu sehen.",
-    iaTierListEmpty: "Noch keine Tier-Liste-Daten vorhanden.",
+    iaTierListHint: "Winrate + Spielanzahl über alle Spieler. Sortiert die Kacheln je Kategorie nach Winrate; Klick auf ein Item/Augment zeigt die 5 besten Partner-Kombinationen.",
     iaTierListNoPartners: "Für dieses Augment/Item gibt es noch keine ausreichenden Partner-Daten.",
     iaTierListPartnersHeading: "Top 5 Partner (gemeinsame Winrate)",
     iaEditModeBtn: "✏️ Synergien bearbeiten",
@@ -574,8 +573,7 @@ const I18N = {
     iaSearchPlaceholder: "Search augment or item...",
     iaCategoryAll: "All categories",
     iaTierListBtn: "📊 Tier list",
-    iaTierListHint: "Win rate + game count across all players. Click an item/augment to see its 5 best partner combinations.",
-    iaTierListEmpty: "No tier list data available yet.",
+    iaTierListHint: "Win rate + game count across all players. Sorts tiles within each category by win rate; click an item/augment to see its 5 best partner combinations.",
     iaTierListNoPartners: "Not enough partner data for this augment/item yet.",
     iaTierListPartnersHeading: "Top 5 partners (combined win rate)",
     iaEditModeBtn: "✏️ Edit synergies",
@@ -1887,8 +1885,9 @@ let iaEditingAnchor = null; // { entry, kind } - die Entitaet, die aktuell bearb
 let iaEditingPartnerIds = new Set(); // "type:key" der aktuellen Synergie-Partner des Ankers
 let iaEditSearchTerm = ""; // Suchbegriff im Synergie-Editor-Grid
 let iaCategoryFilter = ""; // "" = alle, sonst Key aus IA_CATEGORIES
-let iaTierListMode = false;
-let iaTierListData = null; // Array aus /item-augment-tierlist: {kind,id,games,wins,winrate,topPartners}
+let iaTierListMode = false; // true = Kacheln in der normalen Browse-Ansicht werden nach Tierlist-Winrate sortiert + mit Winrate-Badge versehen
+let iaTierListData = null; // Array aus /item-augment-tierlist: {kind,id,games,wins,winrate,topPartners,percentileTier}
+let iaTierListByKey = null; // Map "kind:id" -> Zeile aus iaTierListData, fuer schnellen Lookup pro Kachel
 let iaPresetMode = false;
 let iaPresetSearchTerm = "";
 let iaPresetSelectedEntries = new Map(); // iaEntityId -> {type, key, name, icon, tier}
@@ -2021,8 +2020,7 @@ function closeItemsAugmentsModal() {
     iaTierListMode = false;
     document.getElementById("iaTierListBtn")?.classList.remove("active");
   }
-  document.getElementById("iaTierListView")?.classList.add("hidden");
-  document.getElementById("iaTierListDetailView")?.classList.add("hidden");
+  backToTierListOverview();
 }
 
 const IA_AUGMENT_TIERS = ["silver", "gold", "prismatic"];
@@ -2061,7 +2059,33 @@ function iaEntityId(ref) {
   return `${ref.type}:${ref.key}`;
 }
 
-function renderIaTierGroup(entries, tier, kind) {
+// Loest fuer ein Augment-/Item-Objekt (wie es in arenaAugmentsData/
+// arenaItemsData vorliegt) die passende Tierlist-Zeile auf (Winrate,
+// Spielanzahl, Top-5-Partner) - oder null, falls dafuer noch keine
+// Tierlist-Daten vorliegen (z.B. weniger als die Mindestanzahl Spiele).
+function iaTierlistRowForEntry(entry, kind) {
+  if (!iaTierListByKey || !entry) return null;
+  const numId = entry.id ?? entry.augmentId ?? entry.itemId;
+  if (numId === undefined || numId === null) return null;
+  return iaTierListByKey.get(`${kind}:${numId}`) || null;
+}
+
+// Sortiert eine Liste von Augment-/Item-Objekten absteigend nach ihrer
+// Tierlist-Winrate. Eintraege ohne Tierlist-Daten (zu wenige Spiele)
+// rutschen ans Ende, behalten intern aber ihre urspruengliche Reihenfolge.
+function iaSortByTierlistWinrate(entries, kind) {
+  return entries
+    .map((entry, i) => ({ entry, i, row: iaTierlistRowForEntry(entry, kind) }))
+    .sort((a, b) => {
+      if (a.row && b.row) return b.row.winrate - a.row.winrate || b.row.games - a.row.games;
+      if (a.row && !b.row) return -1;
+      if (!a.row && b.row) return 1;
+      return a.i - b.i;
+    })
+    .map((x) => x.entry);
+}
+
+function renderIaTierGroup(entries, tier, kind, showTierlistStats) {
   const tierEntries = entries.filter((e) => e.tier === tier);
   if (tierEntries.length === 0) return "";
   const label = t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1));
@@ -2070,12 +2094,20 @@ function renderIaTierGroup(entries, tier, kind) {
     const name = iaEntryName(e);
     const cls = ["iaTile"];
     const dataAttr = kind === "augment" ? ` data-augment="${e.apiName}"` : ` data-item="${name}"`;
+    // Im Tier-Liste-Modus zusaetzlich Spielanzahl + Winrate als Badge auf
+    // der Kachel einblenden (gruen = ueberdurchschnittlich nach Perzentil-
+    // Rang, rot = unterdurchschnittlich - siehe IA_TIER_PERCENTILES).
+    const row = showTierlistStats ? iaTierlistRowForEntry(e, kind) : null;
+    const wrClass = row && (row.percentileTier === "S" || row.percentileTier === "A" || row.percentileTier === "B") ? "good" : "bad";
+    const badgeHtml = row
+      ? `<span class="iaStatsTileGames">${row.games}×</span><span class="iaStatsTileWr ${wrClass}">${row.winrate}%</span>`
+      : "";
     if (e.icon) {
       html += `<div class="${cls.join(" ")}"${dataAttr} data-kind="${kind}" data-idx="${entries.indexOf(e)}" data-name="${name}">
-        <img src="${e.icon}" alt="${name}" loading="lazy" />
+        <img src="${e.icon}" alt="${name}" loading="lazy" />${badgeHtml}
       </div>`;
     } else {
-      html += `<div class="${cls.join(" ")} fallback"${dataAttr} data-kind="${kind}" data-idx="${entries.indexOf(e)}" data-name="${name}">${name.slice(0, 3)}</div>`;
+      html += `<div class="${cls.join(" ")} fallback"${dataAttr} data-kind="${kind}" data-idx="${entries.indexOf(e)}" data-name="${name}">${name.slice(0, 3)}${badgeHtml}</div>`;
     }
   }
   html += `</div></div>`;
@@ -2096,14 +2128,23 @@ function renderItemsAugmentsModal() {
     return matchesTerm && matchesCategory;
   };
 
-  const augments = (arenaAugmentsData || []).filter(filterByTerm);
-  const items = (arenaItemsData || []).filter(filterByTerm);
+  let augments = (arenaAugmentsData || []).filter(filterByTerm);
+  let items = (arenaItemsData || []).filter(filterByTerm);
+
+  // Tier-Liste-Modus: die bestehenden Rarity-Kategorien (Silver/Gold/
+  // Prismatic bzw. Quest/Boots/Legendary/...) bleiben unveraendert -
+  // nur die Reihenfolge INNERHALB jeder Kategorie wechselt von der
+  // Standardreihenfolge zu "beste Winrate zuerst".
+  if (iaTierListMode && iaTierListByKey) {
+    augments = iaSortByTierlistWinrate(augments, "augment");
+    items = iaSortByTierlistWinrate(items, "item");
+  }
 
   augList.innerHTML = augments.length
-    ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("")
+    ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", iaTierListMode)).join("")
     : `<p class="detailEmpty">–</p>`;
   itemList.innerHTML = items.length
-    ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("")
+    ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", iaTierListMode)).join("")
     : `<p class="detailEmpty">–</p>`;
 
   bindIaTileEvents(augList, augments);
@@ -2123,6 +2164,14 @@ function bindIaTileEvents(container, entries, kindFilter) {
     tile.addEventListener("click", () => {
       if (iaEditMode) {
         startEditingEntity(entry, kind);
+        return;
+      }
+      // Im Tier-Liste-Modus zeigt ein Klick die echten Top-5-Partner
+      // (aus den Spielerdaten berechnet) statt der handkuratierten
+      // Synergien.
+      if (iaTierListMode) {
+        const row = iaTierlistRowForEntry(entry, kind);
+        if (row) selectTierListEntry(row, entry);
         return;
       }
       selectEntryForFilter(entry, kind);
@@ -2220,7 +2269,7 @@ function toggleIaEditMode() {
   }
   if (iaEditMode) {
     if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
-    if (iaTierListMode) { iaTierListMode = false; document.getElementById("iaTierListBtn")?.classList.remove("active"); document.getElementById("iaTierListView").classList.add("hidden"); document.getElementById("iaTierListDetailView").classList.add("hidden"); }
+    if (iaTierListMode) { iaTierListMode = false; document.getElementById("iaTierListBtn")?.classList.remove("active"); backToTierListOverview(); }
     backToItemsAugmentsBrowse(); // Detail-/Filteransicht verlassen, falls offen
     document.getElementById("itemsAugmentsBody").classList.remove("hidden");
     document.getElementById("iaEditView").classList.add("hidden");
@@ -2425,7 +2474,7 @@ function toggleIaPresetMode() {
   if (btn) btn.classList.toggle("active", iaPresetMode);
   if (iaPresetMode) {
     if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
-    if (iaTierListMode) { iaTierListMode = false; document.getElementById("iaTierListBtn")?.classList.remove("active"); document.getElementById("iaTierListView").classList.add("hidden"); document.getElementById("iaTierListDetailView").classList.add("hidden"); }
+    if (iaTierListMode) { iaTierListMode = false; document.getElementById("iaTierListBtn")?.classList.remove("active"); backToTierListOverview(); }
     backToItemsAugmentsBrowse();
     cancelIaEdit();
     startCreatingPreset();
@@ -2887,7 +2936,7 @@ async function openBuildEditor(build, champKey) {
   await loadArenaItemsAugments();
 
   if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
-  if (iaTierListMode) { iaTierListMode = false; document.getElementById("iaTierListBtn")?.classList.remove("active"); document.getElementById("iaTierListView").classList.add("hidden"); document.getElementById("iaTierListDetailView").classList.add("hidden"); }
+  if (iaTierListMode) { iaTierListMode = false; document.getElementById("iaTierListBtn")?.classList.remove("active"); backToTierListOverview(); }
   iaPresetMode = true;
   document.getElementById("iaPresetModeBtn")?.classList.add("active");
   backToItemsAugmentsBrowse();
@@ -3046,25 +3095,26 @@ const IA_TIER_PERCENTILES = [
   { key: "D", upTo: 1.00 }
 ];
 
-// Ordnet eine (nach Winrate absteigend sortierte) Liste von Eintraegen
-// ihrem Perzentil-Tier zu.
-function iaGroupByPercentileTier(sortedResolved) {
-  const groups = { S: [], A: [], B: [], C: [], D: [] };
-  const n = sortedResolved.length;
-  sortedResolved.forEach((x, i) => {
-    const percentile = (i + 1) / n;
-    const tier = IA_TIER_PERCENTILES.find((t) => percentile <= t.upTo) || IA_TIER_PERCENTILES[IA_TIER_PERCENTILES.length - 1];
-    groups[tier.key].push(x);
-  });
-  return groups;
-}
-
 async function loadItemAugmentTierlist() {
   if (iaTierListData) return true;
   try {
     const res = await authFetch(serverUrl("/item-augment-tierlist"));
     if (!res.ok) throw new Error("HTTP " + res.status);
     iaTierListData = await res.json();
+
+    // Einmalig global (ueber ALLE Items+Augments zusammen) den Perzentil-
+    // Rang je Zeile berechnen und ablegen - wird fuer die gruene/rote
+    // Faerbung der Winrate-Badges in der normalen Browse-Ansicht
+    // gebraucht (S/A/B = ueberdurchschnittlich, C/D = unterdurchschnittlich).
+    const sorted = iaTierListData.slice().sort((a, b) => b.winrate - a.winrate || b.games - a.games);
+    const n = sorted.length;
+    sorted.forEach((row, i) => {
+      const percentile = (i + 1) / n;
+      const tierInfo = IA_TIER_PERCENTILES.find((t) => percentile <= t.upTo) || IA_TIER_PERCENTILES[IA_TIER_PERCENTILES.length - 1];
+      row.percentileTier = tierInfo.key;
+    });
+
+    iaTierListByKey = new Map(iaTierListData.map((row) => [`${row.kind}:${row.id}`, row]));
     return true;
   } catch (err) {
     console.error("[ItemAugmentTierlist] Laden fehlgeschlagen:", err);
@@ -3074,63 +3124,13 @@ async function loadItemAugmentTierlist() {
 
 // Loest eine Tierlist-Zeile (nur kind+id) zum vollen Augment-/Item-
 // Objekt auf (Name/Icon/Beschreibung kommen aus den schon geladenen
-// arenaAugments/arenaItems-Daten, nicht nochmal von hier).
+// arenaAugments/arenaItems-Daten, nicht nochmal von hier). Wird fuer
+// die Top-5-Partner-Ansicht gebraucht, deren Eintraege selbst nur
+// {kind,id,...} sind.
 function iaTierlistEntryLookup(row) {
   if (!row) return null;
   const map = row.kind === "augment" ? iaAugmentById : iaItemById;
   return map[row.id] || null;
-}
-
-function renderIaTierListView() {
-  const container = document.getElementById("iaTierListResults");
-  if (!container) return;
-  if (!iaTierListData || !iaTierListData.length) {
-    container.innerHTML = `<p class="detailEmpty">${t("iaTierListEmpty")}</p>`;
-    return;
-  }
-
-  const resolved = iaTierListData
-    .map((row) => ({ row, entry: iaTierlistEntryLookup(row) }))
-    .filter((x) => x.entry)
-    .sort((a, b) => b.row.winrate - a.row.winrate || b.row.games - a.row.games);
-
-  const groups = iaGroupByPercentileTier(resolved);
-  for (const key of Object.keys(groups)) {
-    groups[key].sort((a, b) => b.row.winrate - a.row.winrate || b.row.games - a.row.games);
-  }
-
-  let html = "";
-  for (const tierKey of ["S", "A", "B", "C", "D"]) {
-    const list = groups[tierKey];
-    if (!list.length) continue;
-    html += `<div class="iaTierListGroup"><div class="iaTierListBadge tier-${tierKey}">${tierKey} (${list.length})</div><div class="iaStatsGrid">`;
-    for (const x of list) {
-      const name = iaEntryName(x.entry);
-      const tooltip = `${name}: ${x.row.wins}/${x.row.games} (${x.row.winrate}%)`;
-      // "good"/"bad" richtet sich nach dem Perzentil-Tier, nicht nach
-      // einem festen Prozentwert (s. Kommentar bei IA_TIER_PERCENTILES) -
-      // S/A/B gelten als ueberdurchschnittlich, C/D als unterdurchschnittlich.
-      const wrClass = (tierKey === "S" || tierKey === "A" || tierKey === "B") ? "good" : "bad";
-      html += `
-        <div class="iaStatsTile iaTierListTile" data-kind="${x.row.kind}" data-id="${x.row.id}" title="${tooltip}">
-          ${x.entry.icon ? `<img src="${x.entry.icon}" alt="${name}" loading="lazy" />` : `<div class="iaStatsTileFallback">${name.slice(0, 3)}</div>`}
-          <span class="iaStatsTileGames">${x.row.games}×</span>
-          <span class="iaStatsTileWr ${wrClass}">${x.row.winrate}%</span>
-        </div>`;
-    }
-    html += `</div></div>`;
-  }
-  container.innerHTML = html;
-
-  container.querySelectorAll(".iaTierListTile").forEach((tile) => {
-    tile.addEventListener("click", () => {
-      const kind = tile.dataset.kind;
-      const id = Number(tile.dataset.id);
-      const row = iaTierListData.find((r) => r.kind === kind && r.id === id);
-      const entry = iaTierlistEntryLookup(row);
-      if (row && entry) selectTierListEntry(row, entry);
-    });
-  });
 }
 
 // Rangliste der 5 besten Partner (kommt schon fertig sortiert vom
@@ -3165,52 +3165,48 @@ function renderIaTopPartnersRanked(topPartners) {
   container.innerHTML = html;
 }
 
+// Zeigt zu einer angeklickten Kachel (im Tier-Liste-Modus) die Top-5-
+// Partner an - blendet dafuer die normale Browse-Ansicht kurz aus,
+// genau wie die alte handkuratierte Synergie-Detailansicht.
 function selectTierListEntry(row, entry) {
-  document.getElementById("iaTierListView").classList.add("hidden");
+  hideIaTooltip();
+  document.getElementById("itemsAugmentsBody").classList.add("hidden");
+  document.getElementById("iaSearchInput").classList.add("hidden");
+  document.getElementById("itemsAugmentsHint")?.classList.add("hidden");
   document.getElementById("iaTierListDetailView").classList.remove("hidden");
   renderIaSelectedCard(entry, "iaTierListSelectedCard");
   renderIaTopPartnersRanked(row.topPartners);
 }
 
 function backToTierListOverview() {
-  document.getElementById("iaTierListDetailView").classList.add("hidden");
-  document.getElementById("iaTierListView").classList.remove("hidden");
+  document.getElementById("iaTierListDetailView")?.classList.add("hidden");
+  document.getElementById("itemsAugmentsBody")?.classList.remove("hidden");
+  document.getElementById("iaSearchInput")?.classList.remove("hidden");
+  document.getElementById("itemsAugmentsHint")?.classList.remove("hidden");
 }
 
+// Der Tier-Liste-Button schaltet NICHT auf eine eigene Seite um, sondern
+// sortiert die Kacheln der normalen Browse-Ansicht (Silver/Gold/Prismatic
+// bzw. Quest/Boots/Legendary/...) innerhalb jeder bestehenden Kategorie
+// nach echter Winrate und zeigt Spielanzahl+Winrate als Badge an. Ein
+// Klick auf eine Kachel zeigt weiterhin die Top-5-Partner (Variante B).
 function toggleIaTierListMode() {
   iaTierListMode = !iaTierListMode;
   const btn = document.getElementById("iaTierListBtn");
   if (btn) btn.classList.toggle("active", iaTierListMode);
 
+  if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
+  if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
+  backToTierListOverview(); // Partner-Detailansicht verlassen, falls offen
+  backToItemsAugmentsBrowse(); // alte Synergie-Detailansicht verlassen, falls offen
+
   if (iaTierListMode) {
-    if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
-    if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
-    backToItemsAugmentsBrowse(); // normale Browse-/Filteransicht verlassen, falls offen
-
-    document.getElementById("itemsAugmentsBody").classList.add("hidden");
-    document.getElementById("iaSearchInput").classList.add("hidden");
-    document.getElementById("itemsAugmentsHint").classList.add("hidden");
-    document.getElementById("iaTierListDetailView").classList.add("hidden");
-    document.getElementById("iaTierListView").classList.remove("hidden");
-
-    renderIaTierListView();
-    // Beide Datenquellen brauchen wir hier: arenaAugments/arenaItems
-    // (fuer Name/Icon, sonst schon durch das Oeffnen des Modals
-    // geladen) UND die neue Tierlist-Collection. Beide gemeinsam
-    // abwarten, statt uns auf die Ladereihenfolge zu verlassen -
-    // sonst koennte ein sehr schneller Klick auf "Tier-Liste" direkt
-    // nach dem Oeffnen des Modals faelschlich "keine Daten" zeigen.
-    Promise.all([loadArenaItemsAugments(), loadItemAugmentTierlist()]).then(([iaOk, tierOk]) => {
-      if (iaOk && tierOk) renderIaTierListView();
-      else document.getElementById("iaTierListResults").innerHTML = `<p class="detailEmpty">${t("iaLoadError")}</p>`;
+    loadItemAugmentTierlist().then((ok) => {
+      if (!ok) console.error("[ItemAugmentTierlist] Konnte Tierlist-Daten nicht laden.");
+      renderItemsAugmentsModal();
     });
-  } else {
-    document.getElementById("iaTierListView").classList.add("hidden");
-    document.getElementById("iaTierListDetailView").classList.add("hidden");
-    document.getElementById("itemsAugmentsBody").classList.remove("hidden");
-    document.getElementById("iaSearchInput").classList.remove("hidden");
-    document.getElementById("itemsAugmentsHint").classList.remove("hidden");
   }
+  renderItemsAugmentsModal();
 }
 
 function showIaTooltip(e, entry, kind) {

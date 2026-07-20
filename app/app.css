@@ -513,23 +513,12 @@ button.danger:hover { background: #c43b4a; }
 }
 #iaSynergyResults .iaTierGroup { margin-bottom: 10px; }
 
-/* ---------- Items & Augments: Tier-Liste (echte Spielerdaten) ---------- */
+/* ---------- Items & Augments: Tier-Liste (echte Spielerdaten) ----------
+   Der Button sortiert die Kacheln der normalen Browse-Ansicht nur um
+   (siehe .iaTile-Badges via .iaStatsTileGames/.iaStatsTileWr weiter
+   oben) - dafuer ist keine eigene Grid-Ansicht mehr noetig. Nur die
+   Partner-Detailansicht (Klick auf eine Kachel) hat noch eigenes CSS. */
 #iaTierListBtn.active { background: linear-gradient(180deg, #ff9c5c, #ff7a3c) !important; color: #2a1204 !important; }
-#iaTierListView { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 4px; }
-#iaTierListView.hidden { display: none; }
-#iaTierListHint { font-size: 12px; color: #a89690; margin: 0; flex-shrink: 0; }
-.iaTierListGroup { margin-bottom: 14px; }
-.iaTierListBadge {
-  display: inline-flex; align-items: center; gap: 4px;
-  font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;
-  margin: 0 0 6px; padding: 2px 10px; border-radius: 5px;
-}
-.iaTierListBadge.tier-S { background: rgba(255,215,0,0.18); color: #ffd700; }
-.iaTierListBadge.tier-A { background: rgba(74,222,128,0.18); color: #4ade80; }
-.iaTierListBadge.tier-B { background: rgba(96,165,250,0.18); color: #60a5fa; }
-.iaTierListBadge.tier-C { background: rgba(156,163,175,0.18); color: #9ca3af; }
-.iaTierListBadge.tier-D { background: rgba(248,113,113,0.18); color: #f87171; }
-.iaTierListTile { cursor: pointer; }
 
 #iaTierListDetailView { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; padding-right: 4px; }
 #iaTierListDetailView.hidden { display: none; }
