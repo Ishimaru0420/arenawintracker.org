@@ -3031,22 +3031,32 @@ function renderIaSynergyResults(partners, loading) {
 // vorberechnet vom Server, kein zusaetzlicher Request noetig).
 // ============================================================
 
-// Feste Winrate-Schwellen fuer die Tier-Einteilung. Bewusst relativ
-// eng beieinander (anders als z.B. bei Champion-Tierlisten), weil
-// Arena-Item-/Augment-Winrates in der Praxis meist nah an 50% liegen.
-const IA_WINRATE_TIERS = [
-  { key: "S", min: 54 },
-  { key: "A", min: 51 },
-  { key: "B", min: 48 },
-  { key: "C", min: 45 },
-  { key: "D", min: 0 }
+// KEINE festen Winrate-Schwellen (z.B. "S ab 54%") - "Sieg" bedeutet in
+// Arena Platz 1 von 8 Teams, der Basiswert liegt also bei ~12.5%, nicht
+// bei 50% wie bei einem klassischen 1v1. Feste Prozent-Grenzen wuerden
+// dadurch fast alles in die unterste Stufe stecken. Stattdessen: relative
+// Rang-Einteilung nach Perzentil innerhalb der tatsaechlich geladenen
+// Daten - passt sich automatisch an, egal wie die echte Verteilung
+// aussieht.
+const IA_TIER_PERCENTILES = [
+  { key: "S", upTo: 0.10 },
+  { key: "A", upTo: 0.30 },
+  { key: "B", upTo: 0.70 },
+  { key: "C", upTo: 0.90 },
+  { key: "D", upTo: 1.00 }
 ];
 
-function iaWinrateTierKey(winrate) {
-  for (const tier of IA_WINRATE_TIERS) {
-    if (winrate >= tier.min) return tier.key;
-  }
-  return "D";
+// Ordnet eine (nach Winrate absteigend sortierte) Liste von Eintraegen
+// ihrem Perzentil-Tier zu.
+function iaGroupByPercentileTier(sortedResolved) {
+  const groups = { S: [], A: [], B: [], C: [], D: [] };
+  const n = sortedResolved.length;
+  sortedResolved.forEach((x, i) => {
+    const percentile = (i + 1) / n;
+    const tier = IA_TIER_PERCENTILES.find((t) => percentile <= t.upTo) || IA_TIER_PERCENTILES[IA_TIER_PERCENTILES.length - 1];
+    groups[tier.key].push(x);
+  });
+  return groups;
 }
 
 async function loadItemAugmentTierlist() {
@@ -3081,10 +3091,10 @@ function renderIaTierListView() {
 
   const resolved = iaTierListData
     .map((row) => ({ row, entry: iaTierlistEntryLookup(row) }))
-    .filter((x) => x.entry);
+    .filter((x) => x.entry)
+    .sort((a, b) => b.row.winrate - a.row.winrate || b.row.games - a.row.games);
 
-  const groups = { S: [], A: [], B: [], C: [], D: [] };
-  for (const x of resolved) groups[iaWinrateTierKey(x.row.winrate)].push(x);
+  const groups = iaGroupByPercentileTier(resolved);
   for (const key of Object.keys(groups)) {
     groups[key].sort((a, b) => b.row.winrate - a.row.winrate || b.row.games - a.row.games);
   }
@@ -3097,7 +3107,10 @@ function renderIaTierListView() {
     for (const x of list) {
       const name = iaEntryName(x.entry);
       const tooltip = `${name}: ${x.row.wins}/${x.row.games} (${x.row.winrate}%)`;
-      const wrClass = x.row.winrate >= 50 ? "good" : "bad";
+      // "good"/"bad" richtet sich nach dem Perzentil-Tier, nicht nach
+      // einem festen Prozentwert (s. Kommentar bei IA_TIER_PERCENTILES) -
+      // S/A/B gelten als ueberdurchschnittlich, C/D als unterdurchschnittlich.
+      const wrClass = (tierKey === "S" || tierKey === "A" || tierKey === "B") ? "good" : "bad";
       html += `
         <div class="iaStatsTile iaTierListTile" data-kind="${x.row.kind}" data-id="${x.row.id}" title="${tooltip}">
           ${x.entry.icon ? `<img src="${x.entry.icon}" alt="${name}" loading="lazy" />` : `<div class="iaStatsTileFallback">${name.slice(0, 3)}</div>`}
