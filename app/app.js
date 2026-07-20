@@ -3531,7 +3531,8 @@ function renderIaTooltipPartnerCol(list, headingKey) {
         const name = iaEntryName(entry);
         return `<div class="iaTooltipPartnerRow">
           ${entry.icon ? `<img class="iaTooltipPartnerIcon" src="${entry.icon}" alt="${name}" />` : `<div class="iaTooltipPartnerIcon iaTooltipPartnerIconFallback">${name.slice(0, 2)}</div>`}
-          <span class="iaTooltipPartnerName">${name} <span class="iaTooltipPartnerGames">(${p.games}×)</span></span>
+          <span class="iaTooltipPartnerName">${name}</span>
+          <span class="iaTooltipPartnerGames">(${p.games}×)</span>
           <span class="iaTooltipPartnerWr">${p.winrate}%</span>
         </div>`;
       }).join("")
@@ -4152,12 +4153,17 @@ function bindChampionStatsInteractions(section) {
   // Auf-/Zuklapp-Listener fuer die Tier-Gruppen: der globale Listener bei
   // #itemsAugmentsOverlay (siehe weiter unten) greift hier nicht, da diese
   // Sektion auf der Champion-Detailseite liegt, nicht im Items&Augments-
-  // Modal - deshalb ein eigener, auf "section" gescopter Listener.
-  section.addEventListener("click", (e) => {
+  // Modal - deshalb ein eigener, auf "section" gescopter Listener. Als
+  // Zuweisung (onclick) statt addEventListener, weil bindChampionStatsInteractions
+  // bei jedem Umschalten des Group-Hakens erneut aufgerufen wird (section
+  // selbst bleibt dabei bestehen, nur ihr innerHTML wird ersetzt) - mit
+  // addEventListener wuerden sich sonst mit jedem Toggle weitere Listener
+  // aufaddieren, die sich beim Klick gegenseitig aufheben (auf->zu->auf).
+  section.onclick = (e) => {
     const label = e.target.closest("[data-tier-toggle]");
     if (!label) return;
     label.closest(".iaTierGroup")?.classList.toggle("collapsed");
-  });
+  };
   const groupToggle = section.querySelector("#championStatsGroupToggle");
   if (groupToggle) {
     groupToggle.addEventListener("change", () => {
