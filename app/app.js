@@ -61,6 +61,16 @@ async function authFetch(url, options = {}) {
 // ---------- NEU: UI-Prefs persistieren ----------
 const UI_PREFS_KEY = "arenaWinTrackerUIPrefs";
 
+// Muessen HIER (vor applyUIPrefs) deklariert sein, nicht erst weiter unten
+// bei ihrer eigentlichen Verwendungsstelle - sonst wirft der Zugriff in
+// applyUIPrefs() beim Skriptstart einen ReferenceError (temporal dead
+// zone), weil "let" anders als "var" nicht vorab initialisiert wird.
+// Das legt dann das GESAMTE restliche Skript lahm (keine Champs, keine
+// Klicks), sobald einmal ein "iaItemsGrouped"/"iaAugmentsGrouped"-Wert
+// in den localStorage-UI-Prefs gespeichert wurde.
+let iaItemsStatsGroupMode = true;
+let iaAugmentsStatsGroupMode = true;
+
 function loadUIPrefs() {
   try {
     return JSON.parse(localStorage.getItem(UI_PREFS_KEY) || "{}");
@@ -4819,10 +4829,9 @@ function matchDetailKey(m) {
 
 let iaItemsStatsSortMode = "winrate"; // "winrate" | "games"
 let iaAugmentsStatsSortMode = "winrate";
-// Gruppierung nach Tier (Silber/Gold/Prismatic bzw. Quest/Boots/Legendary/...)
-// ein-/ausschaltbar ueber die Checkbox oben rechts in der jeweiligen Sektion.
-let iaItemsStatsGroupMode = true;
-let iaAugmentsStatsGroupMode = true;
+// iaItemsStatsGroupMode/iaAugmentsStatsGroupMode werden jetzt ganz oben bei
+// den anderen UI-Prefs deklariert (siehe applyUIPrefs) - hier NICHT nochmal
+// mit "let" deklarieren, das wuerde einen doppelten-Deklaration-Fehler geben.
 
 // Winrate wird erst ab dieser Mindestanzahl Spiele als "verlaesslich"
 // behandelt - darunter landet der Eintrag beim Winrate-Sortieren trotzdem
