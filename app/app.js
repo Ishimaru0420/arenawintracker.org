@@ -1895,6 +1895,8 @@ let iaEditingAnchor = null; // { entry, kind } - die Entitaet, die aktuell bearb
 let iaEditingPartnerIds = new Set(); // "type:key" der aktuellen Synergie-Partner des Ankers
 let iaEditSearchTerm = ""; // Suchbegriff im Synergie-Editor-Grid
 let iaCategoryFilter = ""; // "" = alle, sonst Key aus IA_CATEGORIES
+let iaQuickSearchPresetId = null; // _id des im Quick-Search-Bereich ausgewaehlten Presets, null = kein Filter
+let iaQuickSearchPresetEntryIds = null; // Set aus iaEntityId(entry)-Strings des ausgewaehlten Presets
 let iaColumnFilter = null; // null = beide Spalten, "augment" = nur Augments, "item" = nur Items
 let iaTierListMode = false; // true = Kacheln in der normalen Browse-Ansicht werden nach Tierlist-Winrate sortiert + mit Winrate-Badge versehen
 let iaTierListData = null; // Array aus /item-augment-tierlist: {kind,id,games,wins,winrate,topPartners,percentileTier}
@@ -2016,9 +2018,12 @@ function openItemsAugmentsModal() {
   iaSearchTerm = "";
   iaColumnFilter = null; // startet immer wieder mit "All" (beide Spalten sichtbar)
   iaBrowseGroupMode = true;
+  iaQuickSearchPresetId = null;
+  iaQuickSearchPresetEntryIds = null;
   const groupCb = document.getElementById("iaBrowseGroupToggle");
   if (groupCb) groupCb.checked = true;
   applyIaColumnFilter();
+  initIaQuickSearchSection();
   renderItemsAugmentsModal();
   loadArenaItemsAugments().then((ok) => {
     if (ok) renderItemsAugmentsModal();
@@ -2038,6 +2043,8 @@ function closeItemsAugmentsModal() {
   }
   backToTierListOverview();
   iaColumnFilter = null;
+  iaQuickSearchPresetId = null;
+  iaQuickSearchPresetEntryIds = null;
   applyIaColumnFilter();
 }
 
@@ -2209,22 +2216,78 @@ function renderIaFlatList(entries, kind, showTierlistStats, rowLookupFn) {
   return html;
 }
 
+// Quick-Search-Box ganz oben im Items&Augments-Fenster: zeigt dieselben
+// global gespeicherten Presets wie auf der Champion-Seite (champPresetPill)
+// als einklappbare Pill-Reihe. Klick auf ein Preset filtert die normale
+// Browse-Ansicht darunter auf dessen Eintraege - Tier-Liste/Group/All-
+// Filter bleiben dabei weiter ganz normal nutzbar (im Gegensatz zum alten
+// "Schnellsuche"-Editor, der die Browse-Ansicht komplett ersetzt hat).
+function initIaQuickSearchSection() {
+  const toggle = document.getElementById("iaQuickSearchToggle");
+  const body = document.getElementById("iaQuickSearchBody");
+  if (!toggle || !body || toggle.dataset.bound) {
+    renderIaQuickSearchPills();
+    return;
+  }
+  toggle.dataset.bound = "1";
+  toggle.addEventListener("click", () => {
+    body.classList.toggle("hidden");
+    toggle.classList.toggle("collapsed");
+  });
+  renderIaQuickSearchPills();
+}
+
+async function renderIaQuickSearchPills() {
+  const pillsEl = document.getElementById("iaQuickSearchPills");
+  if (!pillsEl) return;
+  const presets = await loadPresets();
+  if (!presets.length) {
+    pillsEl.innerHTML = `<p class="detailEmpty">${t("champPresetsNoneGlobal")}</p>`;
+    return;
+  }
+  pillsEl.innerHTML = presets.map((p) => `
+    <button class="champPresetPill${p._id === iaQuickSearchPresetId ? " active" : ""}" data-preset-id="${p._id}">
+      ${p.name}${p.createdBy ? ` <span class="champPresetPillCreator">${t("iaPresetByLabel")} ${p.createdBy}</span>` : ""}
+    </button>
+  `).join("");
+  pillsEl.querySelectorAll(".champPresetPill").forEach((btn) => {
+    btn.onclick = () => {
+      const preset = presets.find((p) => p._id === btn.dataset.presetId);
+      if (!preset) return;
+      // Klick auf das bereits aktive Preset hebt den Filter wieder auf.
+      if (iaQuickSearchPresetId === preset._id) {
+        iaQuickSearchPresetId = null;
+        iaQuickSearchPresetEntryIds = null;
+      } else {
+        iaQuickSearchPresetId = preset._id;
+        iaQuickSearchPresetEntryIds = new Set((preset.entries || []).map((e) => iaEntityId(e)));
+      }
+      renderIaQuickSearchPills();
+      renderItemsAugmentsModal();
+    };
+  });
+}
+
 function renderItemsAugmentsModal() {
   const augList = document.getElementById("iaAugmentsList");
   const itemList = document.getElementById("iaItemsList");
   if (!augList || !itemList) return;
 
   const term = normName(iaSearchTerm);
-  const filterByTerm = (e) => {
+  const filterByTerm = (e, kind) => {
     const name = iaEntryName(e);
     const desc = iaEntryDesc(e);
     const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
     const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
-    return matchesTerm && matchesCategory;
+    // Quick-Search-Preset (Pill oben im Fenster): wenn eins ausgewaehlt
+    // ist, nur dessen Eintraege zeigen - Tier-Liste/Group/All-Filter
+    // bleiben dabei ganz normal weiter aktiv.
+    const matchesQuickSearch = !iaQuickSearchPresetEntryIds || iaQuickSearchPresetEntryIds.has(iaEntityId(iaEntityRef(e, kind)));
+    return matchesTerm && matchesCategory && matchesQuickSearch;
   };
 
-  const augments = (arenaAugmentsData || []).filter(filterByTerm);
-  const items = (arenaItemsData || []).filter(filterByTerm);
+  const augments = (arenaAugmentsData || []).filter((e) => filterByTerm(e, "augment"));
+  const items = (arenaItemsData || []).filter((e) => filterByTerm(e, "item"));
 
   // Tier-Liste-Modus: die bestehenden Rarity-Kategorien (Silver/Gold/
   // Prismatic bzw. Quest/Boots/Legendary/...) bleiben unveraendert -
