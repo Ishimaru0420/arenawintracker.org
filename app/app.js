@@ -4041,7 +4041,7 @@ function bindCommunityDbInteractions(section, data) {
 // eigenen Matchdaten nicht.
 // ============================================================
 let championStatsRowByKey = null; // Map "kind:id" -> Zeile (Winrate/Games/Pickrate) fuer den aktuellen Champion
-let championStatsGroupMode = true; // Gruppieren-Haken: an = nach Rarity-Kategorie (Silver/Gold/... bzw. Quest/Boots/...), aus = flache S-D-Liste ueber alle Kategorien hinweg
+let championStatsGroupMode = false; // Gruppieren-Haken: an = nach Rarity-Kategorie (Silver/Gold/... bzw. Quest/Boots/...), aus (Standard) = flache S-D-Liste ueber alle Kategorien hinweg
 let championStatsCurrentStats = null; // fuer Re-Render beim Umschalten des Gruppieren-Hakens ohne Neu-Laden
 let championStatsCurrentRows = null;
 
@@ -4211,6 +4211,10 @@ function bindChampionStatsInteractions(section) {
 async function loadChampionStatsSection(champ) {
   const section = document.getElementById("championStatsSection");
   if (!section) return;
+  // Beim Wechsel auf einen (anderen) Champion immer auf den Standard
+  // zuruecksetzen, statt den zuletzt gesetzten Haken vom vorherigen
+  // Champion zu behalten.
+  championStatsGroupMode = false;
   try {
     const [statsRes, entityRes] = await Promise.all([
       authFetch(serverUrl(`/champion-stats/${champ.key}`)),
