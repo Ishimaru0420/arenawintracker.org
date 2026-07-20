@@ -984,6 +984,13 @@ input:focus, select:focus, textarea:focus {
   font-size: 11px; color: #ff7a3c; margin: 0 0 6px;
   text-transform: uppercase; letter-spacing: 0.04em;
 }
+.iaStatsHeader {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 6px;
+}
+.iaStatsHeader h3 { margin: 0; }
+.iaStatsGroupToggle { flex-shrink: 0; white-space: nowrap; cursor: pointer; }
+.iaStatsGroupToggle input { cursor: pointer; }
 .detailEmpty { font-size: 11px; color: #9c8882; margin: 0; }
 
 .detailPartnerList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }

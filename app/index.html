@@ -300,7 +300,13 @@
         </div>
         <div class="dbTabPanel hidden" id="placementPanelItems">
           <div class="detailSection" id="placementItemsStatsSection">
-            <h3 data-i18n="iaStatsItemsHeading">Meine Item-Statistik</h3>
+            <div class="iaStatsHeader">
+              <h3 data-i18n="iaStatsItemsHeading">Meine Item-Statistik</h3>
+              <label class="checkboxLabel iaStatsGroupToggle">
+                <input id="iaItemsStatsGroupToggle" type="checkbox" checked />
+                <span data-i18n="iaStatsGroupToggleLabel">Gruppieren</span>
+              </label>
+            </div>
             <select id="iaItemsStatsSort">
               <option value="winrate" data-i18n="iaStatsSortWinrate">Beste Winrate</option>
               <option value="games" data-i18n="iaStatsSortGames">Meiste Spiele</option>
@@ -310,7 +316,13 @@
         </div>
         <div class="dbTabPanel hidden" id="placementPanelAugments">
           <div class="detailSection" id="placementAugmentsStatsSection">
-            <h3 data-i18n="iaStatsAugmentsHeading">Meine Augment-Statistik</h3>
+            <div class="iaStatsHeader">
+              <h3 data-i18n="iaStatsAugmentsHeading">Meine Augment-Statistik</h3>
+              <label class="checkboxLabel iaStatsGroupToggle">
+                <input id="iaAugmentsStatsGroupToggle" type="checkbox" checked />
+                <span data-i18n="iaStatsGroupToggleLabel">Gruppieren</span>
+              </label>
+            </div>
             <select id="iaAugmentsStatsSort">
               <option value="winrate" data-i18n="iaStatsSortWinrate">Beste Winrate</option>
               <option value="games" data-i18n="iaStatsSortGames">Meiste Spiele</option>

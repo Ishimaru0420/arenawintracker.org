@@ -78,10 +78,20 @@ function applyUIPrefs() {
   const filterInput = document.getElementById("filterInput");
   const sortMode = document.getElementById("sortMode");
   const onlyMissing = document.getElementById("onlyMissing");
+  const iaItemsGroupToggle = document.getElementById("iaItemsStatsGroupToggle");
+  const iaAugmentsGroupToggle = document.getElementById("iaAugmentsStatsGroupToggle");
   if (prefs.filterText && filterInput) filterInput.value = prefs.filterText;
   if (prefs.sortMode && sortMode) sortMode.value = prefs.sortMode;
   if (typeof prefs.onlyMissing === "boolean" && onlyMissing) {
     onlyMissing.checked = prefs.onlyMissing;
+  }
+  if (typeof prefs.iaItemsGrouped === "boolean" && iaItemsGroupToggle) {
+    iaItemsGroupToggle.checked = prefs.iaItemsGrouped;
+    iaItemsStatsGroupMode = prefs.iaItemsGrouped;
+  }
+  if (typeof prefs.iaAugmentsGrouped === "boolean" && iaAugmentsGroupToggle) {
+    iaAugmentsGroupToggle.checked = prefs.iaAugmentsGrouped;
+    iaAugmentsStatsGroupMode = prefs.iaAugmentsGrouped;
   }
 }
 
@@ -89,10 +99,14 @@ function persistUIPrefs() {
   const filterInput = document.getElementById("filterInput");
   const sortMode = document.getElementById("sortMode");
   const onlyMissing = document.getElementById("onlyMissing");
+  const iaItemsGroupToggle = document.getElementById("iaItemsStatsGroupToggle");
+  const iaAugmentsGroupToggle = document.getElementById("iaAugmentsStatsGroupToggle");
   saveUIPrefs({
     filterText: filterInput?.value || "",
     sortMode: sortMode?.value || "name",
-    onlyMissing: !!onlyMissing?.checked
+    onlyMissing: !!onlyMissing?.checked,
+    iaItemsGrouped: iaItemsGroupToggle ? !!iaItemsGroupToggle.checked : true,
+    iaAugmentsGrouped: iaAugmentsGroupToggle ? !!iaAugmentsGroupToggle.checked : true
   });
 }
 
@@ -446,6 +460,7 @@ const I18N = {
     iaStatsAugmentsHeading: "Meine Augment-Statistik",
     iaStatsSortWinrate: "Beste Winrate",
     iaStatsSortGames: "Meiste Spiele",
+    iaStatsGroupToggleLabel: "Gruppieren",
     iaStatsNone: "Noch keine Daten - spiel ein paar Runden Arena.",
     placementHistoryHeading: "Spielverlauf (alle Arena-Runden)",
     placementHistoryNone: "Noch keine Arena-Spiele gefunden.",
@@ -711,6 +726,7 @@ const I18N = {
     iaStatsAugmentsHeading: "My augment stats",
     iaStatsSortWinrate: "Best win rate",
     iaStatsSortGames: "Most played",
+    iaStatsGroupToggleLabel: "Group",
     iaStatsNone: "No data yet - play a few Arena rounds.",
     placementHistoryHeading: "Match history (all Arena rounds)",
     placementHistoryNone: "No Arena games found yet.",
@@ -4796,6 +4812,10 @@ function matchDetailKey(m) {
 
 let iaItemsStatsSortMode = "winrate"; // "winrate" | "games"
 let iaAugmentsStatsSortMode = "winrate";
+// Gruppierung nach Tier (Silber/Gold/Prismatic bzw. Quest/Boots/Legendary/...)
+// ein-/ausschaltbar ueber die Checkbox oben rechts in der jeweiligen Sektion.
+let iaItemsStatsGroupMode = true;
+let iaAugmentsStatsGroupMode = true;
 
 // Winrate wird erst ab dieser Mindestanzahl Spiele als "verlaesslich"
 // behandelt - darunter landet der Eintrag beim Winrate-Sortieren trotzdem
@@ -4864,6 +4884,30 @@ function renderIaStatTierGroup(entries, tier, sortMode) {
   return html;
 }
 
+// Gleiche Kachel-Darstellung wie renderIaStatTierGroup, aber ohne
+// Tier-Ueberschrift - fuer die Ansicht mit ausgeschalteter Gruppierung.
+// Sortiert dann ueber ALLE Tiers hinweg gemeinsam nach dem Sortiermodus.
+function renderIaStatFlatList(entries, sortMode) {
+  if (!entries.length) return "";
+  const sorted = sortIaStatEntries(entries, sortMode);
+  let html = `<div class="iaStatsGrid">`;
+  for (const e of sorted) {
+    const name = iaEntryName(e.entry);
+    const winrate = Math.round((e.wins / e.games) * 100);
+    const lowSample = e.games < IA_STATS_MIN_GAMES_FOR_WINRATE;
+    const wrClass = winrate >= 50 ? "good" : "bad";
+    const tooltip = `${name}: ${e.wins}/${e.games} (${winrate}%)`;
+    html += `
+      <div class="iaStatsTile${lowSample ? " lowSample" : ""}" title="${tooltip}">
+        ${e.entry.icon ? `<img src="${e.entry.icon}" alt="${name}" loading="lazy" />` : `<div class="iaStatsTileFallback">${name.slice(0, 3)}</div>`}
+        <span class="iaStatsTileGames">${e.games}×</span>
+        <span class="iaStatsTileWr ${wrClass}">${winrate}%</span>
+      </div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
 function renderOwnItemStatsTab() {
   const container = document.getElementById("placementItemsStatsList");
   if (!container) return;
@@ -4875,7 +4919,9 @@ function renderOwnItemStatsTab() {
     container.innerHTML = `<p class="detailEmpty">${t("iaStatsNone")}</p>`;
     return;
   }
-  container.innerHTML = IA_ITEM_TIERS.map((tier) => renderIaStatTierGroup(entries, tier, iaItemsStatsSortMode)).join("");
+  container.innerHTML = iaItemsStatsGroupMode
+    ? IA_ITEM_TIERS.map((tier) => renderIaStatTierGroup(entries, tier, iaItemsStatsSortMode)).join("")
+    : renderIaStatFlatList(entries, iaItemsStatsSortMode);
 }
 
 function renderOwnAugmentStatsTab() {
@@ -4889,7 +4935,9 @@ function renderOwnAugmentStatsTab() {
     container.innerHTML = `<p class="detailEmpty">${t("iaStatsNone")}</p>`;
     return;
   }
-  container.innerHTML = IA_AUGMENT_TIERS.map((tier) => renderIaStatTierGroup(entries, tier, iaAugmentsStatsSortMode)).join("");
+  container.innerHTML = iaAugmentsStatsGroupMode
+    ? IA_AUGMENT_TIERS.map((tier) => renderIaStatTierGroup(entries, tier, iaAugmentsStatsSortMode)).join("")
+    : renderIaStatFlatList(entries, iaAugmentsStatsSortMode);
 }
 
 async function renderOwnItemStatsTabAsync() {
@@ -5307,6 +5355,18 @@ safeBind("iaItemsStatsSort", "onchange", () => {
 safeBind("iaAugmentsStatsSort", "onchange", () => {
   const sel = document.getElementById("iaAugmentsStatsSort");
   iaAugmentsStatsSortMode = sel ? sel.value : "winrate";
+  renderOwnAugmentStatsTab();
+});
+safeBind("iaItemsStatsGroupToggle", "onchange", () => {
+  const cb = document.getElementById("iaItemsStatsGroupToggle");
+  iaItemsStatsGroupMode = cb ? cb.checked : true;
+  persistUIPrefs();
+  renderOwnItemStatsTab();
+});
+safeBind("iaAugmentsStatsGroupToggle", "onchange", () => {
+  const cb = document.getElementById("iaAugmentsStatsGroupToggle");
+  iaAugmentsStatsGroupMode = cb ? cb.checked : true;
+  persistUIPrefs();
   renderOwnAugmentStatsTab();
 });
 safeBind("placementChampFilter", "oninput", () => {
