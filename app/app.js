@@ -414,10 +414,10 @@ const I18N = {
     backArrow: "←",
     backToGridTitle: "Zurück zum Grid",
     backToChampTitle: "Zurück zur Champion-Ansicht",
-    itemDetailHeading: "Item-Synergien",
-    augmentDetailHeading: "Augment-Synergien",
-    detailSynergyHeading: "Funktioniert gut mit",
-    detailNoSynergyData: "Noch keine Synergie-Daten dafür.",
+    itemDetailHeading: "Item",
+    augmentDetailHeading: "Augment",
+    detailSynergyHeading: "Beste Kombinationen (echte Winrate)",
+    detailNoSynergyData: "Noch keine Partner-Daten dafür.",
     top30TrioHeading: "Top 30 Trio-Winrates",
     champDetailSkillOrder: "Skill-Reihenfolge",
     champDetailNoSkillOrder: "Noch keine Skill-Reihenfolge für diesen Champion.",
@@ -701,10 +701,10 @@ const I18N = {
     backArrow: "←",
     backToGridTitle: "Back to grid",
     backToChampTitle: "Back to champion view",
-    itemDetailHeading: "Item synergies",
-    augmentDetailHeading: "Augment synergies",
-    detailSynergyHeading: "Works well with",
-    detailNoSynergyData: "No synergy data for this yet.",
+    itemDetailHeading: "Item",
+    augmentDetailHeading: "Augment",
+    detailSynergyHeading: "Best combos (real winrate)",
+    detailNoSynergyData: "No partner data for this yet.",
     top30TrioHeading: "Top 30 trio win rates",
     champDetailSkillOrder: "Skill order",
     champDetailNoSkillOrder: "No skill order for this champion yet.",
@@ -1877,7 +1877,6 @@ function renderExternalTrioSection() {
 let arenaAugmentsData = null;
 let arenaItemsData = null;
 let iaTooltipEl = null;
-let iaSelectedEntry = null; // { entry, kind: "augment"|"item" } oder null
 let iaAugmentByApiName = {};
 let iaAugmentByName = {};
 let iaItemByName = {};
@@ -1949,10 +1948,6 @@ async function loadRuneData() {
   }
 }
 let iaSearchTerm = "";
-let iaEditMode = false;
-let iaEditingAnchor = null; // { entry, kind } - die Entitaet, die aktuell bearbeitet wird
-let iaEditingPartnerIds = new Set(); // "type:key" der aktuellen Synergie-Partner des Ankers
-let iaEditSearchTerm = ""; // Suchbegriff im Synergie-Editor-Grid
 let iaCategoryFilter = ""; // "" = alle, sonst Key aus IA_CATEGORIES
 let iaQuickSearchPresetId = null; // _id des im Quick-Search-Bereich ausgewaehlten Presets, null = kein Filter
 let iaQuickSearchPresetEntryIds = null; // Set aus iaEntityId(entry)-Strings des ausgewaehlten Presets
@@ -2451,72 +2446,24 @@ function bindIaTileEvents(container, entries, kindFilter) {
     tile.addEventListener("mousemove", positionIaTooltip);
     tile.addEventListener("mouseleave", hideIaTooltip);
     tile.addEventListener("click", () => {
-      if (iaEditMode) {
-        startEditingEntity(entry, kind);
-        return;
-      }
-      // Im Tier-Liste-Modus zeigt ein Klick die echten Top-5-Partner
-      // (aus den Spielerdaten berechnet) statt der handkuratierten
-      // Synergien.
-      if (iaTierListMode) {
-        const row = iaTierlistRowForEntry(entry, kind);
-        if (row) selectTierListEntry(row, entry);
-        return;
-      }
-      selectEntryForFilter(entry, kind);
+      // Tier-Liste ist immer an - Klick zeigt die echten Partner (aus
+      // den Spielerdaten berechnet, itemAugmentTierlist). Die frueheren
+      // Pfade (Synergie-Editor, handkuratierte Synergie-Detailansicht)
+      // sind komplett entfernt - es gibt nur noch diese eine, echte
+      // Datenquelle.
+      const row = iaTierlistRowForEntry(entry, kind);
+      if (row) selectTierListEntry(row, entry);
     });
   });
 }
 
-// Klick auf ein Augment ODER Item: blendet die normale Browse-Ansicht
-// aus und zeigt nur noch das ausgewaehlte Element (gross, mit Name +
-// Beschreibung) plus die dazu passenden Synergie-Treffer, sortiert
-// nach deren Tier. Erneuter Klick auf dasselbe Element -> zurueck zur
-// normalen Ansicht.
-async function selectEntryForFilter(entry, kind) {
-  const sameEntrySelected = iaSelectedEntry &&
-    iaSelectedEntry.kind === kind &&
-    iaEntryName(iaSelectedEntry.entry) === iaEntryName(entry) &&
-    (kind !== "augment" || iaSelectedEntry.entry.apiName === entry.apiName);
-  if (sameEntrySelected) {
-    backToItemsAugmentsBrowse();
-    return;
-  }
-
-  iaSelectedEntry = { entry, kind };
-  hideIaTooltip();
-  document.getElementById("itemsAugmentsBody").classList.add("hidden");
-  document.getElementById("iaSearchInput").classList.add("hidden");
-  document.getElementById("iaDetailView").classList.remove("hidden");
-  document.getElementById("itemsAugmentsClearFilter").classList.remove("hidden");
-
-  renderIaSelectedCard(entry);
-  renderIaSynergyResults(null, true); // Lade-Zustand
-
-  try {
-    const ref = iaEntityRef(entry, kind);
-    const res = await authFetch(serverUrl(`/synergy/${ref.type}/${encodeURIComponent(ref.key)}`));
-    const partners = res.ok ? await res.json() : [];
-    renderIaSynergyResults(partners, false);
-  } catch (err) {
-    console.error("[ItemsAugments] Synergie-Lookup fehlgeschlagen:", err);
-    renderIaSynergyResults([], false);
-  }
-}
-
-function backToItemsAugmentsBrowse() {
-  iaSelectedEntry = null;
-  document.getElementById("itemsAugmentsBody").classList.remove("hidden");
-  document.getElementById("iaSearchInput").classList.remove("hidden");
-  document.getElementById("iaDetailView").classList.add("hidden");
-  document.getElementById("itemsAugmentsClearFilter").classList.add("hidden");
-}
-
 // ============================================================
-// Zugriffsschutz: Synergie-Editor und Preset-Erstellung nur mit Code
-// Der Code wird serverseitig geprueft (siehe editAuth.js im Backend) -
-// im Frontend steht kein Code, nur das nach Erfolg ausgestellte,
-// zeitlich begrenzte Token (12h, in sessionStorage).
+// Zugriffsschutz: Preset-Erstellung nur mit Code (Synergie-Editor
+// nutzte denselben Schutz, wurde aber komplett entfernt - dieser bleibt
+// fuer die Preset-Verwaltung erhalten). Der Code wird serverseitig
+// geprueft (siehe editAuth.js im Backend) - im Frontend steht kein
+// Code, nur das nach Erfolg ausgestellte, zeitlich begrenzte Token
+// (12h, in sessionStorage).
 // ============================================================
 async function requireIaCode(callback) {
   if (getIaEditToken()) { callback(); return; }
@@ -2545,196 +2492,13 @@ async function requireIaCode(callback) {
   }
 }
 
-// ============================================================
-// Synergie-Editor (Browser-UI statt manueller MongoDB-Eingriffe)
-// ============================================================
-function toggleIaEditMode() {
-  if (!iaEditMode && !getIaEditToken()) { requireIaCode(toggleIaEditMode); return; }
-  iaEditMode = !iaEditMode;
-  const btn = document.getElementById("iaEditModeBtn");
-  if (btn) {
-    btn.classList.toggle("active", iaEditMode);
-    btn.textContent = iaEditMode ? t("iaEditModeBtnActive") : t("iaEditModeBtn");
-  }
-  if (iaEditMode) {
-    if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
-    backToTierListOverview();
-    backToItemsAugmentsBrowse(); // Detail-/Filteransicht verlassen, falls offen
-    document.getElementById("itemsAugmentsBody").classList.remove("hidden");
-    document.getElementById("iaEditView").classList.add("hidden");
-    iaEditingAnchor = null;
-  } else {
-    cancelIaEdit();
-  }
-}
-
-// Anker fuer den Editor setzen - kann JEDES Augment oder Item sein.
-// Zeigt darunter ALLE anderen Augments+Items zum An-/Abklicken; jede
-// Verbindung ist sofort in beide Richtungen sichtbar (siehe db.js).
-async function startEditingEntity(entry, kind) {
-  iaEditingAnchor = { entry, kind };
-  iaEditingPartnerIds = new Set();
-  iaEditSearchTerm = "";
-  const editSearchInput = document.getElementById("iaEditSearchInput");
-  if (editSearchInput) editSearchInput.value = "";
-  document.getElementById("itemsAugmentsBody").classList.add("hidden");
-  document.getElementById("iaSearchInput").classList.add("hidden");
-  document.getElementById("iaEditView").classList.remove("hidden");
-  hideIaTooltip();
-
-  const card = document.getElementById("iaEditSelectedCard");
-  const name = iaEntryName(entry);
-  card.innerHTML = `
-    ${entry.icon ? `<img src="${entry.icon}" alt="${name}" />` : ""}
-    <span class="iaSelectedName">${name}</span>
-  `;
-  document.getElementById("iaEditStatus").textContent = "";
-  renderIaEditTargetGrid();
-
-  // Bestehende Verbindungen laden, damit man nicht von Null anfaengt.
-  try {
-    const ref = iaEntityRef(entry, kind);
-    const res = await authFetch(serverUrl(`/synergy/${ref.type}/${encodeURIComponent(ref.key)}`));
-    const partners = res.ok ? await res.json() : [];
-    iaEditingPartnerIds = new Set(partners.map(iaEntityId));
-  } catch (err) {
-    console.error("[ItemsAugments-Editor] Laden fehlgeschlagen:", err);
-  }
-  renderIaEditTargetGrid();
-}
-
-// Zeigt ALLE Augments + Items als Ziel-Grid (Anker selbst ausgenommen).
-function renderIaEditTargetGrid() {
-  const grid = document.getElementById("iaEditItemsGrid");
-  if (!grid) return;
-  if (!iaEditingAnchor) {
-    grid.innerHTML = `<p class="detailEmpty">${t("iaEditHintChooseAugment")}</p>`;
-    return;
-  }
-  const anchorRef = iaEntityRef(iaEditingAnchor.entry, iaEditingAnchor.kind);
-  const anchorId = iaEntityId(anchorRef);
-
-  const term = normName(iaEditSearchTerm);
-  const filterByTerm = (e) => {
-    const name = iaEntryName(e);
-    const desc = iaEntryDesc(e);
-    const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
-    const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
-    return matchesTerm && matchesCategory;
-  };
-
-  const augments = (arenaAugmentsData || [])
-    .filter((a) => iaEntityId(iaEntityRef(a, "augment")) !== anchorId)
-    .filter(filterByTerm);
-  const items = (arenaItemsData || [])
-    .filter((i) => iaEntityId(iaEntityRef(i, "item")) !== anchorId)
-    .filter(filterByTerm);
-
-  let html = `<h4>${t("iaAugmentsHeading")}</h4>` +
-    IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment")).join("");
-  html += `<h4>${t("iaItemsHeading")}</h4>` +
-    IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item")).join("");
-  grid.innerHTML = html;
-
-  markIaEditTiles(grid, augments, "augment");
-  markIaEditTiles(grid, items, "item");
-}
-
-// Markiert Kacheln als verbunden (gruener Rahmen + "✕") oder nicht
-// (Standard-Rahmen + "+") und bindet den Klick auf sofortiges
-// Hinzufuegen/Entfernen ueber die Synergie-API.
-function markIaEditTiles(container, entries, kindFilter) {
-  container.querySelectorAll(".iaTile").forEach((tile) => {
-    if (tile.dataset.kind !== kindFilter) return;
-    const idx = parseInt(tile.dataset.idx, 10);
-    const entry = entries[idx];
-    if (!entry) return;
-    const ref = iaEntityRef(entry, kindFilter);
-    const id = iaEntityId(ref);
-    const isLinked = iaEditingPartnerIds.has(id);
-
-    tile.classList.toggle("synergySelected", isLinked);
-    if (!tile.querySelector(".iaEditBadge")) {
-      const badge = document.createElement("span");
-      badge.className = "iaEditBadge";
-      tile.appendChild(badge);
-    }
-    tile.querySelector(".iaEditBadge").textContent = isLinked ? "✕" : "+";
-
-    tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kindFilter));
-    tile.addEventListener("mousemove", positionIaTooltip);
-    tile.addEventListener("mouseleave", hideIaTooltip);
-    tile.onclick = () => toggleIaEditPartner(entry, kindFilter, ref, id, isLinked);
-  });
-}
-
-// Fuegt sofort hinzu bzw. entfernt sofort - kein separater "Speichern"-
-// Schritt mehr noetig, jeder Klick wirkt direkt (optimistisches Update,
-// bei Fehler wird zurueckgerollt).
-async function toggleIaEditPartner(entry, kind, ref, id, wasLinked) {
-  const anchorRef = iaEntityRef(iaEditingAnchor.entry, iaEditingAnchor.kind);
-  const statusEl = document.getElementById("iaEditStatus");
-
-  if (wasLinked) iaEditingPartnerIds.delete(id);
-  else iaEditingPartnerIds.add(id);
-  renderIaEditTargetGrid();
-
-  try {
-    const res = await authFetch(serverUrl(`/synergy/${wasLinked ? "remove" : "add"}`), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ a: anchorRef, b: ref })
-    });
-    if (!res.ok) throw new Error("HTTP " + res.status);
-    statusEl.textContent = wasLinked ? t("iaEditRemoved") : t("iaEditAdded");
-    statusEl.style.color = "#4ade80";
-  } catch (err) {
-    console.error("[ItemsAugments-Editor] Speichern fehlgeschlagen:", err);
-    // Zurueckrollen, da der Server-Aufruf fehlgeschlagen ist.
-    if (wasLinked) iaEditingPartnerIds.add(id);
-    else iaEditingPartnerIds.delete(id);
-    renderIaEditTargetGrid();
-    statusEl.textContent = t("iaEditSaveError");
-    statusEl.style.color = "#f87171";
-  }
-}
-
-// Entfernt ALLE aktuellen Verbindungen des Ankers (einzeln ueber die
-// API, damit auch serverseitig wirklich jede Kante geloescht wird).
-async function clearIaEditSelection() {
-  if (!iaEditingAnchor) return;
-  const anchorRef = iaEntityRef(iaEditingAnchor.entry, iaEditingAnchor.kind);
-  const statusEl = document.getElementById("iaEditStatus");
-  const allByApiName = {};
-  for (const a of arenaAugmentsData || []) allByApiName[iaEntityId(iaEntityRef(a, "augment"))] = iaEntityRef(a, "augment");
-  for (const i of arenaItemsData || []) allByApiName[iaEntityId(iaEntityRef(i, "item"))] = iaEntityRef(i, "item");
-
-  const idsToRemove = [...iaEditingPartnerIds];
-  for (const id of idsToRemove) {
-    const ref = allByApiName[id];
-    if (!ref) continue;
-    try {
-      await authFetch(serverUrl("/synergy/remove"), {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ a: anchorRef, b: ref })
-      });
-    } catch (err) {
-      console.error("[ItemsAugments-Editor] Entfernen fehlgeschlagen:", err);
-    }
-  }
-  iaEditingPartnerIds = new Set();
-  renderIaEditTargetGrid();
-  statusEl.textContent = t("iaEditAllRemoved");
-  statusEl.style.color = "#4ade80";
-}
-
-function cancelIaEdit() {
-  iaEditingAnchor = null;
-  iaEditingPartnerIds = new Set();
-  document.getElementById("itemsAugmentsBody").classList.remove("hidden");
-  document.getElementById("iaSearchInput").classList.remove("hidden");
-  document.getElementById("iaEditView").classList.add("hidden");
+// Reset-Helfer fuer die alte Detail-/Filteransicht (#iaDetailView,
+// mittlerweile entfernt) - bleibt als No-Op-sicherer Aufruf bestehen,
+// da mehrere Stellen (Modal schliessen, Preset-Modus umschalten) ihn
+// weiterhin als generischen "zurueck zur Browse-Ansicht"-Reset rufen.
+function backToItemsAugmentsBrowse() {
+  document.getElementById("itemsAugmentsBody")?.classList.remove("hidden");
+  document.getElementById("iaSearchInput")?.classList.remove("hidden");
 }
 
 // ============================================================
@@ -2762,10 +2526,8 @@ function toggleIaPresetMode() {
   const btn = document.getElementById("iaPresetModeBtn");
   if (btn) btn.classList.toggle("active", iaPresetMode);
   if (iaPresetMode) {
-    if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
     backToTierListOverview();
     backToItemsAugmentsBrowse();
-    cancelIaEdit();
     startCreatingPreset();
   } else {
     cancelIaPreset();
@@ -3225,7 +2987,6 @@ async function openBuildEditor(build, champKey) {
   document.getElementById("itemsAugmentsOverlay").classList.remove("hidden");
   await loadArenaItemsAugments();
 
-  if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
   backToTierListOverview();
   iaPresetMode = true;
   document.getElementById("iaPresetModeBtn")?.classList.add("active");
@@ -3333,33 +3094,6 @@ function renderIaSelectedCard(entry, containerId) {
       <div class="iaSelectedDesc">${desc || ""}</div>
     </div>
   `;
-}
-
-function renderIaSynergyResults(partners, loading) {
-  const container = document.getElementById("iaSynergyResults");
-  if (!container) return;
-  if (loading) {
-    container.innerHTML = `<p class="detailEmpty">…</p>`;
-    return;
-  }
-  if (!partners || partners.length === 0) {
-    container.innerHTML = `<p class="detailEmpty">${t("iaNoSynergyYet")}</p>`;
-    return;
-  }
-  const augPartners = partners.filter((p) => p.type === "augment");
-  const itemPartners = partners.filter((p) => p.type === "item");
-  let html = "";
-  if (augPartners.length) {
-    html += `<h4>${t("iaAugmentsHeading")}</h4>` +
-      IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augPartners, tier, "augment")).join("");
-  }
-  if (itemPartners.length) {
-    html += `<h4>${t("iaItemsHeading")}</h4>` +
-      IA_ITEM_TIERS.map((tier) => renderIaTierGroup(itemPartners, tier, "item")).join("");
-  }
-  container.innerHTML = html;
-  if (augPartners.length) bindIaTileEvents(container, augPartners, "augment");
-  if (itemPartners.length) bindIaTileEvents(container, itemPartners, "item");
 }
 
 // ============================================================
@@ -3656,7 +3390,6 @@ function hideIaTooltip() {
 
 safeBind("openItemsAugmentsBtn", "onclick", openItemsAugmentsModal);
 safeBind("itemsAugmentsClose", "onclick", closeItemsAugmentsModal);
-safeBind("itemsAugmentsClearFilter", "onclick", backToItemsAugmentsBrowse);
 safeBind("iaTierListBack", "onclick", backToTierListOverview);
 safeBind("iaShowAllBtn", "onclick", () => selectIaColumnFilter("all"));
 safeBind("iaShowAugmentsBtn", "onclick", () => selectIaColumnFilter("augment"));
@@ -3667,7 +3400,6 @@ safeBind("iaPartnerShowAllBtn", "onclick", () => selectIaPartnerColumnFilter("al
 safeBind("iaPartnerShowAugmentsBtn", "onclick", () => selectIaPartnerColumnFilter("augment"));
 safeBind("iaPartnerShowItemsBtn", "onclick", () => selectIaPartnerColumnFilter("item"));
 safeBind("iaPartnerGroupToggle", "onchange", toggleIaPartnerGroupMode);
-safeBind("iaEditModeBtn", "onclick", toggleIaEditMode);
 safeBind("iaPresetModeBtn", "onclick", toggleIaPresetMode);
 safeBind("iaPresetSave", "onclick", saveIaPreset);
 safeBind("iaPresetCancel", "onclick", () => { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); });
@@ -3675,22 +3407,14 @@ safeBind("iaPresetSearchInput", "oninput", (e) => {
   iaPresetSearchTerm = e.target.value;
   renderIaPresetGrid();
 });
-safeBind("iaEditClearAll", "onclick", clearIaEditSelection);
-safeBind("iaEditCancel", "onclick", cancelIaEdit);
 safeBind("iaSearchInput", "oninput", (e) => {
   iaSearchTerm = e.target.value;
   renderItemsAugmentsModal();
 });
-safeBind("iaEditSearchInput", "oninput", (e) => {
-  iaEditSearchTerm = e.target.value;
-  renderIaEditTargetGrid();
-});
-
-// Kategorie-Dropdowns (Heilung/Schaden/Leben/Resistenzen/CC/...) befuellen.
-// Beide Dropdowns (Hauptsuche + Editor) teilen sich denselben Filter-State
-// "iaCategoryFilter" und werden beim Aendern synchron gehalten, damit die
-// Auswahl nicht verloren geht, wenn man zwischen Browse- und Editor-Ansicht
-// wechselt.
+// Kategorie-Dropdown (Heilung/Schaden/Leben/Resistenzen/CC/...) befuellen.
+// Frueher teilten sich Hauptsuche UND Synergie-Editor denselben Filter-
+// State - der Editor ist komplett entfernt, es gibt jetzt nur noch dieses
+// eine Dropdown.
 function populateIaCategoryDropdown(selectEl) {
   if (!selectEl) return;
   selectEl.innerHTML = `<option value="">${t("iaCategoryAll")}</option>` +
@@ -3703,18 +3427,11 @@ function populateIaCategoryDropdown(selectEl) {
 }
 function onIaCategoryChange(e) {
   iaCategoryFilter = e.target.value;
-  const main = document.getElementById("iaCategoryFilter");
-  const edit = document.getElementById("iaEditCategoryFilter");
-  if (main && main !== e.target) main.value = iaCategoryFilter;
-  if (edit && edit !== e.target) edit.value = iaCategoryFilter;
   renderItemsAugmentsModal();
-  if (iaEditingAnchor) renderIaEditTargetGrid();
   if (iaPresetMode) renderIaPresetGrid();
 }
 populateIaCategoryDropdown(document.getElementById("iaCategoryFilter"));
-populateIaCategoryDropdown(document.getElementById("iaEditCategoryFilter"));
 safeBind("iaCategoryFilter", "onchange", onIaCategoryChange);
-safeBind("iaEditCategoryFilter", "onchange", onIaCategoryChange);
 
 // Ein-/Ausklappen der Tier-Abschnitte (Silber/Gold/Prismatic/Legendary/...).
 // Delegierter Listener auf dem Modal-Container statt auf den einzelnen
@@ -4758,24 +4475,37 @@ async function openItemOrAugmentDetail(name, type) {
   }
 
   try {
-    const ref = iaEntityRef(lookupEntry, type);
-    const res = await authFetch(serverUrl(`/synergy/${ref.type}/${encodeURIComponent(ref.key)}`));
-    const partners = res.ok ? await res.json() : [];
-    if (!partners.length) {
+    // Echte, aus den Spielerdaten berechnete Partner-Winrate statt der
+    // frueheren handkuratierten Synergien (itemAugmentTierlist-Collection,
+    // dieselbe Quelle wie die Partner-Tierliste in Items & Augments).
+    const ok = await loadItemAugmentTierlist();
+    const numId = lookupEntry.id ?? lookupEntry.augmentId ?? lookupEntry.itemId;
+    const row = ok && iaTierListByKey ? iaTierListByKey.get(`${type}:${numId}`) : null;
+    const topPartners = row?.topPartners || [];
+    if (!topPartners.length) {
       bodyEl.innerHTML = `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
       return;
     }
-    const augPartners = partners.filter((p) => p.type === "augment");
-    const itemPartners = partners.filter((p) => p.type === "item");
+
+    // Lokale Perzentil-Einteilung NUR ueber diese Partner-Menge - exakt
+    // dasselbe Muster wie renderIaPartnerTierlist im Items&Augments-Modal.
+    const resolved = topPartners.map((p) => ({ p, entry: iaTierlistEntryLookup(p) })).filter((x) => x.entry);
+    const sorted = resolved.slice().sort((a, b) => b.p.winrate - a.p.winrate || b.p.games - a.p.games);
+    const n = sorted.length;
+    const rowByKey = new Map();
+    sorted.forEach(({ p }, i) => {
+      const percentile = (i + 1) / n;
+      const tierInfo = IA_TIER_PERCENTILES.find((tp) => percentile <= tp.upTo) || IA_TIER_PERCENTILES[IA_TIER_PERCENTILES.length - 1];
+      rowByKey.set(`${p.kind}:${p.id}`, { games: p.games, winrate: p.winrate, percentileTier: tierInfo.key });
+    });
+    const lookupFn = (entry, kind) => rowByKey.get(`${kind}:${entry.id ?? entry.augmentId ?? entry.itemId}`) || null;
+
+    const augEntries = resolved.filter((x) => x.p.kind === "augment").map((x) => x.entry);
+    const itemEntries = resolved.filter((x) => x.p.kind === "item").map((x) => x.entry);
+
     let html = "";
-    if (augPartners.length) {
-      html += `<h4>${t("iaAugmentsHeading")}</h4>` +
-        IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augPartners, tier, "augment")).join("");
-    }
-    if (itemPartners.length) {
-      html += `<h4>${t("iaItemsHeading")}</h4>` +
-        IA_ITEM_TIERS.map((tier) => renderIaTierGroup(itemPartners, tier, "item")).join("");
-    }
+    if (augEntries.length) html += `<h4>${t("iaAugmentsHeading")}</h4>` + renderIaFlatList(augEntries, "augment", true, lookupFn);
+    if (itemEntries.length) html += `<h4>${t("iaItemsHeading")}</h4>` + renderIaFlatList(itemEntries, "item", true, lookupFn);
     bodyEl.innerHTML = html;
 
     const bindPartnerTiles = (entries, kind) => {
@@ -4790,10 +4520,10 @@ async function openItemOrAugmentDetail(name, type) {
         tile.addEventListener("click", () => { hideIaTooltip(); openItemOrAugmentDetail(iaEntryName(entry), kind); });
       });
     };
-    if (augPartners.length) bindPartnerTiles(augPartners, "augment");
-    if (itemPartners.length) bindPartnerTiles(itemPartners, "item");
+    if (augEntries.length) bindPartnerTiles(augEntries, "augment");
+    if (itemEntries.length) bindPartnerTiles(itemEntries, "item");
   } catch (err) {
-    console.error("[ItemDetail] Synergie-Lookup fehlgeschlagen:", err);
+    console.error("[ItemDetail] Partner-Lookup fehlgeschlagen:", err);
     bodyEl.innerHTML = `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
   }
 }

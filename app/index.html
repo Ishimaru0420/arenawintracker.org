@@ -175,9 +175,7 @@
       <div id="itemsAugmentsHeader">
         <h2 data-i18n="itemsAugmentsHeading">Arena Items &amp; Augments</h2>
         <div class="playerViewHeaderBtns">
-          <button id="iaEditModeBtn" class="hidden" data-i18n="iaEditModeBtn">✏️ Synergien bearbeiten</button>
           <button id="iaPresetModeBtn" class="hidden" data-i18n="iaPresetModeBtn">🔍 Schnellsuche</button>
-          <button id="itemsAugmentsClearFilter" class="hidden" data-i18n="itemsAugmentsClearFilter">Filter zurücksetzen</button>
           <button id="itemsAugmentsClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
         </div>
       </div>
@@ -216,10 +214,6 @@
           <h3 data-i18n="iaItemsHeading">Items</h3>
           <div id="iaItemsList"></div>
         </section>
-      </div>
-      <div id="iaDetailView" class="hidden">
-        <div id="iaSelectedCard"></div>
-        <div id="iaSynergyResults"></div>
       </div>
       <div id="iaTierListDetailView" class="hidden">
         <button id="iaTierListBack" class="backArrowBtn" title="Zurück" data-i18n-title="backToGridTitle">←</button>
@@ -269,20 +263,6 @@
           <button id="iaPresetSave" data-i18n="iaPresetSave">Speichern</button>
           <button id="iaPresetCancel" data-i18n="iaEditCancel">Fertig</button>
           <span id="iaPresetStatus"></span>
-        </div>
-      </div>
-      <div id="iaEditView" class="hidden">
-        <p id="iaEditHint" data-i18n="iaEditHint">Augment oder Item auswählen, dann unten anklicken, um Synergien hinzuzufügen (+) oder zu entfernen (✕). Wirkt automatisch in beide Richtungen.</p>
-        <div id="iaEditSelectedCard"></div>
-        <div id="iaEditSearchRow">
-          <input id="iaEditSearchInput" type="text" placeholder="Augment oder Item suchen..." data-i18n-placeholder="iaSearchPlaceholder" />
-          <select id="iaEditCategoryFilter"></select>
-        </div>
-        <div id="iaEditItemsGrid"></div>
-        <div id="iaEditActions">
-          <button id="iaEditClearAll" class="danger" data-i18n="iaEditClearAll">Alle entfernen</button>
-          <button id="iaEditCancel" data-i18n="iaEditCancel">Fertig</button>
-          <span id="iaEditStatus"></span>
         </div>
       </div>
     </div>
