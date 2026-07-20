@@ -452,15 +452,19 @@ button.danger:hover { background: #c43b4a; }
   #iaTierListPartners { flex-direction: column; }
 }
 
-.iaTierGroup { margin-bottom: 14px; }
+.iaTierGroup { margin-bottom: 18px; }
+/* Rarity-Kategorie (Silver/Gold/Prismatic bzw. Quest/Boots/Legendary/...)
+   - bewusst deutlich groesser/praesenter als die S/A/B/C/D-Unterabschnitte
+   darunter (.iaTierSubLabel), damit die Hierarchie Kategorie > Tier auf
+   den ersten Blick klar ist. */
 .iaTierLabel {
-  font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
-  margin: 10px 0 6px; padding-bottom: 3px; border-bottom: 1px solid #3a2620;
+  font-size: 20px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+  margin: 18px 0 10px; padding-bottom: 7px; border-bottom: 2px solid #3a2620;
   cursor: pointer; user-select: none;
-  display: flex; align-items: center; gap: 6px;
+  display: flex; align-items: center; gap: 8px;
 }
 .iaTierLabel::before {
-  content: "▾"; display: inline-block; font-size: 10px; transition: transform 0.15s;
+  content: "▾"; display: inline-block; font-size: 13px; transition: transform 0.15s;
 }
 .iaTierGroup.collapsed .iaTierLabel::before { transform: rotate(-90deg); }
 .iaTierGroup.collapsed .iaGrid { display: none; }
