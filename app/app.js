@@ -3517,7 +3517,38 @@ function backToTierListOverview() {
 // Winrate. Laden der Tierlist-Daten passiert einmalig beim Oeffnen des
 // Fensters (siehe openItemsAugmentsModal).
 
-function showIaTooltip(e, entry, kind) {
+// Baut die zweispaltige Partner-Vorschau ("links beste Augments, rechts
+// bestes Item" bzw. umgekehrt) fuer den erweiterten Tooltip auf der
+// Champion-Seite. partnerData = { augmentPartners, itemPartners } - beide
+// Arrays kommen bereits sortiert (Winrate desc) aus
+// championItemAugmentStats (championItemAugmentTierlist-Agent-Script).
+function renderIaTooltipPartnerCol(list, headingKey) {
+  const rowsHtml = list.length
+    ? list.map((p) => {
+        const map = p.kind === "augment" ? iaAugmentById : iaItemById;
+        const entry = map[p.id];
+        if (!entry) return "";
+        const name = iaEntryName(entry);
+        return `<div class="iaTooltipPartnerRow">
+          ${entry.icon ? `<img class="iaTooltipPartnerIcon" src="${entry.icon}" alt="${name}" />` : `<div class="iaTooltipPartnerIcon iaTooltipPartnerIconFallback">${name.slice(0, 2)}</div>`}
+          <span class="iaTooltipPartnerName">${name}</span>
+          <span class="iaTooltipPartnerWr">${p.winrate}%</span>
+        </div>`;
+      }).join("")
+    : `<p class="iaTooltipPartnerEmpty">${t("championStatsNoEntityData")}</p>`;
+  return `<div class="iaTooltipPartnerCol"><p class="iaTooltipPartnerColLabel">${t(headingKey)}</p>${rowsHtml}</div>`;
+}
+function renderIaTooltipPartners(partnerData) {
+  const augmentPartners = partnerData.augmentPartners || [];
+  const itemPartners = partnerData.itemPartners || [];
+  if (!augmentPartners.length && !itemPartners.length) return "";
+  return `<div class="iaTooltipPartners">
+    ${renderIaTooltipPartnerCol(augmentPartners, "iaAugmentsHeading")}
+    ${renderIaTooltipPartnerCol(itemPartners, "iaItemsHeading")}
+  </div>`;
+}
+
+function showIaTooltip(e, entry, kind, partnerData) {
   if (!iaTooltipEl) {
     iaTooltipEl = document.createElement("div");
     iaTooltipEl.className = "iaTooltip hidden";
@@ -3544,11 +3575,14 @@ function showIaTooltip(e, entry, kind) {
   const priceHtml = typeof full.priceTotal === "number"
     ? `<div class="iaTooltipPrice">💰 ${full.priceTotal}${typeof full.price === "number" && full.price !== full.priceTotal ? ` (Komponente: ${full.price})` : ""}</div>`
     : "";
+  const partnersHtml = partnerData ? renderIaTooltipPartners(partnerData) : "";
   iaTooltipEl.innerHTML = `
     <div class="iaTooltipTitle">${name}</div>
     ${priceHtml}
     <div class="iaTooltipDesc">${desc || ""}</div>
+    ${partnersHtml}
   `;
+  iaTooltipEl.classList.toggle("withPartners", !!partnersHtml);
   iaTooltipEl.classList.remove("hidden");
   positionIaTooltip(e);
 }
@@ -4137,7 +4171,15 @@ function bindChampionStatsInteractions(section) {
       const idx = parseInt(tile.dataset.idx, 10);
       const entry = entries[idx];
       if (!entry) return;
-      tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
+      tile.addEventListener("mouseenter", (e) => {
+        // Beste Augment-/Item-Partner fuer diesen Eintrag BEI DIESEM
+        // Champion (aus championItemAugmentStats) mit in den Tooltip geben
+        // - links Augments, rechts Items (bzw. leer, falls keiner der
+        // beiden Seiten genug Datenbasis hat).
+        const row = championStatsRowForEntry(entry, kind);
+        const partnerData = row ? { augmentPartners: row.augmentPartners, itemPartners: row.itemPartners } : null;
+        showIaTooltip(e, entry, kind, partnerData);
+      });
       tile.addEventListener("mousemove", positionIaTooltip);
       tile.addEventListener("mouseleave", hideIaTooltip);
       tile.style.cursor = "pointer";
