@@ -884,19 +884,50 @@ let championByNormName = {};
 let lastFriendsList = null;
 let metaData = null;
 let ddragonVersion = null;
-let communityTierMap = {};
+// Frueher aus /community-meta-tiers (externe, nicht mehr genutzte
+// "Standard Database") befuellt - jetzt aus der echten, aus eigenen
+// Matchdaten berechneten championStats-Collection (championId+Winrate),
+// dieselbe Datenquelle wie die "CHAMPION STATS" auf der Detailseite.
+// Name bewusst umbenannt (championTierMap statt communityTierMap), damit
+// im Code klar ist, dass hier keine externen Daten mehr drinstecken.
+let championTierMap = {};
 
-async function loadCommunityTierMap() {
+// Ab dieser Mindestanzahl Spiele zaehlt die Winrate eines Champions als
+// verlaesslich genug fuer eine Tier-Einstufung - darunter landet er in
+// "unknown" (identisches Verhalten wie vorher bei fehlendem Community-
+// Eintrag: renderGrid() faengt das bereits ab, siehe groups.unknown).
+const MIN_GAMES_CHAMP_TIERLIST = 10;
+
+// 6 Perzentil-Stufen (S+ bis D) statt der 5 (S-D) bei der Items&Augments-
+// Tierliste, weil das Hauptraster schon immer S+ als zusaetzliche Spitzen-
+// stufe hatte (META_TIER_ORDER). Eigene Konstante, um die bestehende
+// IA_TIER_PERCENTILES (Items/Augments, 5 Stufen) nicht anzufassen.
+const CHAMP_TIER_PERCENTILES = [
+  { key: "S+", upTo: 0.05 },
+  { key: "S", upTo: 0.20 },
+  { key: "A", upTo: 0.45 },
+  { key: "B", upTo: 0.70 },
+  { key: "C", upTo: 0.90 },
+  { key: "D", upTo: 1.00 },
+];
+
+async function loadChampionTierMap() {
   try {
-    const res = await authFetch(serverUrl("/community-meta-tiers"));
+    const res = await authFetch(serverUrl("/champion-stats-all"));
     if (!res.ok) return;
     const list = await res.json();
-    communityTierMap = {};
-    for (const entry of list) {
-      communityTierMap[String(entry.championId)] = { tier: entry.tier || null, score: entry.score };
-    }
+    const eligible = list
+      .filter((entry) => (entry.games || 0) >= MIN_GAMES_CHAMP_TIERLIST)
+      .sort((a, b) => b.winrate - a.winrate || b.games - a.games);
+    const n = eligible.length;
+    championTierMap = {};
+    eligible.forEach((entry, i) => {
+      const percentile = (i + 1) / n;
+      const tierInfo = CHAMP_TIER_PERCENTILES.find((tp) => percentile <= tp.upTo) || CHAMP_TIER_PERCENTILES[CHAMP_TIER_PERCENTILES.length - 1];
+      championTierMap[String(entry.championId)] = { tier: tierInfo.key, score: entry.winrate };
+    });
   } catch {
-    communityTierMap = {};
+    championTierMap = {};
   }
 }
 
@@ -1429,7 +1460,7 @@ function buildChampDiv(champ, options) {
   else status = "missing";
 
   const tierClass = getTierClass(winCount);
-  const tierInfo = communityTierMap[champ.key];
+  const tierInfo = championTierMap[champ.key];
   const scoreText = showScore && tierInfo && tierInfo.score != null ? tierInfo.score.toFixed(2) : null;
 
   const div = document.createElement("div");
@@ -1474,7 +1505,7 @@ function renderGrid() {
       const winCount = getWinCount(champ.key);
       const hasWin = winCount > 0;
       if (onlyMissing && hasWin) continue;
-      const tierInfo = communityTierMap[champ.key];
+      const tierInfo = championTierMap[champ.key];
       const tier = tierInfo && tierInfo.tier;
       const bucket = tier && groups[tier] ? tier : "unknown";
       groups[bucket].push(champ);
@@ -1482,8 +1513,8 @@ function renderGrid() {
     }
     for (const tier of META_TIER_ORDER) {
       groups[tier].sort((a, b) => {
-        const scoreA = (communityTierMap[a.key] && communityTierMap[a.key].score) || 0;
-        const scoreB = (communityTierMap[b.key] && communityTierMap[b.key].score) || 0;
+        const scoreA = (championTierMap[a.key] && championTierMap[a.key].score) || 0;
+        const scoreB = (championTierMap[b.key] && championTierMap[b.key].score) || 0;
         return scoreB - scoreA || a.name.localeCompare(b.name);
       });
     }
@@ -6227,7 +6258,7 @@ safeBind("placementHistoryFilter", "oninput", () => {
 (async function init() {
   setStatus(t("statusLoadingChampList"));
   await loadChampionList();
-  await loadCommunityTierMap();
+  await loadChampionTierMap();
   renderGrid();
   loadMetaData();
   // Meta-Trios-Section (extern) entfernt - an ihrer Stelle steht jetzt der
