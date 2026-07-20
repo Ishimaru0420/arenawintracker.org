@@ -8,7 +8,7 @@
   <!-- CSS: theme.css VOR app.css laden, damit die Variablen-Overrides ziehen -->
   <link rel="stylesheet" href="theme.css?v=1" />
   <link rel="stylesheet" href="mobile.css?v=1" />
-  <link rel="stylesheet" href="app.css?v=59" />
+  <link rel="stylesheet" href="app.css?v=60" />
 
   <style>
     /* Kleine Web-spezifische Anpassungen, die im Overwolf-Overlay
@@ -262,6 +262,8 @@
       <div class="dbTabBar" id="placementStatsTabBar">
         <button class="dbTabBtn active" id="placementTabBtnPlacements" data-i18n="placementTabPlacements">Champions</button>
         <button class="dbTabBtn" id="placementTabBtnMates" data-i18n="placementTabMates">Mitspieler</button>
+        <button class="dbTabBtn" id="placementTabBtnItems" data-i18n="placementTabItems">Items</button>
+        <button class="dbTabBtn" id="placementTabBtnAugments" data-i18n="placementTabAugments">Augments</button>
       </div>
       <div id="placementStatsBody">
         <div class="dbTabPanel" id="placementPanelPlacements">
@@ -296,6 +298,26 @@
             </div>
           </div>
         </div>
+        <div class="dbTabPanel hidden" id="placementPanelItems">
+          <div class="detailSection" id="placementItemsStatsSection">
+            <h3 data-i18n="iaStatsItemsHeading">Meine Item-Statistik</h3>
+            <select id="iaItemsStatsSort">
+              <option value="winrate" data-i18n="iaStatsSortWinrate">Beste Winrate</option>
+              <option value="games" data-i18n="iaStatsSortGames">Meiste Spiele</option>
+            </select>
+            <div id="placementItemsStatsList"></div>
+          </div>
+        </div>
+        <div class="dbTabPanel hidden" id="placementPanelAugments">
+          <div class="detailSection" id="placementAugmentsStatsSection">
+            <h3 data-i18n="iaStatsAugmentsHeading">Meine Augment-Statistik</h3>
+            <select id="iaAugmentsStatsSort">
+              <option value="winrate" data-i18n="iaStatsSortWinrate">Beste Winrate</option>
+              <option value="games" data-i18n="iaStatsSortGames">Meiste Spiele</option>
+            </select>
+            <div id="placementAugmentsStatsList"></div>
+          </div>
+        </div>
         <div class="dbTabPanel hidden" id="placementPanelHistory">
           <div class="detailSection" id="placementHistorySection">
             <div id="placementHistoryDetailView">
@@ -313,6 +335,6 @@
   </div>
 
   <!-- Cache-Busting: v=65 (+ Augments in der Verlaufsliste) -->
-  <script src="app.js?v=69"></script>
+  <script src="app.js?v=70"></script>
 </body>
 </html>

@@ -440,6 +440,13 @@ const I18N = {
     placementTabPlacements: "Champions",
     placementTabMates: "Mitspieler",
     placementTabHistory: "Verlauf",
+    placementTabItems: "Items",
+    placementTabAugments: "Augments",
+    iaStatsItemsHeading: "Meine Item-Statistik",
+    iaStatsAugmentsHeading: "Meine Augment-Statistik",
+    iaStatsSortWinrate: "Beste Winrate",
+    iaStatsSortGames: "Meiste Spiele",
+    iaStatsNone: "Noch keine Daten - spiel ein paar Runden Arena.",
     placementHistoryHeading: "Spielverlauf (alle Arena-Runden)",
     placementHistoryNone: "Noch keine Arena-Spiele gefunden.",
     matchDetailTeammatesHeading: "Mitspieler",
@@ -698,6 +705,13 @@ const I18N = {
     placementTabPlacements: "Champions",
     placementTabMates: "Teammates",
     placementTabHistory: "History",
+    placementTabItems: "Items",
+    placementTabAugments: "Augments",
+    iaStatsItemsHeading: "My item stats",
+    iaStatsAugmentsHeading: "My augment stats",
+    iaStatsSortWinrate: "Best win rate",
+    iaStatsSortGames: "Most played",
+    iaStatsNone: "No data yet - play a few Arena rounds.",
     placementHistoryHeading: "Match history (all Arena rounds)",
     placementHistoryNone: "No Arena games found yet.",
     matchDetailTeammatesHeading: "Teammates",
@@ -4773,6 +4787,121 @@ function matchDetailKey(m) {
   return m.matchId || `${m.champKey}::${m.historyIndex}`;
 }
 
+// ============================================================
+// Eigene Item-/Augment-Statistik (My Stats -> Items / Augments)
+// Zaehlt pro Item/Augment, wie oft der Spieler es selbst gespielt und wie
+// oft er damit gewonnen (placement === 1) hat - komplett aus den schon
+// geladenen matchHistory-Daten berechnet, kein zusaetzlicher Server-Call.
+// ============================================================
+
+let iaItemsStatsSortMode = "winrate"; // "winrate" | "games"
+let iaAugmentsStatsSortMode = "winrate";
+
+// Winrate wird erst ab dieser Mindestanzahl Spiele als "verlaesslich"
+// behandelt - darunter landet der Eintrag beim Winrate-Sortieren trotzdem
+// in der Liste, aber ans Ende seiner Kategorie (sonst wuerde ein
+// einzelnes 1/1-Spiel mit 100% ganz oben stehen).
+const IA_STATS_MIN_GAMES_FOR_WINRATE = 10;
+
+function computeOwnItemAugmentStats() {
+  const items = {};
+  const augments = {};
+  for (const m of flattenAllMatches()) {
+    if (typeof m.placement !== "number") continue;
+    const win = m.placement === 1;
+    // Item 3348 (Standard-Trinket) auch hier ausschliessen - jeder hat es,
+    // liefert keine echte Build-Aussage (siehe renderPlacementHistoryList).
+    for (const id of (m.items || [])) {
+      if (id === 3348) continue;
+      if (!items[id]) items[id] = { games: 0, wins: 0 };
+      items[id].games++;
+      if (win) items[id].wins++;
+    }
+    for (const id of (m.augments || [])) {
+      if (!augments[id]) augments[id] = { games: 0, wins: 0 };
+      augments[id].games++;
+      if (win) augments[id].wins++;
+    }
+  }
+  return { items, augments };
+}
+
+function sortIaStatEntries(entries, mode) {
+  return entries.slice().sort((a, b) => {
+    if (mode === "winrate") {
+      const aQualified = a.games >= IA_STATS_MIN_GAMES_FOR_WINRATE;
+      const bQualified = b.games >= IA_STATS_MIN_GAMES_FOR_WINRATE;
+      if (aQualified !== bQualified) return aQualified ? -1 : 1;
+      const aWr = a.wins / a.games;
+      const bWr = b.wins / b.games;
+      if (bWr !== aWr) return bWr - aWr;
+      return b.games - a.games;
+    }
+    return b.games - a.games;
+  });
+}
+
+function renderIaStatTierGroup(entries, tier, sortMode) {
+  const tierEntries = entries.filter((e) => e.entry.tier === tier);
+  if (!tierEntries.length) return "";
+  const sorted = sortIaStatEntries(tierEntries, sortMode);
+  const label = t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1));
+  let html = `<div class="iaTierGroup"><div class="iaTierLabel tier-${tier}">${label} (${tierEntries.length})</div><div class="iaStatsGrid">`;
+  for (const e of sorted) {
+    const name = iaEntryName(e.entry);
+    const winrate = Math.round((e.wins / e.games) * 100);
+    const lowSample = e.games < IA_STATS_MIN_GAMES_FOR_WINRATE;
+    const wrClass = winrate >= 50 ? "good" : "bad";
+    const tooltip = `${name}: ${e.wins}/${e.games} (${winrate}%)`;
+    html += `
+      <div class="iaStatsTile${lowSample ? " lowSample" : ""}" title="${tooltip}">
+        ${e.entry.icon ? `<img src="${e.entry.icon}" alt="${name}" loading="lazy" />` : `<div class="iaStatsTileFallback">${name.slice(0, 3)}</div>`}
+        <span class="iaStatsTileGames">${e.games}×</span>
+        <span class="iaStatsTileWr ${wrClass}">${winrate}%</span>
+      </div>`;
+  }
+  html += `</div></div>`;
+  return html;
+}
+
+function renderOwnItemStatsTab() {
+  const container = document.getElementById("placementItemsStatsList");
+  if (!container) return;
+  const { items } = computeOwnItemAugmentStats();
+  const entries = Object.entries(items)
+    .map(([id, s]) => ({ id, entry: iaItemById[id], ...s }))
+    .filter((e) => e.entry);
+  if (!entries.length) {
+    container.innerHTML = `<p class="detailEmpty">${t("iaStatsNone")}</p>`;
+    return;
+  }
+  container.innerHTML = IA_ITEM_TIERS.map((tier) => renderIaStatTierGroup(entries, tier, iaItemsStatsSortMode)).join("");
+}
+
+function renderOwnAugmentStatsTab() {
+  const container = document.getElementById("placementAugmentsStatsList");
+  if (!container) return;
+  const { augments } = computeOwnItemAugmentStats();
+  const entries = Object.entries(augments)
+    .map(([id, s]) => ({ id, entry: iaAugmentById[id], ...s }))
+    .filter((e) => e.entry);
+  if (!entries.length) {
+    container.innerHTML = `<p class="detailEmpty">${t("iaStatsNone")}</p>`;
+    return;
+  }
+  container.innerHTML = IA_AUGMENT_TIERS.map((tier) => renderIaStatTierGroup(entries, tier, iaAugmentsStatsSortMode)).join("");
+}
+
+async function renderOwnItemStatsTabAsync() {
+  await loadArenaItemsAugments();
+  renderOwnItemStatsTab();
+}
+
+async function renderOwnAugmentStatsTabAsync() {
+  await loadArenaItemsAugments();
+  renderOwnAugmentStatsTab();
+}
+
 // Formatiert groessere Zahlen (Schaden, Gold) sprachabhaengig mit
 // Tausendertrennzeichen, z.B. 12345 -> "12.345" (de) / "12,345" (en).
 function formatStatNumber(n) {
@@ -5100,17 +5229,26 @@ safeBind("placementHistoryDetailBack", "onclick", closeMatchDetail);
 function switchPlacementStatsTab(tab) {
   const btnPlacements = document.getElementById("placementTabBtnPlacements");
   const btnMates = document.getElementById("placementTabBtnMates");
+  const btnItems = document.getElementById("placementTabBtnItems");
+  const btnAugments = document.getElementById("placementTabBtnAugments");
   const panelPlacements = document.getElementById("placementPanelPlacements");
   const panelMates = document.getElementById("placementPanelMates");
+  const panelItems = document.getElementById("placementPanelItems");
+  const panelAugments = document.getElementById("placementPanelAugments");
   const isMates = tab === "mates";
-  const isPlacements = !isMates;
+  const isItems = tab === "items";
+  const isAugments = tab === "augments";
+  const isPlacements = !isMates && !isItems && !isAugments;
   btnPlacements?.classList.toggle("active", isPlacements);
   btnMates?.classList.toggle("active", isMates);
+  btnItems?.classList.toggle("active", isItems);
+  btnAugments?.classList.toggle("active", isAugments);
   panelPlacements?.classList.toggle("hidden", !isPlacements);
   panelMates?.classList.toggle("hidden", !isMates);
+  panelItems?.classList.toggle("hidden", !isItems);
+  panelAugments?.classList.toggle("hidden", !isAugments);
   // Match-Detail-Panel (falls gerade offen) und Tab-Leiste wieder in den
-  // Normalzustand bringen, wenn regulaer zwischen Champions/Mitspieler
-  // gewechselt wird.
+  // Normalzustand bringen, wenn regulaer zwischen den Tabs gewechselt wird.
   document.getElementById("placementPanelHistory")?.classList.add("hidden");
   document.getElementById("placementStatsTabBar")?.classList.remove("hidden");
   if (isMates) {
@@ -5118,6 +5256,10 @@ function switchPlacementStatsTab(tab) {
     const filterInput = document.getElementById("placementMateFilter");
     const sortSelect = document.getElementById("placementMateSort");
     renderPlacementMateList(filterInput ? filterInput.value : "", sortSelect ? sortSelect.value : "games");
+  } else if (isItems) {
+    renderOwnItemStatsTabAsync();
+  } else if (isAugments) {
+    renderOwnAugmentStatsTabAsync();
   } else {
     renderPlacementOverallSection();
     const filterInput = document.getElementById("placementChampFilter");
@@ -5129,7 +5271,9 @@ function switchPlacementStatsTab(tab) {
 // damit nicht unnoetig alle Tabs neu berechnet werden muessen.
 function renderPlacementStatsModal() {
   const matesActive = document.getElementById("placementTabBtnMates")?.classList.contains("active");
-  switchPlacementStatsTab(matesActive ? "mates" : "placements");
+  const itemsActive = document.getElementById("placementTabBtnItems")?.classList.contains("active");
+  const augmentsActive = document.getElementById("placementTabBtnAugments")?.classList.contains("active");
+  switchPlacementStatsTab(matesActive ? "mates" : itemsActive ? "items" : augmentsActive ? "augments" : "placements");
 }
 
 function openPlacementStatsModal() {
@@ -5153,6 +5297,18 @@ safeBind("placementStatsBtn", "onclick", openPlacementStatsModal);
 safeBind("placementStatsClose", "onclick", closePlacementStatsModal);
 safeBind("placementTabBtnPlacements", "onclick", () => switchPlacementStatsTab("placements"));
 safeBind("placementTabBtnMates", "onclick", () => switchPlacementStatsTab("mates"));
+safeBind("placementTabBtnItems", "onclick", () => switchPlacementStatsTab("items"));
+safeBind("placementTabBtnAugments", "onclick", () => switchPlacementStatsTab("augments"));
+safeBind("iaItemsStatsSort", "onchange", () => {
+  const sel = document.getElementById("iaItemsStatsSort");
+  iaItemsStatsSortMode = sel ? sel.value : "winrate";
+  renderOwnItemStatsTab();
+});
+safeBind("iaAugmentsStatsSort", "onchange", () => {
+  const sel = document.getElementById("iaAugmentsStatsSort");
+  iaAugmentsStatsSortMode = sel ? sel.value : "winrate";
+  renderOwnAugmentStatsTab();
+});
 safeBind("placementChampFilter", "oninput", () => {
   const filterInput = document.getElementById("placementChampFilter");
   renderPlacementChampList(filterInput ? filterInput.value : "");
