@@ -309,7 +309,6 @@ const I18N = {
     iaShowAllBtn: "Alle",
     iaShowAugmentsBtn: "Augments",
     iaShowItemsBtn: "Items",
-    iaGroupFilterBtn: "▾ Gruppen",
     iaTierListNoPartners: "Für dieses Augment/Item gibt es noch keine ausreichenden Partner-Daten.",
     iaTierListPartnersHeading: "Top 5 Partner (gemeinsame Winrate)",
     iaEditModeBtn: "✏️ Synergien bearbeiten",
@@ -585,7 +584,6 @@ const I18N = {
     iaShowAllBtn: "All",
     iaShowAugmentsBtn: "Augments",
     iaShowItemsBtn: "Items",
-    iaGroupFilterBtn: "▾ Groups",
     iaTierListNoPartners: "Not enough partner data for this augment/item yet.",
     iaTierListPartnersHeading: "Top 5 partners (combined win rate)",
     iaEditModeBtn: "✏️ Edit synergies",
@@ -2017,8 +2015,9 @@ function openItemsAugmentsModal() {
   if (searchInput) searchInput.value = "";
   iaSearchTerm = "";
   iaColumnFilter = null; // startet immer wieder mit "All" (beide Spalten sichtbar)
-  iaHiddenTiers = new Set();
-  document.getElementById("iaGroupFilterPanel")?.classList.add("hidden");
+  iaBrowseGroupMode = true;
+  const groupCb = document.getElementById("iaBrowseGroupToggle");
+  if (groupCb) groupCb.checked = true;
   applyIaColumnFilter();
   renderItemsAugmentsModal();
   loadArenaItemsAugments().then((ok) => {
@@ -2063,69 +2062,19 @@ function applyIaColumnFilter() {
   itemBtn?.classList.toggle("active", iaColumnFilter === "item");
   augCol?.classList.toggle("iaColHidden", iaColumnFilter === "item");
   itemCol?.classList.toggle("iaColHidden", iaColumnFilter === "augment");
-  // Das Gruppen-Panel zeigt nur Checkboxen fuer die gerade sichtbare(n)
-  // Spalte(n) - bei offenem Panel also mit neu abgleichen.
-  if (!document.getElementById("iaGroupFilterPanel")?.classList.contains("hidden")) {
-    renderIaGroupFilterPanel();
-  }
 }
 
-// "Gruppen"-Knopf: Dropdown mit einer Checkbox pro Rarity-Kategorie
-// (Silver/Gold/Prismatic bzw. Quest/Boots/Legendary/...), um einzelne
-// Kategorien komplett ein-/auszublenden - unabhaengig von All/Augments/
-// Items. iaHiddenTiers speichert die ausgeblendeten als "kind:tier".
-let iaHiddenTiers = new Set();
+// "Gruppieren"-Checkbox (genau wie bei My Stats): schaltet zwischen der
+// Rarity-Kategorie-Ansicht (Silver/Gold/Prismatic bzw. Quest/Boots/...,
+// jeweils mit S/A/B/C/D-Unterabschnitten im Tier-Liste-Modus) und einer
+// einzigen flachen, ungruppierten Liste um.
+let iaBrowseGroupMode = true;
 
-function iaTierVisible(kind, tier) {
-  return !iaHiddenTiers.has(`${kind}:${tier}`);
+function toggleIaBrowseGroupMode() {
+  const cb = document.getElementById("iaBrowseGroupToggle");
+  iaBrowseGroupMode = cb ? cb.checked : true;
+  renderItemsAugmentsModal();
 }
-
-function toggleIaGroupFilterPanel() {
-  const panel = document.getElementById("iaGroupFilterPanel");
-  if (!panel) return;
-  const willShow = panel.classList.contains("hidden");
-  if (willShow) renderIaGroupFilterPanel();
-  panel.classList.toggle("hidden", !willShow);
-}
-
-function renderIaGroupFilterPanel() {
-  const panel = document.getElementById("iaGroupFilterPanel");
-  if (!panel) return;
-  let html = "";
-  if (iaColumnFilter !== "item") {
-    html += `<div class="iaGroupFilterSection"><div class="iaGroupFilterHeading">${t("iaAugmentsHeading")}</div>`;
-    for (const tier of IA_AUGMENT_TIERS) {
-      const key = `augment:${tier}`;
-      html += `<label class="iaGroupFilterOption"><input type="checkbox" data-tier-key="${key}" ${iaTierVisible("augment", tier) ? "checked" : ""} /> ${t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1))}</label>`;
-    }
-    html += `</div>`;
-  }
-  if (iaColumnFilter !== "augment") {
-    html += `<div class="iaGroupFilterSection"><div class="iaGroupFilterHeading">${t("iaItemsHeading")}</div>`;
-    for (const tier of IA_ITEM_TIERS) {
-      const key = `item:${tier}`;
-      html += `<label class="iaGroupFilterOption"><input type="checkbox" data-tier-key="${key}" ${iaTierVisible("item", tier) ? "checked" : ""} /> ${t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1))}</label>`;
-    }
-    html += `</div>`;
-  }
-  panel.innerHTML = html;
-  panel.querySelectorAll("input[type=checkbox]").forEach((cb) => {
-    cb.addEventListener("change", () => {
-      const key = cb.dataset.tierKey;
-      if (cb.checked) iaHiddenTiers.delete(key);
-      else iaHiddenTiers.add(key);
-      renderItemsAugmentsModal();
-    });
-  });
-}
-
-// Panel schliessen, wenn ausserhalb geklickt wird.
-document.addEventListener("click", (e) => {
-  const wrap = document.getElementById("iaGroupFilterWrap");
-  const panel = document.getElementById("iaGroupFilterPanel");
-  if (!wrap || !panel || panel.classList.contains("hidden")) return;
-  if (!wrap.contains(e.target)) panel.classList.add("hidden");
-});
 
 const IA_AUGMENT_TIERS = ["silver", "gold", "prismatic"];
 const IA_ITEM_TIERS = ["quest", "boots", "legendary", "prismatic", "anvil", "juice"];
@@ -2228,7 +2177,6 @@ function renderIaTierlistSubGroups(tierEntries, kind, allEntries) {
 }
 
 function renderIaTierGroup(entries, tier, kind, showTierlistStats) {
-  if (!iaTierVisible(kind, tier)) return ""; // ueber den "Gruppen"-Knopf ausgeblendet
   const tierEntries = entries.filter((e) => e.tier === tier);
   if (tierEntries.length === 0) return "";
   const label = t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1));
@@ -2239,6 +2187,32 @@ function renderIaTierGroup(entries, tier, kind, showTierlistStats) {
     html += `<div class="iaGrid">`;
     for (const e of tierEntries) html += renderIaTileHtml(e, kind, entries, null);
     html += `</div>`;
+  }
+  html += `</div>`;
+  return html;
+}
+
+// Ungruppierte Ansicht ("Gruppieren"-Checkbox aus): alle Eintraege
+// (unabhaengig von ihrer Rarity-Kategorie) in einem einzigen Grid,
+// im Tier-Liste-Modus nach Winrate sortiert - genau wie die flache
+// Ansicht bei "My Stats".
+function renderIaFlatList(entries, kind, showTierlistStats) {
+  let list = entries;
+  if (showTierlistStats) {
+    list = entries
+      .map((entry, i) => ({ entry, i, row: iaTierlistRowForEntry(entry, kind) }))
+      .sort((a, b) => {
+        if (a.row && b.row) return b.row.winrate - a.row.winrate || b.row.games - a.row.games;
+        if (a.row && !b.row) return -1;
+        if (!a.row && b.row) return 1;
+        return a.i - b.i;
+      })
+      .map((x) => x.entry);
+  }
+  let html = `<div class="iaGrid">`;
+  for (const e of list) {
+    const row = showTierlistStats ? iaTierlistRowForEntry(e, kind) : null;
+    html += renderIaTileHtml(e, kind, entries, row);
   }
   html += `</div>`;
   return html;
@@ -2267,12 +2241,16 @@ function renderItemsAugmentsModal() {
   // Perzentil-Einteilung dazu (siehe renderIaTierlistSubGroups).
   const tierlistActive = iaTierListMode && !!iaTierListByKey;
 
-  augList.innerHTML = augments.length
-    ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", tierlistActive)).join("")
-    : `<p class="detailEmpty">–</p>`;
-  itemList.innerHTML = items.length
-    ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", tierlistActive)).join("")
-    : `<p class="detailEmpty">–</p>`;
+  augList.innerHTML = !augments.length
+    ? `<p class="detailEmpty">–</p>`
+    : iaBrowseGroupMode
+      ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", tierlistActive)).join("")
+      : renderIaFlatList(augments, "augment", tierlistActive);
+  itemList.innerHTML = !items.length
+    ? `<p class="detailEmpty">–</p>`
+    : iaBrowseGroupMode
+      ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", tierlistActive)).join("")
+      : renderIaFlatList(items, "item", tierlistActive);
 
   bindIaTileEvents(augList, augments);
   bindIaTileEvents(itemList, items);
@@ -3396,7 +3374,7 @@ safeBind("iaTierListBack", "onclick", backToTierListOverview);
 safeBind("iaShowAllBtn", "onclick", () => selectIaColumnFilter("all"));
 safeBind("iaShowAugmentsBtn", "onclick", () => selectIaColumnFilter("augment"));
 safeBind("iaShowItemsBtn", "onclick", () => selectIaColumnFilter("item"));
-safeBind("iaGroupFilterBtn", "onclick", (e) => { e.stopPropagation(); toggleIaGroupFilterPanel(); });
+safeBind("iaBrowseGroupToggle", "onchange", toggleIaBrowseGroupMode);
 safeBind("iaEditModeBtn", "onclick", toggleIaEditMode);
 safeBind("iaPresetModeBtn", "onclick", toggleIaPresetMode);
 safeBind("iaPresetSave", "onclick", saveIaPreset);

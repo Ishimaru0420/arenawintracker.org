@@ -385,7 +385,7 @@ button.danger:hover { background: #c43b4a; }
    damit man sich auf eine der beiden Listen konzentrieren kann. Reine
    Sichtbarkeits-Klasse auf den fest im DOM stehenden Spalten-Containern
    - kein Neu-Rendern der Kacheln noetig. */
-#iaColumnToggleRow { display: flex; justify-content: center; align-items: flex-start; gap: 8px; position: relative; flex-wrap: wrap; }
+#iaColumnToggleRow { display: flex; justify-content: center; align-items: center; gap: 14px; flex-wrap: wrap; }
 #iaColumnToggleRow button {
   font-size: 12.5px; padding: 6px 18px; border-radius: 6px;
   background: #16100d; border: 1px solid #3a2620; color: #b3a39c; cursor: pointer;
@@ -395,30 +395,8 @@ button.danger:hover { background: #c43b4a; }
 #iaColumnToggleRow button.active {
   background: linear-gradient(180deg, #ff9c5c, #ff7a3c); border-color: #ff7a3c; color: #2a1204; font-weight: 700;
 }
+#iaColumnToggleRow .iaStatsGroupToggle { font-size: 12.5px; color: #b3a39c; }
 #iaAugmentsCol.iaColHidden, #iaItemsCol.iaColHidden { display: none; }
-
-/* "Gruppen"-Knopf: Dropdown mit Checkboxen, um einzelne Rarity-
-   Kategorien (Silver/Gold/Prismatic bzw. Quest/Boots/...) ein- oder
-   auszublenden - unabhaengig davon, ob gerade Augments/Items/All
-   angezeigt wird. */
-#iaGroupFilterWrap { position: relative; }
-#iaGroupFilterPanel {
-  position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
-  background: #1c1512; border: 1px solid #3a2620; border-radius: 8px;
-  padding: 10px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
-  display: flex; gap: 20px; z-index: 20; min-width: 200px;
-}
-#iaGroupFilterPanel.hidden { display: none; }
-.iaGroupFilterSection { display: flex; flex-direction: column; gap: 4px; }
-.iaGroupFilterHeading {
-  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #ff7a3c;
-  font-weight: 700; margin-bottom: 2px;
-}
-.iaGroupFilterOption {
-  display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #f5ece6;
-  cursor: pointer; white-space: nowrap; padding: 2px 0;
-}
-.iaGroupFilterOption input { cursor: pointer; accent-color: #ff7a3c; }
 #iaSearchRow { display: flex; gap: 8px; }
 #iaSearchInput {
   flex: 1; min-width: 0; box-sizing: border-box;

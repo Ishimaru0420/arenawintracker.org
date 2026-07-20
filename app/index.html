@@ -182,10 +182,10 @@
         <button id="iaShowAllBtn" class="active" data-i18n="iaShowAllBtn">All</button>
         <button id="iaShowAugmentsBtn" data-i18n="iaShowAugmentsBtn">Augments</button>
         <button id="iaShowItemsBtn" data-i18n="iaShowItemsBtn">Items</button>
-        <div id="iaGroupFilterWrap">
-          <button id="iaGroupFilterBtn" data-i18n="iaGroupFilterBtn">▾ Gruppen</button>
-          <div id="iaGroupFilterPanel" class="hidden"></div>
-        </div>
+        <label class="checkboxLabel iaStatsGroupToggle">
+          <input id="iaBrowseGroupToggle" type="checkbox" checked />
+          <span data-i18n="iaStatsGroupToggleLabel">Gruppieren</span>
+        </label>
       </div>
       <div id="iaSearchRow">
         <input id="iaSearchInput" type="text" placeholder="Augment oder Item suchen..." data-i18n-placeholder="iaSearchPlaceholder" />
