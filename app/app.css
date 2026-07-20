@@ -380,11 +380,12 @@ button.danger:hover { background: #c43b4a; }
 #itemsAugmentsClearFilter { font-size: 12px; padding: 6px 10px; }
 #itemsAugmentsClearFilter.hidden { display: none; }
 #itemsAugmentsHint { font-size: 12px; color: #a89690; margin: 0; }
-/* Zentrierter Umschalter "Augments"/"Items" - blendet im Browser eine
-   der beiden Spalten aus, damit man sich auf eine der beiden Listen
-   konzentrieren kann. Erneuter Klick auf die aktive Schaltflaeche
-   schaltet zurueck auf die normale Zweispalten-Ansicht. */
-#iaColumnToggleRow { display: flex; justify-content: center; gap: 8px; }
+/* Zentrierter Umschalter "All"/"Augments"/"Items" - blendet im Browser
+   eine der beiden Spalten aus (oder zeigt wieder beide bei "All"),
+   damit man sich auf eine der beiden Listen konzentrieren kann. Reine
+   Sichtbarkeits-Klasse auf den fest im DOM stehenden Spalten-Containern
+   - kein Neu-Rendern der Kacheln noetig. */
+#iaColumnToggleRow { display: flex; justify-content: center; align-items: flex-start; gap: 8px; position: relative; flex-wrap: wrap; }
 #iaColumnToggleRow button {
   font-size: 12.5px; padding: 6px 18px; border-radius: 6px;
   background: #16100d; border: 1px solid #3a2620; color: #b3a39c; cursor: pointer;
@@ -395,6 +396,29 @@ button.danger:hover { background: #c43b4a; }
   background: linear-gradient(180deg, #ff9c5c, #ff7a3c); border-color: #ff7a3c; color: #2a1204; font-weight: 700;
 }
 #iaAugmentsCol.iaColHidden, #iaItemsCol.iaColHidden { display: none; }
+
+/* "Gruppen"-Knopf: Dropdown mit Checkboxen, um einzelne Rarity-
+   Kategorien (Silver/Gold/Prismatic bzw. Quest/Boots/...) ein- oder
+   auszublenden - unabhaengig davon, ob gerade Augments/Items/All
+   angezeigt wird. */
+#iaGroupFilterWrap { position: relative; }
+#iaGroupFilterPanel {
+  position: absolute; top: calc(100% + 6px); left: 50%; transform: translateX(-50%);
+  background: #1c1512; border: 1px solid #3a2620; border-radius: 8px;
+  padding: 10px 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  display: flex; gap: 20px; z-index: 20; min-width: 200px;
+}
+#iaGroupFilterPanel.hidden { display: none; }
+.iaGroupFilterSection { display: flex; flex-direction: column; gap: 4px; }
+.iaGroupFilterHeading {
+  font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #ff7a3c;
+  font-weight: 700; margin-bottom: 2px;
+}
+.iaGroupFilterOption {
+  display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: #f5ece6;
+  cursor: pointer; white-space: nowrap; padding: 2px 0;
+}
+.iaGroupFilterOption input { cursor: pointer; accent-color: #ff7a3c; }
 #iaSearchRow { display: flex; gap: 8px; }
 #iaSearchInput {
   flex: 1; min-width: 0; box-sizing: border-box;
@@ -447,15 +471,16 @@ button.danger:hover { background: #c43b4a; }
 .iaTierSubGroups { display: flex; flex-direction: column; }
 .iaTierSubGroup { margin-bottom: 4px; }
 .iaTierSubLabel {
-  font-size: 11px; font-weight: 800; padding: 2px 9px; margin: 8px 0 6px;
-  border-bottom: none; border-radius: 5px; width: fit-content;
+  font-size: 15px; font-weight: 800; padding: 5px 16px; margin: 12px 0 9px;
+  border-bottom: none; border-radius: 6px; width: fit-content;
+  border: 1px solid currentColor;
 }
-.iaTierSubLabel.tier-S { background: rgba(255,215,0,0.18); color: #ffd700; }
-.iaTierSubLabel.tier-A { background: rgba(74,222,128,0.18); color: #4ade80; }
-.iaTierSubLabel.tier-B { background: rgba(96,165,250,0.18); color: #60a5fa; }
-.iaTierSubLabel.tier-C { background: rgba(156,163,175,0.18); color: #9ca3af; }
-.iaTierSubLabel.tier-D { background: rgba(248,113,113,0.18); color: #f87171; }
-.iaTierSubLabel.tier-none { background: rgba(138,122,114,0.18); color: #a89690; }
+.iaTierSubLabel.tier-S { background: rgba(255,215,0,0.22); color: #ffd700; }
+.iaTierSubLabel.tier-A { background: rgba(74,222,128,0.22); color: #4ade80; }
+.iaTierSubLabel.tier-B { background: rgba(96,165,250,0.22); color: #60a5fa; }
+.iaTierSubLabel.tier-C { background: rgba(156,163,175,0.22); color: #9ca3af; }
+.iaTierSubLabel.tier-D { background: rgba(248,113,113,0.22); color: #f87171; }
+.iaTierSubLabel.tier-none { background: rgba(138,122,114,0.22); color: #a89690; }
 
 .iaGrid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 7px;
