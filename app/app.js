@@ -1647,6 +1647,10 @@ function positionTooltip(e) {
   const rect = tooltip.getBoundingClientRect();
   if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
   if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
+  // Gleicher Clamp-Fix wie in positionIaTooltip: verhindert, dass der
+  // Tooltip nahe einer Fensterecke abgeschnitten dargestellt wird.
+  x = Math.max(0, Math.min(x, window.innerWidth - rect.width));
+  y = Math.max(0, Math.min(y, window.innerHeight - rect.height));
   tooltip.style.left = x + "px";
   tooltip.style.top = y + "px";
 }
@@ -3431,7 +3435,7 @@ function iaTierlistEntryLookup(row) {
 let iaPartnerRowByKey = null; // Map "kind:id" -> {games, winrate, percentileTier}
 let iaPartnerAugmentEntries = [];
 let iaPartnerItemEntries = [];
-let iaPartnerGroupMode = true;
+let iaPartnerGroupMode = false; // Standard aus - Nutzer sieht beim Anklicken einer Kachel zuerst die flache S-D-Liste
 let iaPartnerColumnFilter = null; // null = beide Spalten
 let iaCurrentPartnerTopPartners = null; // Rohdaten der aktuell offenen Kachel (fuer Re-Render bei Group-Toggle)
 
@@ -3535,9 +3539,9 @@ function selectTierListEntry(row, entry) {
   document.getElementById("iaTierListDetailView").classList.remove("hidden");
   renderIaSelectedCard(entry, "iaTierListSelectedCard");
   iaPartnerColumnFilter = null;
-  iaPartnerGroupMode = true;
+  iaPartnerGroupMode = false;
   const groupCb = document.getElementById("iaPartnerGroupToggle");
-  if (groupCb) groupCb.checked = true;
+  if (groupCb) groupCb.checked = false;
   applyIaPartnerColumnFilter();
   renderIaPartnerTierlist(row.topPartners);
 }
@@ -3633,6 +3637,15 @@ function positionIaTooltip(e) {
   const rect = iaTooltipEl.getBoundingClientRect();
   if (x + rect.width > window.innerWidth) x = e.clientX - rect.width - offset;
   if (y + rect.height > window.innerHeight) y = e.clientY - rect.height - offset;
+  // Zusaetzlich auf den sichtbaren Bereich klemmen: bei Cursor nahe einer
+  // Ecke (z.B. unten rechts) konnte das simple Umklappen oben eine
+  // NEGATIVE Koordinate ergeben, wenn der Tooltip breiter/hoeher als der
+  // verbleibende Platz auf der "umgeklappten" Seite ist - der Tooltip
+  // wurde dann am gegenueberliegenden Rand abgeschnitten dargestellt
+  // (sichtbar als kleine abgeschnittene Box in der Ecke). Math.max/min
+  // stellt sicher, dass er immer komplett im Fenster bleibt.
+  x = Math.max(0, Math.min(x, window.innerWidth - rect.width));
+  y = Math.max(0, Math.min(y, window.innerHeight - rect.height));
   iaTooltipEl.style.left = x + "px";
   iaTooltipEl.style.top = y + "px";
 }
