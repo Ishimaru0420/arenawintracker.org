@@ -2017,14 +2017,23 @@ function openItemsAugmentsModal() {
   if (searchInput) searchInput.value = "";
   iaSearchTerm = "";
   iaColumnFilter = null; // startet immer wieder mit "All" (beide Spalten sichtbar)
-  iaBrowseGroupMode = true;
+  // Standard-Ansicht beim Oeffnen: Tier-Liste an, Gruppieren aus (direkt
+  // S/A/B/C/D sehen statt erst nach Rarity-Kategorie sortiert).
+  iaBrowseGroupMode = false;
+  iaTierListMode = true;
   iaQuickSearchPresetId = null;
   iaQuickSearchPresetEntryIds = null;
   const groupCb = document.getElementById("iaBrowseGroupToggle");
-  if (groupCb) groupCb.checked = true;
+  if (groupCb) groupCb.checked = false;
+  const tierListCb = document.getElementById("iaTierListToggle");
+  if (tierListCb) tierListCb.checked = true;
   applyIaColumnFilter();
   initIaQuickSearchSection();
   renderItemsAugmentsModal();
+  loadItemAugmentTierlist().then((ok) => {
+    if (!ok) console.error("[ItemAugmentTierlist] Konnte Tierlist-Daten nicht laden.");
+    renderItemsAugmentsModal();
+  });
   loadArenaItemsAugments().then((ok) => {
     if (ok) renderItemsAugmentsModal();
     else {
@@ -2166,17 +2175,23 @@ function renderIaTierlistSubGroups(tierEntries, kind, allEntries, rowLookupFn) {
     if (row && row.percentileTier) buckets[row.percentileTier].push({ e, row });
     else noData.push({ e, row: null });
   }
+  // C/D/"Ohne Daten" starten standardmaessig eingeklappt (weniger relevant
+  // beim ersten Blick) - S/A/B bleiben offen. Der Auf-/Zuklapp-Zustand
+  // wird weiterhin nicht gespeichert, jedes Neu-Rendern startet wieder
+  // mit dieser Vorbelegung.
+  const COLLAPSED_BY_DEFAULT = new Set(["C", "D"]);
   let html = `<div class="iaTierSubGroups">`;
   for (const key of IA_PERCENTILE_TIER_ORDER) {
     const list = buckets[key];
     if (!list.length) continue;
     list.sort((a, b) => b.row.winrate - a.row.winrate || b.row.games - a.row.games);
-    html += `<div class="iaTierGroup iaTierSubGroup"><div class="iaTierLabel iaTierSubLabel tier-${key}" data-tier-toggle>${key} ${t("iaTierSuffix")} (${list.length})</div><div class="iaGrid">`;
+    const collapsedClass = COLLAPSED_BY_DEFAULT.has(key) ? " collapsed" : "";
+    html += `<div class="iaTierGroup iaTierSubGroup${collapsedClass}"><div class="iaTierLabel iaTierSubLabel tier-${key}" data-tier-toggle>${key} ${t("iaTierSuffix")} (${list.length})</div><div class="iaGrid">`;
     for (const { e, row } of list) html += renderIaTileHtml(e, kind, allEntries, row);
     html += `</div></div>`;
   }
   if (noData.length) {
-    html += `<div class="iaTierGroup iaTierSubGroup"><div class="iaTierLabel iaTierSubLabel tier-none" data-tier-toggle>${t("iaTierListNoData")} (${noData.length})</div><div class="iaGrid">`;
+    html += `<div class="iaTierGroup iaTierSubGroup collapsed"><div class="iaTierLabel iaTierSubLabel tier-none" data-tier-toggle>${t("iaTierListNoData")} (${noData.length})</div><div class="iaGrid">`;
     for (const { e } of noData) html += renderIaTileHtml(e, kind, allEntries, null);
     html += `</div></div>`;
   }
