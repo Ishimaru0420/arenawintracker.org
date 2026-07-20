@@ -2305,7 +2305,7 @@ function renderIaTierlistSubGroups(tierEntries, kind, allEntries, rowLookupFn) {
   for (const key of IA_PERCENTILE_TIER_ORDER) {
     const list = buckets[key];
     if (!list.length) continue;
-    list.sort((a, b) => b.row.winrate - a.row.winrate || b.row.games - a.row.games);
+    list.sort((a, b) => iaWilsonScore(b.row.wins, b.row.games) - iaWilsonScore(a.row.wins, a.row.games) || b.row.games - a.row.games);
     const collapsedClass = COLLAPSED_BY_DEFAULT.has(key) ? " collapsed" : "";
     html += `<div class="iaTierGroup iaTierSubGroup${collapsedClass}"><div class="iaTierLabel iaTierSubLabel tier-${key}" data-tier-toggle>${key} ${t("iaTierSuffix")} (${list.length})</div><div class="iaGrid">`;
     for (const { e, row } of list) html += renderIaTileHtml(e, kind, allEntries, row);
@@ -3231,7 +3231,7 @@ function renderIaPartnerTierlist(topPartners) {
   sorted.forEach(({ p }, i) => {
     const percentile = (i + 1) / n;
     const tierInfo = IA_TIER_PERCENTILES.find((tp) => percentile <= tp.upTo) || IA_TIER_PERCENTILES[IA_TIER_PERCENTILES.length - 1];
-    iaPartnerRowByKey.set(`${p.kind}:${p.id}`, { games: p.games, winrate: p.winrate, percentileTier: tierInfo.key });
+    iaPartnerRowByKey.set(`${p.kind}:${p.id}`, { games: p.games, wins: p.wins, winrate: p.winrate, percentileTier: tierInfo.key });
   });
 
   iaPartnerAugmentEntries = resolved.filter((x) => x.p.kind === "augment").map((x) => x.entry);
@@ -4519,7 +4519,7 @@ async function openItemOrAugmentDetail(name, type) {
     sorted.forEach(({ p }, i) => {
       const percentile = (i + 1) / n;
       const tierInfo = IA_TIER_PERCENTILES.find((tp) => percentile <= tp.upTo) || IA_TIER_PERCENTILES[IA_TIER_PERCENTILES.length - 1];
-      rowByKey.set(`${p.kind}:${p.id}`, { games: p.games, winrate: p.winrate, percentileTier: tierInfo.key });
+      rowByKey.set(`${p.kind}:${p.id}`, { games: p.games, wins: p.wins, winrate: p.winrate, percentileTier: tierInfo.key });
     });
     const lookupFn = (entry, kind) => rowByKey.get(`${kind}:${entry.id ?? entry.augmentId ?? entry.itemId}`) || null;
 
