@@ -2034,7 +2034,7 @@ function closeItemsAugmentsModal() {
   backToItemsAugmentsBrowse();
   if (iaTierListMode) {
     iaTierListMode = false;
-    document.getElementById("iaTierListBtn")?.classList.remove("active");
+    setIaTierListToggleUnchecked();
   }
   backToTierListOverview();
   iaColumnFilter = null;
@@ -2365,7 +2365,7 @@ function toggleIaEditMode() {
   }
   if (iaEditMode) {
     if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
-    if (iaTierListMode) { iaTierListMode = false; document.getElementById("iaTierListBtn")?.classList.remove("active"); backToTierListOverview(); }
+    if (iaTierListMode) { iaTierListMode = false; setIaTierListToggleUnchecked(); backToTierListOverview(); }
     backToItemsAugmentsBrowse(); // Detail-/Filteransicht verlassen, falls offen
     document.getElementById("itemsAugmentsBody").classList.remove("hidden");
     document.getElementById("iaEditView").classList.add("hidden");
@@ -2570,7 +2570,7 @@ function toggleIaPresetMode() {
   if (btn) btn.classList.toggle("active", iaPresetMode);
   if (iaPresetMode) {
     if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
-    if (iaTierListMode) { iaTierListMode = false; document.getElementById("iaTierListBtn")?.classList.remove("active"); backToTierListOverview(); }
+    if (iaTierListMode) { iaTierListMode = false; setIaTierListToggleUnchecked(); backToTierListOverview(); }
     backToItemsAugmentsBrowse();
     cancelIaEdit();
     startCreatingPreset();
@@ -3032,7 +3032,7 @@ async function openBuildEditor(build, champKey) {
   await loadArenaItemsAugments();
 
   if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
-  if (iaTierListMode) { iaTierListMode = false; document.getElementById("iaTierListBtn")?.classList.remove("active"); backToTierListOverview(); }
+  if (iaTierListMode) { iaTierListMode = false; setIaTierListToggleUnchecked(); backToTierListOverview(); }
   iaPresetMode = true;
   document.getElementById("iaPresetModeBtn")?.classList.add("active");
   backToItemsAugmentsBrowse();
@@ -3359,15 +3359,21 @@ function backToTierListOverview() {
   document.getElementById("itemsAugmentsHint")?.classList.remove("hidden");
 }
 
-// Der Tier-Liste-Button schaltet NICHT auf eine eigene Seite um, sondern
-// sortiert die Kacheln der normalen Browse-Ansicht (Silver/Gold/Prismatic
-// bzw. Quest/Boots/Legendary/...) innerhalb jeder bestehenden Kategorie
-// nach echter Winrate und zeigt Spielanzahl+Winrate als Badge an. Ein
-// Klick auf eine Kachel zeigt weiterhin die Top-5-Partner (Variante B).
+// Tier-Liste ist jetzt eine Checkbox (wie "Gruppieren"), keine eigene
+// Seite - unchecked schaltet einfach zurueck zur normalen Ansicht.
+function setIaTierListToggleUnchecked() {
+  const cb = document.getElementById("iaTierListToggle");
+  if (cb) cb.checked = false;
+}
+
+// Der Tier-Liste-Schalter aendert NICHT die Seite, sondern sortiert die
+// Kacheln der normalen Browse-Ansicht (Silver/Gold/Prismatic bzw.
+// Quest/Boots/Legendary/...) innerhalb jeder bestehenden Kategorie nach
+// echter Winrate und zeigt Spielanzahl+Winrate als Badge an. Ein Klick
+// auf eine Kachel zeigt weiterhin die Partner-Tierliste (Variante B).
 function toggleIaTierListMode() {
-  iaTierListMode = !iaTierListMode;
-  const btn = document.getElementById("iaTierListBtn");
-  if (btn) btn.classList.toggle("active", iaTierListMode);
+  const cb = document.getElementById("iaTierListToggle");
+  iaTierListMode = cb ? cb.checked : !iaTierListMode;
 
   if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
   if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
@@ -3438,7 +3444,7 @@ function hideIaTooltip() {
 safeBind("openItemsAugmentsBtn", "onclick", openItemsAugmentsModal);
 safeBind("itemsAugmentsClose", "onclick", closeItemsAugmentsModal);
 safeBind("itemsAugmentsClearFilter", "onclick", backToItemsAugmentsBrowse);
-safeBind("iaTierListBtn", "onclick", toggleIaTierListMode);
+safeBind("iaTierListToggle", "onchange", toggleIaTierListMode);
 safeBind("iaTierListBack", "onclick", backToTierListOverview);
 safeBind("iaShowAllBtn", "onclick", () => selectIaColumnFilter("all"));
 safeBind("iaShowAugmentsBtn", "onclick", () => selectIaColumnFilter("augment"));

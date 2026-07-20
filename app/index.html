@@ -170,15 +170,18 @@
       <div id="itemsAugmentsHeader">
         <h2 data-i18n="itemsAugmentsHeading">Arena Items &amp; Augments</h2>
         <div class="playerViewHeaderBtns">
-          <button id="iaTierListBtn" data-i18n="iaTierListBtn" data-i18n-title="iaTierListHint" title="Winrate + Spielanzahl über alle Spieler. Sortiert die Kacheln je Kategorie nach Winrate; Klick auf ein Item/Augment zeigt die 5 besten Partner-Kombinationen.">📊 Tier-Liste</button>
-          <button id="iaEditModeBtn" data-i18n="iaEditModeBtn">✏️ Synergien bearbeiten</button>
-          <button id="iaPresetModeBtn" data-i18n="iaPresetModeBtn">🔍 Schnellsuche</button>
+          <button id="iaEditModeBtn" class="hidden" data-i18n="iaEditModeBtn">✏️ Synergien bearbeiten</button>
+          <button id="iaPresetModeBtn" class="hidden" data-i18n="iaPresetModeBtn">🔍 Schnellsuche</button>
           <button id="itemsAugmentsClearFilter" class="hidden" data-i18n="itemsAugmentsClearFilter">Filter zurücksetzen</button>
           <button id="itemsAugmentsClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
         </div>
       </div>
       <p id="itemsAugmentsHint" data-i18n="itemsAugmentsHint">Auf ein Augment oder Item klicken, um nur dazu passende Treffer zu sehen.</p>
       <div id="iaColumnToggleRow">
+        <label class="checkboxLabel iaStatsGroupToggle" data-i18n-title="iaTierListHint" title="Winrate + Spielanzahl über alle Spieler. Sortiert die Kacheln je Kategorie nach Winrate; Klick auf ein Item/Augment zeigt die Partner-Tierliste.">
+          <input id="iaTierListToggle" type="checkbox" />
+          <span data-i18n="iaTierListBtn">📊 Tier-Liste</span>
+        </label>
         <button id="iaShowAllBtn" class="active" data-i18n="iaShowAllBtn">All</button>
         <button id="iaShowAugmentsBtn" data-i18n="iaShowAugmentsBtn">Augments</button>
         <button id="iaShowItemsBtn" data-i18n="iaShowItemsBtn">Items</button>
