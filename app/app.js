@@ -304,6 +304,7 @@ const I18N = {
     iaCategoryAll: "Alle Kategorien",
     iaTierListBtn: "📊 Tier-Liste",
     iaTierListHint: "Winrate + Spielanzahl über alle Spieler. Sortiert die Kacheln je Kategorie nach Winrate; Klick auf ein Item/Augment zeigt die 5 besten Partner-Kombinationen.",
+    iaTierListNoData: "Ohne Daten",
     iaTierListNoPartners: "Für dieses Augment/Item gibt es noch keine ausreichenden Partner-Daten.",
     iaTierListPartnersHeading: "Top 5 Partner (gemeinsame Winrate)",
     iaEditModeBtn: "✏️ Synergien bearbeiten",
@@ -574,6 +575,7 @@ const I18N = {
     iaCategoryAll: "All categories",
     iaTierListBtn: "📊 Tier list",
     iaTierListHint: "Win rate + game count across all players. Sorts tiles within each category by win rate; click an item/augment to see its 5 best partner combinations.",
+    iaTierListNoData: "No data",
     iaTierListNoPartners: "Not enough partner data for this augment/item yet.",
     iaTierListPartnersHeading: "Top 5 partners (combined win rate)",
     iaEditModeBtn: "✏️ Edit synergies",
@@ -2070,47 +2072,72 @@ function iaTierlistRowForEntry(entry, kind) {
   return iaTierListByKey.get(`${kind}:${numId}`) || null;
 }
 
-// Sortiert eine Liste von Augment-/Item-Objekten absteigend nach ihrer
-// Tierlist-Winrate. Eintraege ohne Tierlist-Daten (zu wenige Spiele)
-// rutschen ans Ende, behalten intern aber ihre urspruengliche Reihenfolge.
-function iaSortByTierlistWinrate(entries, kind) {
-  return entries
-    .map((entry, i) => ({ entry, i, row: iaTierlistRowForEntry(entry, kind) }))
-    .sort((a, b) => {
-      if (a.row && b.row) return b.row.winrate - a.row.winrate || b.row.games - a.row.games;
-      if (a.row && !b.row) return -1;
-      if (!a.row && b.row) return 1;
-      return a.i - b.i;
-    })
-    .map((x) => x.entry);
+// Baut das HTML fuer eine einzelne Kachel - mit optionalem Winrate-
+// Badge (nur im Tier-Liste-Modus). "allEntries" ist immer die volle,
+// ungefilterte Liste (dieselbe Referenz, die auch bindIaTileEvents
+// bekommt), damit data-idx zum richtigen Eintrag zurueckfindet.
+function renderIaTileHtml(e, kind, allEntries, row) {
+  const name = iaEntryName(e);
+  const dataAttr = kind === "augment" ? ` data-augment="${e.apiName}"` : ` data-item="${name}"`;
+  const idx = allEntries.indexOf(e);
+  const wrClass = row && (row.percentileTier === "S" || row.percentileTier === "A" || row.percentileTier === "B") ? "good" : "bad";
+  const badgeHtml = row
+    ? `<span class="iaStatsTileGames">${row.games}×</span><span class="iaStatsTileWr ${wrClass}">${row.winrate}%</span>`
+    : "";
+  if (e.icon) {
+    return `<div class="iaTile"${dataAttr} data-kind="${kind}" data-idx="${idx}" data-name="${name}">
+      <img src="${e.icon}" alt="${name}" loading="lazy" />${badgeHtml}
+    </div>`;
+  }
+  return `<div class="iaTile fallback"${dataAttr} data-kind="${kind}" data-idx="${idx}" data-name="${name}">${name.slice(0, 3)}${badgeHtml}</div>`;
+}
+
+const IA_PERCENTILE_TIER_ORDER = ["S", "A", "B", "C", "D"];
+
+// Teilt eine Rarity-Kategorie (z.B. "SILVER") im Tier-Liste-Modus
+// zusaetzlich in S/A/B/C/D-Abschnitte auf (Perzentil-Rang aus
+// loadItemAugmentTierlist), jeweils intern nach Winrate sortiert.
+// Eintraege ohne ausreichende Tierlist-Daten landen in einem eigenen
+// "ohne Daten"-Abschnitt am Ende statt einfach zu verschwinden.
+function renderIaTierlistSubGroups(tierEntries, kind, allEntries) {
+  const buckets = { S: [], A: [], B: [], C: [], D: [] };
+  const noData = [];
+  for (const e of tierEntries) {
+    const row = iaTierlistRowForEntry(e, kind);
+    if (row && row.percentileTier) buckets[row.percentileTier].push({ e, row });
+    else noData.push({ e, row: null });
+  }
+  let html = `<div class="iaTierSubGroups">`;
+  for (const key of IA_PERCENTILE_TIER_ORDER) {
+    const list = buckets[key];
+    if (!list.length) continue;
+    list.sort((a, b) => b.row.winrate - a.row.winrate || b.row.games - a.row.games);
+    html += `<div class="iaTierGroup iaTierSubGroup"><div class="iaTierLabel iaTierSubLabel tier-${key}" data-tier-toggle>${key} (${list.length})</div><div class="iaGrid">`;
+    for (const { e, row } of list) html += renderIaTileHtml(e, kind, allEntries, row);
+    html += `</div></div>`;
+  }
+  if (noData.length) {
+    html += `<div class="iaTierGroup iaTierSubGroup"><div class="iaTierLabel iaTierSubLabel tier-none" data-tier-toggle>${t("iaTierListNoData")} (${noData.length})</div><div class="iaGrid">`;
+    for (const { e } of noData) html += renderIaTileHtml(e, kind, allEntries, null);
+    html += `</div></div>`;
+  }
+  html += `</div>`;
+  return html;
 }
 
 function renderIaTierGroup(entries, tier, kind, showTierlistStats) {
   const tierEntries = entries.filter((e) => e.tier === tier);
   if (tierEntries.length === 0) return "";
   const label = t("iaTier" + tier.charAt(0).toUpperCase() + tier.slice(1));
-  let html = `<div class="iaTierGroup"><div class="iaTierLabel tier-${tier}" data-tier-toggle>${label} (${tierEntries.length})</div><div class="iaGrid">`;
-  for (const e of tierEntries) {
-    const name = iaEntryName(e);
-    const cls = ["iaTile"];
-    const dataAttr = kind === "augment" ? ` data-augment="${e.apiName}"` : ` data-item="${name}"`;
-    // Im Tier-Liste-Modus zusaetzlich Spielanzahl + Winrate als Badge auf
-    // der Kachel einblenden (gruen = ueberdurchschnittlich nach Perzentil-
-    // Rang, rot = unterdurchschnittlich - siehe IA_TIER_PERCENTILES).
-    const row = showTierlistStats ? iaTierlistRowForEntry(e, kind) : null;
-    const wrClass = row && (row.percentileTier === "S" || row.percentileTier === "A" || row.percentileTier === "B") ? "good" : "bad";
-    const badgeHtml = row
-      ? `<span class="iaStatsTileGames">${row.games}×</span><span class="iaStatsTileWr ${wrClass}">${row.winrate}%</span>`
-      : "";
-    if (e.icon) {
-      html += `<div class="${cls.join(" ")}"${dataAttr} data-kind="${kind}" data-idx="${entries.indexOf(e)}" data-name="${name}">
-        <img src="${e.icon}" alt="${name}" loading="lazy" />${badgeHtml}
-      </div>`;
-    } else {
-      html += `<div class="${cls.join(" ")} fallback"${dataAttr} data-kind="${kind}" data-idx="${entries.indexOf(e)}" data-name="${name}">${name.slice(0, 3)}${badgeHtml}</div>`;
-    }
+  let html = `<div class="iaTierGroup"><div class="iaTierLabel tier-${tier}" data-tier-toggle>${label} (${tierEntries.length})</div>`;
+  if (showTierlistStats) {
+    html += renderIaTierlistSubGroups(tierEntries, kind, entries);
+  } else {
+    html += `<div class="iaGrid">`;
+    for (const e of tierEntries) html += renderIaTileHtml(e, kind, entries, null);
+    html += `</div>`;
   }
-  html += `</div></div>`;
+  html += `</div>`;
   return html;
 }
 
@@ -2128,23 +2155,20 @@ function renderItemsAugmentsModal() {
     return matchesTerm && matchesCategory;
   };
 
-  let augments = (arenaAugmentsData || []).filter(filterByTerm);
-  let items = (arenaItemsData || []).filter(filterByTerm);
+  const augments = (arenaAugmentsData || []).filter(filterByTerm);
+  const items = (arenaItemsData || []).filter(filterByTerm);
 
   // Tier-Liste-Modus: die bestehenden Rarity-Kategorien (Silver/Gold/
   // Prismatic bzw. Quest/Boots/Legendary/...) bleiben unveraendert -
-  // nur die Reihenfolge INNERHALB jeder Kategorie wechselt von der
-  // Standardreihenfolge zu "beste Winrate zuerst".
-  if (iaTierListMode && iaTierListByKey) {
-    augments = iaSortByTierlistWinrate(augments, "augment");
-    items = iaSortByTierlistWinrate(items, "item");
-  }
+  // innerhalb jeder Kategorie kommt zusaetzlich eine S/A/B/C/D-
+  // Perzentil-Einteilung dazu (siehe renderIaTierlistSubGroups).
+  const tierlistActive = iaTierListMode && !!iaTierListByKey;
 
   augList.innerHTML = augments.length
-    ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", iaTierListMode)).join("")
+    ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", tierlistActive)).join("")
     : `<p class="detailEmpty">–</p>`;
   itemList.innerHTML = items.length
-    ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", iaTierListMode)).join("")
+    ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", tierlistActive)).join("")
     : `<p class="detailEmpty">–</p>`;
 
   bindIaTileEvents(augList, augments);

@@ -426,6 +426,22 @@ button.danger:hover { background: #c43b4a; }
 .iaTierLabel.tier-anvil { color: #d8a8e0; }
 .iaTierLabel.tier-juice { color: #7fd4e0; }
 
+/* ---------- Tier-Liste-Modus: S/A/B/C/D-Unterabschnitte innerhalb
+   einer Rarity-Kategorie (Silver/Gold/... bzw. Quest/Boots/...) ---------- */
+.iaTierGroup.collapsed .iaTierSubGroups { display: none; }
+.iaTierSubGroups { display: flex; flex-direction: column; }
+.iaTierSubGroup { margin-bottom: 4px; }
+.iaTierSubLabel {
+  font-size: 11px; font-weight: 800; padding: 2px 9px; margin: 8px 0 6px;
+  border-bottom: none; border-radius: 5px; width: fit-content;
+}
+.iaTierSubLabel.tier-S { background: rgba(255,215,0,0.18); color: #ffd700; }
+.iaTierSubLabel.tier-A { background: rgba(74,222,128,0.18); color: #4ade80; }
+.iaTierSubLabel.tier-B { background: rgba(96,165,250,0.18); color: #60a5fa; }
+.iaTierSubLabel.tier-C { background: rgba(156,163,175,0.18); color: #9ca3af; }
+.iaTierSubLabel.tier-D { background: rgba(248,113,113,0.18); color: #f87171; }
+.iaTierSubLabel.tier-none { background: rgba(138,122,114,0.18); color: #a89690; }
+
 .iaGrid {
   display: grid; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr)); gap: 7px;
 }
