@@ -4194,7 +4194,14 @@ function renderRanking(ranking) {
         : `<span class="rankWins rankWinRateTooFew">–</span>`;
       valueHtml = wrDisplay;
     } else {
-      valueHtml = `${winRateSpan}<span class="rankWins">${entry.championsWon} Champs</span>`;
+      // Eigene Winrate fuer diese Kategorie: jeder gewonnene Champion
+      // zaehlt nur einmal (championsWon), im Verhaeltnis zu allen
+      // verschiedenen gespielten Champions (championsPlayed) - bewusst
+      // NICHT die globale winRate (die Mehrfachsiege mitzaehlt).
+      const champWinRateSpan = typeof entry.championsWinRate === "number" && entry.championsPlayed >= 5
+        ? `<span class="rankWinRate">${entry.championsWinRate.toFixed(1)}%</span>`
+        : "";
+      valueHtml = `${champWinRateSpan}<span class="rankWins">${entry.championsWon} Champs</span>`;
     }
 
     li.innerHTML = `
