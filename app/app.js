@@ -2192,28 +2192,18 @@ function renderIaTierGroup(entries, tier, kind, showTierlistStats) {
   return html;
 }
 
-// Ungruppierte Ansicht ("Gruppieren"-Checkbox aus): alle Eintraege
-// (unabhaengig von ihrer Rarity-Kategorie) in einem einzigen Grid,
-// im Tier-Liste-Modus nach Winrate sortiert - genau wie die flache
-// Ansicht bei "My Stats".
+// Ungruppierte Ansicht ("Gruppieren"-Checkbox aus): die Rarity-
+// Kategorien (Silver/Gold/Prismatic bzw. Quest/Boots/...) entfallen,
+// aber die S/A/B/C/D-Tierliste selbst bleibt sichtbar (ist schliesslich
+// der Sinn des Tier-Liste-Knopfs) - nur eben ueber ALLE Eintraege
+// hinweg statt pro Kategorie. Ohne aktive Tier-Liste (keine Winrate-
+// Daten) gibt es dafuer einfach ein einziges flaches Grid ohne Badges.
 function renderIaFlatList(entries, kind, showTierlistStats) {
-  let list = entries;
   if (showTierlistStats) {
-    list = entries
-      .map((entry, i) => ({ entry, i, row: iaTierlistRowForEntry(entry, kind) }))
-      .sort((a, b) => {
-        if (a.row && b.row) return b.row.winrate - a.row.winrate || b.row.games - a.row.games;
-        if (a.row && !b.row) return -1;
-        if (!a.row && b.row) return 1;
-        return a.i - b.i;
-      })
-      .map((x) => x.entry);
+    return renderIaTierlistSubGroups(entries, kind, entries);
   }
   let html = `<div class="iaGrid">`;
-  for (const e of list) {
-    const row = showTierlistStats ? iaTierlistRowForEntry(e, kind) : null;
-    html += renderIaTileHtml(e, kind, entries, row);
-  }
+  for (const e of entries) html += renderIaTileHtml(e, kind, entries, null);
   html += `</div>`;
   return html;
 }
