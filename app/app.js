@@ -3531,7 +3531,7 @@ function renderIaTooltipPartnerCol(list, headingKey) {
         const name = iaEntryName(entry);
         return `<div class="iaTooltipPartnerRow">
           ${entry.icon ? `<img class="iaTooltipPartnerIcon" src="${entry.icon}" alt="${name}" />` : `<div class="iaTooltipPartnerIcon iaTooltipPartnerIconFallback">${name.slice(0, 2)}</div>`}
-          <span class="iaTooltipPartnerName">${name}</span>
+          <span class="iaTooltipPartnerName">${name} <span class="iaTooltipPartnerGames">(${p.games}×)</span></span>
           <span class="iaTooltipPartnerWr">${p.winrate}%</span>
         </div>`;
       }).join("")
