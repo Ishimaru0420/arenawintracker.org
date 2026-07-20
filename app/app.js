@@ -911,6 +911,29 @@ const CHAMP_TIER_PERCENTILES = [
   { key: "D", upTo: 1.00 },
 ];
 
+// Wilson-Score-Untergrenze (95% Konfidenzintervall) statt roher Winrate
+// fuer JEDE S/A/B/C/D-Perzentil-Einteilung in der App (Champion-Grid,
+// Items&Augments global/pro-Champion/Partner-Ansichten). Grund: bei
+// reiner Winrate-Sortierung schlagen kleine Stichproben grosse
+// systematisch (z.B. 5 Spiele/40% Winrate landet vor 238 Spiele/17.2%
+// Winrate, obwohl Letzteres die verlaesslichere, tatsaechlich bessere
+// Wahl ist). Der Wilson-Score zieht seltene Ergebnisse in Richtung des
+// Durchschnitts und laesst haeufige Ergebnisse nah an ihrer echten
+// Winrate - je mehr Spiele, desto enger das Konfidenzintervall, desto
+// naeher die Untergrenze an der tatsaechlichen Winrate. Angezeigt wird
+// weiterhin die ECHTE Winrate (unveraendert) - nur die Sortierung/
+// Tier-Zuordnung nutzt diesen Score.
+function iaWilsonScore(wins, games) {
+  if (!games) return 0;
+  const z = 1.96; // 95%-Konfidenz
+  const p = wins / games;
+  const z2 = z * z;
+  const denominator = 1 + z2 / games;
+  const centre = p + z2 / (2 * games);
+  const margin = z * Math.sqrt((p * (1 - p)) / games + z2 / (4 * games * games));
+  return (centre - margin) / denominator;
+}
+
 async function loadChampionTierMap() {
   try {
     const res = await authFetch(serverUrl("/champion-stats-all"));
@@ -918,7 +941,7 @@ async function loadChampionTierMap() {
     const list = await res.json();
     const eligible = list
       .filter((entry) => (entry.games || 0) >= MIN_GAMES_CHAMP_TIERLIST)
-      .sort((a, b) => b.winrate - a.winrate || b.games - a.games);
+      .sort((a, b) => iaWilsonScore(b.wins, b.games) - iaWilsonScore(a.wins, a.games) || b.games - a.games);
     const n = eligible.length;
     championTierMap = {};
     eligible.forEach((entry, i) => {
@@ -3130,7 +3153,7 @@ async function loadItemAugmentTierlist() {
     // Rang je Zeile berechnen und ablegen - wird fuer die gruene/rote
     // Faerbung der Winrate-Badges in der normalen Browse-Ansicht
     // gebraucht (S/A/B = ueberdurchschnittlich, C/D = unterdurchschnittlich).
-    const sorted = iaTierListData.slice().sort((a, b) => b.winrate - a.winrate || b.games - a.games);
+    const sorted = iaTierListData.slice().sort((a, b) => iaWilsonScore(b.wins, b.games) - iaWilsonScore(a.wins, a.games) || b.games - a.games);
     const n = sorted.length;
     sorted.forEach((row, i) => {
       const percentile = (i + 1) / n;
@@ -3202,7 +3225,7 @@ function renderIaPartnerTierlist(topPartners) {
   // Lokale Perzentil-Einteilung NUR ueber diese Partner-Menge (gleiches
   // Prinzip wie loadItemAugmentTierlist, aber auf diesen Ausschnitt
   // gescoped statt global ueber alle Items/Augments).
-  const sorted = resolved.slice().sort((a, b) => b.p.winrate - a.p.winrate || b.p.games - a.p.games);
+  const sorted = resolved.slice().sort((a, b) => iaWilsonScore(b.p.wins, b.p.games) - iaWilsonScore(a.p.wins, a.p.games) || b.p.games - a.p.games);
   const n = sorted.length;
   iaPartnerRowByKey = new Map();
   sorted.forEach(({ p }, i) => {
@@ -4041,7 +4064,7 @@ async function loadChampionStatsSection(champ) {
     // Perzentil-Rang je Zeile (Augments+Items dieses Champions
     // zusammen) - gleiche Logik wie loadItemAugmentTierlist, aber auf
     // diesen einen Champion gescoped statt global.
-    const sorted = rows.slice().sort((a, b) => b.winrate - a.winrate || b.games - a.games);
+    const sorted = rows.slice().sort((a, b) => iaWilsonScore(b.wins, b.games) - iaWilsonScore(a.wins, a.games) || b.games - a.games);
     const n = sorted.length;
     sorted.forEach((row, i) => {
       const percentile = (i + 1) / n;
@@ -4490,7 +4513,7 @@ async function openItemOrAugmentDetail(name, type) {
     // Lokale Perzentil-Einteilung NUR ueber diese Partner-Menge - exakt
     // dasselbe Muster wie renderIaPartnerTierlist im Items&Augments-Modal.
     const resolved = topPartners.map((p) => ({ p, entry: iaTierlistEntryLookup(p) })).filter((x) => x.entry);
-    const sorted = resolved.slice().sort((a, b) => b.p.winrate - a.p.winrate || b.p.games - a.p.games);
+    const sorted = resolved.slice().sort((a, b) => iaWilsonScore(b.p.wins, b.p.games) - iaWilsonScore(a.p.wins, a.p.games) || b.p.games - a.p.games);
     const n = sorted.length;
     const rowByKey = new Map();
     sorted.forEach(({ p }, i) => {
