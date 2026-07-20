@@ -1906,7 +1906,7 @@ let iaCategoryFilter = ""; // "" = alle, sonst Key aus IA_CATEGORIES
 let iaQuickSearchPresetId = null; // _id des im Quick-Search-Bereich ausgewaehlten Presets, null = kein Filter
 let iaQuickSearchPresetEntryIds = null; // Set aus iaEntityId(entry)-Strings des ausgewaehlten Presets
 let iaColumnFilter = null; // null = beide Spalten, "augment" = nur Augments, "item" = nur Items
-let iaTierListMode = false; // true = Kacheln in der normalen Browse-Ansicht werden nach Tierlist-Winrate sortiert + mit Winrate-Badge versehen
+let iaTierListMode = true; // immer an - kein Umschalter mehr, Kacheln zeigen immer Tierlist-Winrate + Badge
 let iaTierListData = null; // Array aus /item-augment-tierlist: {kind,id,games,wins,winrate,topPartners,percentileTier}
 let iaTierListByKey = null; // Map "kind:id" -> Zeile aus iaTierListData, fuer schnellen Lookup pro Kachel
 let iaPresetMode = false;
@@ -2034,8 +2034,6 @@ function openItemsAugmentsModal() {
   iaQuickSearchPresetEntryIds = null;
   const groupCb = document.getElementById("iaBrowseGroupToggle");
   if (groupCb) groupCb.checked = false;
-  const tierListCb = document.getElementById("iaTierListToggle");
-  if (tierListCb) tierListCb.checked = true;
   const sortSel = document.getElementById("iaSortModeSelect");
   if (sortSel) { sortSel.value = "tier"; sortSel.disabled = false; }
   applyIaColumnFilter();
@@ -2057,10 +2055,6 @@ function closeItemsAugmentsModal() {
   document.getElementById("itemsAugmentsOverlay").classList.add("hidden");
   hideIaTooltip();
   backToItemsAugmentsBrowse();
-  if (iaTierListMode) {
-    iaTierListMode = false;
-    setIaTierListToggleUnchecked();
-  }
   backToTierListOverview();
   iaColumnFilter = null;
   iaQuickSearchPresetId = null;
@@ -2487,7 +2481,7 @@ function toggleIaEditMode() {
   }
   if (iaEditMode) {
     if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
-    if (iaTierListMode) { iaTierListMode = false; setIaTierListToggleUnchecked(); backToTierListOverview(); }
+    backToTierListOverview();
     backToItemsAugmentsBrowse(); // Detail-/Filteransicht verlassen, falls offen
     document.getElementById("itemsAugmentsBody").classList.remove("hidden");
     document.getElementById("iaEditView").classList.add("hidden");
@@ -2692,7 +2686,7 @@ function toggleIaPresetMode() {
   if (btn) btn.classList.toggle("active", iaPresetMode);
   if (iaPresetMode) {
     if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
-    if (iaTierListMode) { iaTierListMode = false; setIaTierListToggleUnchecked(); backToTierListOverview(); }
+    backToTierListOverview();
     backToItemsAugmentsBrowse();
     cancelIaEdit();
     startCreatingPreset();
@@ -3154,7 +3148,7 @@ async function openBuildEditor(build, champKey) {
   await loadArenaItemsAugments();
 
   if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
-  if (iaTierListMode) { iaTierListMode = false; setIaTierListToggleUnchecked(); backToTierListOverview(); }
+  backToTierListOverview();
   iaPresetMode = true;
   document.getElementById("iaPresetModeBtn")?.classList.add("active");
   backToItemsAugmentsBrowse();
@@ -3481,40 +3475,10 @@ function backToTierListOverview() {
   document.getElementById("itemsAugmentsHint")?.classList.remove("hidden");
 }
 
-// Tier-Liste ist jetzt eine Checkbox (wie "Gruppieren"), keine eigene
-// Seite - unchecked schaltet einfach zurueck zur normalen Ansicht.
-function setIaTierListToggleUnchecked() {
-  const cb = document.getElementById("iaTierListToggle");
-  if (cb) cb.checked = false;
-}
-
-// Der Tier-Liste-Schalter aendert NICHT die Seite, sondern sortiert die
-// Kacheln der normalen Browse-Ansicht (Silver/Gold/Prismatic bzw.
-// Quest/Boots/Legendary/...) innerhalb jeder bestehenden Kategorie nach
-// echter Winrate und zeigt Spielanzahl+Winrate als Badge an. Ein Klick
-// auf eine Kachel zeigt weiterhin die Partner-Tierliste (Variante B).
-function toggleIaTierListMode() {
-  const cb = document.getElementById("iaTierListToggle");
-  iaTierListMode = cb ? cb.checked : !iaTierListMode;
-
-  // Sortier-Auswahl (Winrate/Pickrate) ist ohne Tier-Liste bedeutungslos -
-  // ohne Daten deaktivieren statt eine wirkungslose Auswahl anzuzeigen.
-  const sortSel = document.getElementById("iaSortModeSelect");
-  if (sortSel) sortSel.disabled = !iaTierListMode;
-
-  if (iaEditMode) { iaEditMode = false; document.getElementById("iaEditModeBtn")?.classList.remove("active"); cancelIaEdit(); }
-  if (iaPresetMode) { iaPresetMode = false; document.getElementById("iaPresetModeBtn")?.classList.remove("active"); cancelIaPreset(); }
-  backToTierListOverview(); // Partner-Detailansicht verlassen, falls offen
-  backToItemsAugmentsBrowse(); // alte Synergie-Detailansicht verlassen, falls offen
-
-  if (iaTierListMode) {
-    loadItemAugmentTierlist().then((ok) => {
-      if (!ok) console.error("[ItemAugmentTierlist] Konnte Tierlist-Daten nicht laden.");
-      renderItemsAugmentsModal();
-    });
-  }
-  renderItemsAugmentsModal();
-}
+// Tier-Liste ist jetzt fest immer an (kein Umschalter mehr) - die
+// Kacheln zeigen immer Winrate+Spielanzahl-Badge, sortiert nach echter
+// Winrate. Laden der Tierlist-Daten passiert einmalig beim Oeffnen des
+// Fensters (siehe openItemsAugmentsModal).
 
 function showIaTooltip(e, entry, kind) {
   if (!iaTooltipEl) {
@@ -3571,7 +3535,6 @@ function hideIaTooltip() {
 safeBind("openItemsAugmentsBtn", "onclick", openItemsAugmentsModal);
 safeBind("itemsAugmentsClose", "onclick", closeItemsAugmentsModal);
 safeBind("itemsAugmentsClearFilter", "onclick", backToItemsAugmentsBrowse);
-safeBind("iaTierListToggle", "onchange", toggleIaTierListMode);
 safeBind("iaTierListBack", "onclick", backToTierListOverview);
 safeBind("iaShowAllBtn", "onclick", () => selectIaColumnFilter("all"));
 safeBind("iaShowAugmentsBtn", "onclick", () => selectIaColumnFilter("augment"));
