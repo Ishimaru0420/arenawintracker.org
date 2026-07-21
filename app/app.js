@@ -1989,7 +1989,11 @@ const IA_CATEGORIES = {
     keywords: ["armor penetration", "rüstungsdurchdringung", "lethality", "brutalität"]
   },
   abilityPower: {
-    labelDe: "Fähigkeitsstärke", labelEn: "Ability Power", icon: "🪄", color: "#534AB7",
+    // Icon war vorher 🪄 (Zauberstab) - dieses Emoji (Unicode 12.0) wird auf
+    // vielen Windows-Systemen ohne aktuelles Emoji-Font-Update als leeres
+    // Kaestchen dargestellt. 🔮 (Kristallkugel, Unicode 6.0) ist deutlich
+    // aelter und wird ueberall zuverlaessig angezeigt.
+    labelDe: "Fähigkeitsstärke", labelEn: "Ability Power", icon: "🔮", color: "#534AB7",
     keywords: ["ability power", "fähigkeitsstärke"]
   },
   mana: {
@@ -2033,8 +2037,20 @@ const IA_CATEGORIES = {
     keywords: ["grievous wounds", "verringerte heilung", "heilungsreduzierung", "reduced healing", "healing reduction"]
   },
   heal: {
-    labelDe: "Heilung", labelEn: "Heal", icon: "➕", color: "#639922",
-    keywords: ["heal power", "healing power", "heilkraft", "erhöhte heilung", "increased heal", "gain heal"]
+    // Umbenannt von "Heilung" -> "Heilung & Schild": zeigt jetzt ALLES was
+    // heilt, schildet, oder Heil-/Schildkraft (den Stat, der beides
+    // skaliert) gewaehrt - vorher fehlten fast alle echten "Heal and Shield
+    // Power"-Items, weil kein Keyword zu diesem exakten Riot-Stat-Namen
+    // passte. Die Wortstaemme "heal"/"heil" allein wuerden allerdings auch
+    // in "Health" (h-e-a-l-t-h) bzw. "unheilvoll" (deutsch fuer "ominoes")
+    // als reiner Zufalls-Teilstring stecken - siehe die extra bereinigten
+    // Haystacks unten in iaEntryCategories, die genau das herausfiltern.
+    labelDe: "Heilung & Schild", labelEn: "Heal & Shield", icon: "➕", color: "#639922",
+    keywords: [
+      "heal and shield power", "heil- und schildkraft", "shield power", "schildkraft",
+      "heal power", "healing power", "heilkraft", "erhöhte heilung", "increased heal", "gain heal",
+      "heal", "heil", "shield", "schild"
+    ]
   },
   burnEffects: {
     labelDe: "Brenneffekte", labelEn: "Burn Effects", icon: "🔥", color: "#E24B4A",
@@ -2050,12 +2066,51 @@ const IA_CATEGORIES = {
     keywords: ["ultimate", "ultimative fähigkeit"]
   },
   gold: {
-    labelDe: "Gold", labelEn: "Gold", icon: "🪙", color: "#EF9F27",
+    // Icon war vorher 🪙 (Muenze, Unicode 13.0) - wie bei Ability Power
+    // faellt dieses juengere Emoji auf einigen Windows-Systemen als leeres
+    // Kaestchen aus. 💰 (Geldsack, Unicode 6.0) ist zuverlaessig verfuegbar.
+    labelDe: "Gold", labelEn: "Gold", icon: "💰", color: "#EF9F27",
     // Sonderfall "Transmute: Gold" (Gold-SELTENHEIT, nicht Waehrung) wird
-    // unten in iaEntryCategories explizit ausgeschlossen.
+    // unten in iaEntryCategories explizit ausgeschlossen. Weitere Ausnahmen
+    // (Item-/Augment-NAMEN, die zufaellig "Gold" enthalten, z.B. "The
+    // Golden Spatula") stehen in IA_CATEGORY_EXCLUSIONS.
     keywords: ["gold"]
   }
 };
+
+// Fest kuratierte Ausnahmen: Eintraege, die per Keyword faelschlich in eine
+// Kategorie rutschen wuerden - entweder weil der Text den Begriff nur in
+// einem GEGNERISCHEN Debuff-Kontext erwaehnt (Shred/Penetration/Reduktion
+// beim GEGNER, kein Buff fuer einen selbst - z.B. "And My Axe!" shreddet
+// nur die Ruestung/Magieresistenz des Ziels, hat selbst keine), oder weil
+// ein Item-/Augment-NAME zufaellig den Begriff als Teilstring enthaelt,
+// ohne dass der Effekt tatsaechlich dazu gehoert (z.B. "Warmog's Armor"
+// hat gar keinen Ruestungswert, nur Leben; "The Golden Spatula" hat nichts
+// mit der Waehrung Gold zu tun; "Shield of Molten Stone"/"Serpent's Fang"
+// gewaehren KEINEN eigenen Schild). Jede Ausnahme wurde anhand des echten
+// Riot-Tooltip-Texts manuell verifiziert. Format: Kategorie-Key -> Set aus
+// normName()-normalisierten EN-Namen.
+const IA_CATEGORY_EXCLUSIONS = Object.fromEntries(
+  Object.entries({
+    armor: ["Thread the Needle", "Erosion", "And My Axe!", "Flesheater", "Lord Dominik's Regards", "Black Cleaver", "Serylda's Grudge", "Mortal Reminder", "Perplexity", "Warmog's Armor"],
+    magicResist: ["Erosion", "And My Axe!", "Malignance", "Flesheater", "Bloodletter's Curse"],
+    attackSpeed: ["Frozen Heart"],
+    critChance: ["Randuin's Omen"],
+    gold: ["Quest: Urf's Champion", "The Golden Spatula"],
+    heal: ["Grievous Venom", "Chempunk Chainsword", "Thornmail", "Morellonomicon", "Mortal Reminder", "Shield of Molten Stone", "Serpent's Fang"],
+    // healthRegen: dieselbe Richtungs-Falle wie bei Armor/Magic Resist,
+    // nur mit "Health"/"Leben" statt Ruestung - die folgenden erwaehnen
+    // "Health" nur als Bedingung/Skalierung bezogen auf das ZIEL bzw. den
+    // GEGNER (Execute-Schwelle, "target's missing/current Health" als
+    // Schadens-Skalierung), haben aber selbst KEINEN eigenen Leben-Wert
+    // (Beispiel aus dem Screenshot: Serylda's Grudge verlangsamt nur
+    // Gegner unter 50% Leben, hat selbst keinen Leben-Stat). Bloodthirster/
+    // Mercurial Scimitar/Ravenous Hydra matchten nur, weil "Lebensraub"
+    // (Life Steal) zufaellig die Buchstaben "leben" enthaelt - haben mit
+    // dem Leben-Stat nichts zu tun.
+    healthRegen: ["Executioner", "Kill Secured", "Undying Guard", "Fulmination", "Bloodthirster", "The Collector", "Mercurial Scimitar", "Ravenous Hydra", "Prowler's Claw", "Blade of The Ruined King", "Kraken Slayer", "Cryptbloom", "Shadowflame", "Serylda's Grudge", "Reaper's Toll", "Voltaic Cyclosword"]
+  }).map(([key, names]) => [key, new Set(names.map(normName))])
+);
 
 // Baut eine Wort-Grenzen-sichere Version des Texts: alles ausser a-z0-9
 // wird zu GENAU EINEM Leerzeichen (nicht geloescht wie bei normName!) -
@@ -2079,8 +2134,25 @@ function iaEntryCategories(entry, name, desc) {
   //   so faelschlich in der Kategorie "On-Hit Effects").
   const stemHaystack = normName(`${name} ${desc}`);
   const phraseHaystack = iaCategoryPhraseHaystack(`${name} ${desc}`);
-  return Object.keys(IA_CATEGORIES).filter((key) =>
-    IA_CATEGORIES[key].keywords.some((kw) => {
+  // Fuer den "heil"-Wortstamm (Heilung & Schild) extra bereinigter Haystack
+  // ohne "unheil"/"unheilvoll" (deutsches Wort fuer "ominoes/unheilvoll",
+  // z.B. Faehigkeitsnamen wie "Unheilvoller Pakt"/"Unheilvolle Glut") -
+  // "unheil" enthaelt "heil" als reinen Zufalls-Teilstring ohne jeden Bezug
+  // zu Heilungseffekten. Nur fuer dieses eine Keyword relevant, deshalb
+  // nicht standardmaessig auf stemHaystack angewendet (wuerde bei anderen
+  // Keywords nichts aendern, aber unnoetig Rechenzeit kosten).
+  const stemHaystackNoUnheil = stemHaystack.replace(/unheil/g, "");
+  // Fuer den blossen "heal"-Wortstamm (EN) zusaetzlich "health" entfernen -
+  // sonst wuerde JEDES Item mit einem Leben-Wert (h-e-a-l-t-h enthaelt
+  // "heal" als Praefix) faelschlich als "heilt" erkannt.
+  const stemHaystackNoHealth = stemHaystack.replace(/health/g, "");
+  // Fest kuratierte Ausnahmen (s. IA_CATEGORY_EXCLUSIONS oben) - ueber
+  // EN+DE-Namen gleichzeitig pruefen, da der Sprachschalter jederzeit
+  // umgestellt werden kann und beide Namen zum selben Eintrag gehoeren.
+  const excludedNames = [normName(entry?.name?.en || ""), normName(entry?.name?.de || "")];
+  return Object.keys(IA_CATEGORIES).filter((key) => {
+    if (IA_CATEGORY_EXCLUSIONS[key] && excludedNames.some((n) => n && IA_CATEGORY_EXCLUSIONS[key].has(n))) return false;
+    return IA_CATEGORIES[key].keywords.some((kw) => {
       const kwTrim = kw.trim().toLowerCase();
       // Sonderfall "gold": "Transmute: Gold"/"Transmutation: Gold" meint
       // die Gold-SELTENHEITSSTUFE der Augmentierung ("Gain a random Gold
@@ -2094,9 +2166,13 @@ function iaEntryCategories(entry, name, desc) {
         const kwPhrase = ` ${kwTrim.replace(/[^a-z0-9]+/g, " ").trim()} `;
         return phraseHaystack.includes(kwPhrase);
       }
-      return stemHaystack.includes(normName(kwTrim));
-    })
-  );
+      const haystackForKw =
+        kwTrim === "heil" ? stemHaystackNoUnheil :
+        kwTrim === "heal" ? stemHaystackNoHealth :
+        stemHaystack;
+      return haystackForKw.includes(normName(kwTrim));
+    });
+  });
 }
 
 // Kurzform fuer "passt dieser Eintrag zu mindestens einer der gerade
