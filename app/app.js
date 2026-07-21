@@ -2099,6 +2099,72 @@ function iaEntryCategories(entry, name, desc) {
   );
 }
 
+// Kurzform fuer "passt dieser Eintrag zu mindestens einer der gerade
+// angehakten Kategorien" - wird ueberall dort gebraucht, wo Kategorie-
+// Filterung noetig ist (nicht nur im Items&Augments-Modal, sondern auch
+// auf der Champion-Statistik-Seite und in der Partner-Detailansicht).
+function matchesIaCategoryFilters(entry) {
+  if (!iaCategoryFilters.size) return true;
+  const name = iaEntryName(entry);
+  const desc = iaEntryDesc(entry);
+  return iaEntryCategories(entry, name, desc).some((c) => iaCategoryFilters.has(c));
+}
+
+// Generische Kategorie-Filter-Box (Icon+Farbe je Kategorie, immer
+// ausgeklappt) - wiederverwendbar an mehreren Stellen (Items&Augments-
+// Modal, Champion-Statistik-Sektion, Partner-Detailansicht beim Klick von
+// der Champion-Seite aus). idPrefix bestimmt die Element-IDs fuer Liste/
+// Reset-Button/Zaehler, damit mehrere Instanzen gleichzeitig im DOM
+// stehen koennen, ohne sich per ID zu ueberschreiben.
+function iaCategoryCheckboxItemsHtml() {
+  return Object.keys(IA_CATEGORIES).map((key) => {
+    const cat = IA_CATEGORIES[key];
+    const label = currentLang === "de" ? cat.labelDe : cat.labelEn;
+    const checked = iaCategoryFilters.has(key) ? "checked" : "";
+    return `
+      <label class="iaCategoryCheckboxItem" style="color: ${cat.color};">
+        <input type="checkbox" data-cat-key="${key}" ${checked} style="accent-color: ${cat.color};" />
+        <span class="iaCategoryCheckboxIcon">${cat.icon}</span>
+        <span>${label}</span>
+      </label>`;
+  }).join("");
+}
+function iaCategoryFilterBoxHtml(idPrefix) {
+  return `<div class="iaCategoryFilterBox">
+    <h3 class="iaCategoryFilterToggle">
+      <span>${t("iaCategoryFilterHeading")}</span>
+      <span class="iaCategoryFilterSummary" id="${idPrefix}Summary">${iaCategoryFilters.size ? "(" + iaCategoryFilters.size + ")" : ""}</span>
+    </h3>
+    <div class="iaCategoryFilterBody">
+      <div class="iaCategoryFilterList" id="${idPrefix}List">${iaCategoryCheckboxItemsHtml()}</div>
+      <button class="iaCategoryFilterReset" id="${idPrefix}Reset">${t("iaCategoryFilterReset")}</button>
+    </div>
+  </div>`;
+}
+// Bindet Change-/Reset-Handler an eine per iaCategoryFilterBoxHtml
+// gerenderte Box. onChange wird nach jeder Aenderung aufgerufen und muss
+// die jeweilige Ansicht (Champion-Stats-Sektion, Detail-Body, ...) neu
+// rendern - die Box selbst wird dabei NICHT neu erzeugt, nur ihr Zaehler
+// aktualisiert, damit der Klick nicht das ganze Panel samt Scroll-
+// Position zerstoert.
+function bindIaCategoryFilterBox(idPrefix, onChange) {
+  const listEl = document.getElementById(`${idPrefix}List`);
+  if (listEl) {
+    listEl.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+      cb.onchange = () => {
+        const key = cb.dataset.catKey;
+        if (cb.checked) iaCategoryFilters.add(key);
+        else iaCategoryFilters.delete(key);
+        const summaryEl = document.getElementById(`${idPrefix}Summary`);
+        if (summaryEl) summaryEl.textContent = iaCategoryFilters.size ? `(${iaCategoryFilters.size})` : "";
+        onChange();
+      };
+    });
+  }
+  const resetBtn = document.getElementById(`${idPrefix}Reset`);
+  if (resetBtn) resetBtn.onclick = () => { iaCategoryFilters.clear(); onChange(); };
+}
+
 async function loadArenaItemsAugments() {
   if (arenaAugmentsData && arenaItemsData) return true;
   try {
@@ -4014,8 +4080,10 @@ function renderChampionStatsContent(stats, rows, comps) {
   ].filter(Boolean);
   if (statCards.length) html += `<div class="dbStatGrid">${statCards.join("")}</div>`;
 
-  const augments = (arenaAugmentsData || []).filter((e) => championStatsRowForEntry(e, "augment"));
-  const items = (arenaItemsData || []).filter((e) => championStatsRowForEntry(e, "item"));
+  html += iaCategoryFilterBoxHtml("championStatsCategoryFilter");
+
+  const augments = (arenaAugmentsData || []).filter((e) => championStatsRowForEntry(e, "augment") && matchesIaCategoryFilters(e));
+  const items = (arenaItemsData || []).filter((e) => championStatsRowForEntry(e, "item") && matchesIaCategoryFilters(e));
 
   if (!augments.length && !items.length) {
     html += `<p class="detailEmpty" style="margin-top:10px;">${t("championStatsNoEntityData")}</p>`;
@@ -4089,6 +4157,10 @@ function bindChampionStatsInteractions(section) {
     if (!label) return;
     label.closest(".iaTierGroup")?.classList.toggle("collapsed");
   };
+  bindIaCategoryFilterBox("championStatsCategoryFilter", () => {
+    section.innerHTML = renderChampionStatsContent(championStatsCurrentStats, championStatsCurrentRows || [], championStatsCurrentComps || []);
+    bindChampionStatsInteractions(section);
+  });
   const groupToggle = section.querySelector("#championStatsGroupToggle");
   if (groupToggle) {
     groupToggle.addEventListener("change", () => {
@@ -4587,6 +4659,7 @@ async function openItemOrAugmentDetail(name, type) {
       <h2>${name}</h2>
     </div>
     <div class="detailSection"><h3>${heading} · ${t("detailSynergyHeading")}</h3>
+      ${iaCategoryFilterBoxHtml("itemDetailCategoryFilter")}
       <div id="itemDetailSynergyBody"><p class="detailEmpty">…</p></div>
     </div>`;
   document.getElementById("itemDetailBackBtn").addEventListener("click", () => openChampDetail(currentDetailChamp));
@@ -4625,28 +4698,38 @@ async function openItemOrAugmentDetail(name, type) {
     });
     const lookupFn = (entry, kind) => rowByKey.get(`${kind}:${entry.id ?? entry.augmentId ?? entry.itemId}`) || null;
 
-    const augEntries = resolved.filter((x) => x.p.kind === "augment").map((x) => x.entry);
-    const itemEntries = resolved.filter((x) => x.p.kind === "item").map((x) => x.entry);
+    // Neu rendern (Kategorie-Filter-Aenderung ruft das erneut auf) -
+    // die Perzentil-Einteilung oben bleibt ueber ALLE Partner berechnet,
+    // nur die Anzeige wird gefiltert (gleiches Prinzip wie
+    // renderIaPartnerTierlist im Items&Augments-Modal).
+    const renderFilteredLists = () => {
+      const filtered = resolved.filter((x) => matchesIaCategoryFilters(x.entry));
+      const augEntries = filtered.filter((x) => x.p.kind === "augment").map((x) => x.entry);
+      const itemEntries = filtered.filter((x) => x.p.kind === "item").map((x) => x.entry);
 
-    let html = "";
-    if (augEntries.length) html += `<h4>${t("iaAugmentsHeading")}</h4>` + renderIaFlatList(augEntries, "augment", true, lookupFn);
-    if (itemEntries.length) html += `<h4>${t("iaItemsHeading")}</h4>` + renderIaFlatList(itemEntries, "item", true, lookupFn);
-    bodyEl.innerHTML = html;
+      let html = "";
+      if (augEntries.length) html += `<h4>${t("iaAugmentsHeading")}</h4>` + renderIaFlatList(augEntries, "augment", true, lookupFn);
+      if (itemEntries.length) html += `<h4>${t("iaItemsHeading")}</h4>` + renderIaFlatList(itemEntries, "item", true, lookupFn);
+      bodyEl.innerHTML = html || `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
 
-    const bindPartnerTiles = (entries, kind) => {
-      bodyEl.querySelectorAll(`.iaTile[data-kind="${kind}"]`).forEach((tile) => {
-        const idx = parseInt(tile.dataset.idx, 10);
-        const entry = entries[idx];
-        if (!entry) return;
-        tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
-        tile.addEventListener("mousemove", positionIaTooltip);
-        tile.addEventListener("mouseleave", hideIaTooltip);
-        tile.style.cursor = "pointer";
-        tile.addEventListener("click", () => { hideIaTooltip(); openItemOrAugmentDetail(iaEntryName(entry), kind); });
-      });
+      const bindPartnerTiles = (entries, kind) => {
+        bodyEl.querySelectorAll(`.iaTile[data-kind="${kind}"]`).forEach((tile) => {
+          const idx = parseInt(tile.dataset.idx, 10);
+          const entry = entries[idx];
+          if (!entry) return;
+          tile.addEventListener("mouseenter", (e) => showIaTooltip(e, entry, kind));
+          tile.addEventListener("mousemove", positionIaTooltip);
+          tile.addEventListener("mouseleave", hideIaTooltip);
+          tile.style.cursor = "pointer";
+          tile.addEventListener("click", () => { hideIaTooltip(); openItemOrAugmentDetail(iaEntryName(entry), kind); });
+        });
+      };
+      if (augEntries.length) bindPartnerTiles(augEntries, "augment");
+      if (itemEntries.length) bindPartnerTiles(itemEntries, "item");
     };
-    if (augEntries.length) bindPartnerTiles(augEntries, "augment");
-    if (itemEntries.length) bindPartnerTiles(itemEntries, "item");
+
+    renderFilteredLists();
+    bindIaCategoryFilterBox("itemDetailCategoryFilter", renderFilteredLists);
   } catch (err) {
     console.error("[ItemDetail] Partner-Lookup fehlgeschlagen:", err);
     bodyEl.innerHTML = `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;
