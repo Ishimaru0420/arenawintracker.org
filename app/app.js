@@ -430,7 +430,6 @@ const I18N = {
     champDetailTactics: "Taktiken",
     champDetailNoTactics: "Noch keine Taktik-Tipps für diesen Champion.",
     topTrioHeading: "Top 30 Trios (Winrate)",
-    externalTrioHeading: "Meta-Trios",
     champDetailAiHeading: "KI-Empfehlung (experimentell)",
     champDetailAiCore: "Core-Items",
     champDetailAiSituational: "Situativ",
@@ -723,7 +722,6 @@ const I18N = {
     champDetailTactics: "Tactics",
     champDetailNoTactics: "No tactic tips for this champion yet.",
     topTrioHeading: "Top 30 trios (win rate)",
-    externalTrioHeading: "Meta trios",
     champDetailAiHeading: "AI recommendation (experimental)",
     champDetailAiCore: "Core items",
     champDetailAiSituational: "Situational",
@@ -1849,58 +1847,11 @@ function renderTop30TrioSection() {
   section.innerHTML = html;
 }
 
-// ---- Externe Meta-Trios, getrennt von den eigenen
-// gespielten Trios oben. Eigene Collection "externalTrioMeta" im
-// Backend, eigener Endpoint /community-meta-trios. Wird einmal beim
-// Start geladen (kein automatisches Re-Fetch, da sich diese Daten nur
-// per manuellem Re-Import aendern, nicht durch eigene Matches).
-let externalTrioData = null;
-
-async function loadExternalTrioMeta() {
-  try {
-    const res = await authFetch(serverUrl("/community-meta-trios?limit=30"));
-    if (!res.ok) return;
-    externalTrioData = await res.json();
-    renderExternalTrioSection();
-  } catch (err) {
-    console.error("[ExternalTrioMeta] Laden fehlgeschlagen:", err);
-  }
-}
-
-function renderExternalTrioSection() {
-  const section = document.getElementById("externalTrio");
-  if (!section) return;
-  const combos = Array.isArray(externalTrioData) ? externalTrioData : [];
-
-  let html = `<h3>${t("externalTrioHeading")}</h3>`;
-  if (combos.length === 0) {
-    html += `<p class="detailEmpty">${t("champDetailNoPartners")}</p>`;
-  } else {
-    html += `<ul class="detailTrioList">`;
-    combos.slice(0, 30).forEach((c, i) => {
-      const names = c.champions || [];
-      const iconsHtml = names.map((n) => {
-        const champ = championByNormName[normName(n)];
-        return champ
-          ? `<img src="${champ.icon}" alt="${n}" class="trioChampIcon" />`
-          : `<span class="dbIconFallback trioChampIconFallback">${n.slice(0, 2).toUpperCase()}</span>`;
-      }).join("");
-      // Gemeinsamer Tooltip auf der ganzen Gruppe statt pro Icon einzeln -
-      // zeigt beim Hover die komplette Trio-Kombo, z.B. "Master Yi+Taric+Yumi".
-      const comboTitle = names.join("+");
-      const winRateText = typeof c.winRate === "number" ? `${c.winRate.toFixed(1)}%` : "";
-      html += `
-        <li>
-          <span class="detailTrioRank">${i + 1}.</span>
-          <span class="detailTrioNames trioIconGroup" title="${comboTitle}">${iconsHtml}</span>
-          <span class="detailWinRate">${winRateText}</span>
-        </li>
-      `;
-    });
-    html += `</ul>`;
-  }
-  section.innerHTML = html;
-}
+// Externe Meta-Trios (Collection "externalTrioMeta", Endpoint
+// /community-meta-trios) wurden ENTFERNT - die Section (#externalTrio)
+// gab es im HTML schon nicht mehr, die Lade-/Renderfunktionen hier
+// liefen dadurch komplett ins Leere. Backend-Route + der "trio-sync"-
+// Cronjob wurden im selben Zug entfernt (siehe server.js/db.js).
 
 // ============================================================
 // Items & Augments Browser (eigenes Vollbild-Modal)
@@ -2463,8 +2414,20 @@ async function renderIaQuickSearchPills() {
       }
       renderIaQuickSearchPills();
       renderItemsAugmentsModal();
+      rerenderIaPartnerViewIfOpen();
     };
   });
+}
+
+// Rendert die Partner-Detailansicht (falls gerade offen) mit neu - wird
+// nach Suchbegriff-/Quick-Search-Aenderungen zusaetzlich zu
+// renderItemsAugmentsModal() aufgerufen, damit Suche und Schnellsuchen-
+// Pills auch nach dem Klick auf ein Augment/Item weiter funktionieren.
+function rerenderIaPartnerViewIfOpen() {
+  const detailView = document.getElementById("iaTierListDetailView");
+  if (detailView && !detailView.classList.contains("hidden")) {
+    renderIaPartnerTierlist(iaCurrentPartnerTopPartners);
+  }
 }
 
 function renderItemsAugmentsModal() {
@@ -3297,8 +3260,23 @@ function renderIaPartnerTierlist(topPartners) {
     iaPartnerRowByKey.set(`${p.kind}:${p.id}`, { games: p.games, wins: p.wins, winrate: p.winrate, percentileTier: tierInfo.key });
   });
 
-  iaPartnerAugmentEntries = resolved.filter((x) => x.p.kind === "augment").map((x) => x.entry);
-  iaPartnerItemEntries = resolved.filter((x) => x.p.kind === "item").map((x) => x.entry);
+  // NEU: Suchbegriff + Quick-Search-Preset auch in dieser Partner-Ansicht
+  // anwenden (gleiche Logik wie filterByTerm in renderItemsAugmentsModal).
+  // Die S/A/B/C/D-Einteilung oben bleibt bewusst ueber ALLE Partner
+  // berechnet - der Filter aendert nur, welche Kacheln angezeigt werden,
+  // nicht ihre Tier-Zuordnung (sonst wuerde sich beim Tippen staendig die
+  // Perzentil-Grenze verschieben).
+  const term = normName(iaSearchTerm);
+  const filtered = resolved.filter(({ entry, p }) => {
+    const name = iaEntryName(entry);
+    const desc = iaEntryDesc(entry);
+    const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
+    const matchesQuickSearch = !iaQuickSearchPresetEntryIds || iaQuickSearchPresetEntryIds.has(iaEntityId(iaEntityRef(entry, p.kind)));
+    return matchesTerm && matchesQuickSearch;
+  });
+
+  iaPartnerAugmentEntries = filtered.filter((x) => x.p.kind === "augment").map((x) => x.entry);
+  iaPartnerItemEntries = filtered.filter((x) => x.p.kind === "item").map((x) => x.entry);
 
   augList.innerHTML = !iaPartnerAugmentEntries.length
     ? `<p class="detailEmpty">–</p>`
@@ -3354,7 +3332,9 @@ function toggleIaPartnerGroupMode() {
 function selectTierListEntry(row, entry) {
   hideIaTooltip();
   document.getElementById("itemsAugmentsBody").classList.add("hidden");
-  document.getElementById("iaSearchInput").classList.add("hidden");
+  // Suchfeld bleibt sichtbar/aktiv (nicht mehr ausgeblendet) - Suchbegriff
+  // + Quick-Search-Preset sollen auch in dieser Partner-Ansicht weiter
+  // filtern (siehe renderIaPartnerTierlist).
   document.getElementById("itemsAugmentsHint")?.classList.add("hidden");
   document.getElementById("iaTierListDetailView").classList.remove("hidden");
   renderIaSelectedCard(entry, "iaTierListSelectedCard");
@@ -3498,6 +3478,7 @@ safeBind("iaPresetSearchInput", "oninput", (e) => {
 safeBind("iaSearchInput", "oninput", (e) => {
   iaSearchTerm = e.target.value;
   renderItemsAugmentsModal();
+  rerenderIaPartnerViewIfOpen();
 });
 // Kategorie-Dropdown (Heilung/Schaden/Leben/Resistenzen/CC/...) befuellen.
 // Frueher teilten sich Hauptsuche UND Synergie-Editor denselben Filter-
