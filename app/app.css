@@ -418,17 +418,8 @@ button.danger:hover { background: #c43b4a; }
    toggleIaPresetMode) bleibt im Code bestehen. */
 #iaEditModeBtn.hidden, #iaPresetModeBtn.hidden { display: none; }
 #itemsAugmentsHint { font-size: 12px; color: #a89690; margin: 0; }
-#iaQuickSearchSection {
-  border: 1px solid #3a2620; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;
-}
-#iaQuickSearchSection .champPresetsToggle {
-  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #ff7a3c;
-}
-#iaQuickSearchBody { margin-top: 8px; }
-#iaQuickSearchBody.hidden { display: none; }
-
-/* Kategorie-Filter (Checkbox-Mehrfachauswahl) - gleicher Rahmen-Look wie
-   die Schnellsuchen-Box direkt darueber. */
+/* Kategorie-Filter (Checkbox-Mehrfachauswahl). Quick-Search-Pillbox
+   (Presets) wurde erstmal entfernt - Textsuche + Kategorien reichen. */
 #iaCategoryFilterSection {
   border: 1px solid #3a2620; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px;
 }
@@ -1154,7 +1145,7 @@ input:focus, select:focus, textarea:focus {
 }
 .champPresetsToggle.collapsed::before { transform: rotate(-90deg); }
 .champPresetsExplain { margin: 2px 0 8px; }
-#champPresetPills, #iaQuickSearchPills { display: flex; flex-wrap: wrap; gap: 6px; }
+#champPresetPills { display: flex; flex-wrap: wrap; gap: 6px; }
 .champPresetPill {
   background: #16100d; border: 1px solid #3a2620; color: #f5ece6;
   border-radius: 16px; padding: 5px 12px; font-size: 12px; cursor: pointer;

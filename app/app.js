@@ -359,7 +359,6 @@ const I18N = {
     buildSkillPathHeading: "Skill Path",
     buildSkillPathReset: "Zurücksetzen",
     champAddPresetBtn: "🔍 Schnellsuche",
-    champPresetsHeading: "Schnellsuchen",
     champPresetsNone: "Noch keine Schnellsuche für diesen Champion zugewiesen.",
     champPresetsNoneGlobal: "Noch keine globalen Schnellsuchen vorhanden - erst im \"🔍 Schnellsuche\"-Editor eins anlegen.",
     champPresetRemove: "Schnellsuche von diesem Champion entfernen",
@@ -653,7 +652,6 @@ const I18N = {
     buildSkillPathHeading: "Skill Path",
     buildSkillPathReset: "Reset",
     champAddPresetBtn: "🔍 Quick Search",
-    champPresetsHeading: "Quick Searches",
     champPresetsNone: "No quick search assigned to this champion yet.",
     champPresetsNoneGlobal: "No global quick searches yet - create one first in the \"🔍 Quick Search\" editor.",
     champPresetRemove: "Remove quick search from this champion",
@@ -1942,8 +1940,6 @@ async function loadRuneData() {
 }
 let iaSearchTerm = "";
 let iaCategoryFilters = new Set(); // leer = alle, sonst Mehrfachauswahl (ODER-Verknuepfung) aus IA_CATEGORIES-Keys
-let iaQuickSearchPresetId = null; // _id des im Quick-Search-Bereich ausgewaehlten Presets, null = kein Filter
-let iaQuickSearchPresetEntryIds = null; // Set aus iaEntityId(entry)-Strings des ausgewaehlten Presets
 let iaColumnFilter = null; // null = beide Spalten, "augment" = nur Augments, "item" = nur Items
 let iaTierListMode = true; // immer an - kein Umschalter mehr, Kacheln zeigen immer Tierlist-Winrate + Badge
 let iaTierListData = null; // Array aus /item-augment-tierlist: {kind,id,games,wins,winrate,topPartners,percentileTier}
@@ -2195,15 +2191,12 @@ function openItemsAugmentsModal() {
   iaBrowseGroupMode = false;
   iaTierListMode = true;
   iaSortMode = "tier";
-  iaQuickSearchPresetId = null;
-  iaQuickSearchPresetEntryIds = null;
   iaCategoryFilters.clear();
   const groupCb = document.getElementById("iaBrowseGroupToggle");
   if (groupCb) groupCb.checked = false;
   const sortSel = document.getElementById("iaSortModeSelect");
   if (sortSel) { sortSel.value = "tier"; sortSel.disabled = false; }
   applyIaColumnFilter();
-  initIaQuickSearchSection();
   renderIaCategoryCheckboxes();
   renderItemsAugmentsModal();
   loadItemAugmentTierlist().then((ok) => {
@@ -2224,8 +2217,6 @@ function closeItemsAugmentsModal() {
   backToItemsAugmentsBrowse();
   backToTierListOverview();
   iaColumnFilter = null;
-  iaQuickSearchPresetId = null;
-  iaQuickSearchPresetEntryIds = null;
   iaCategoryFilters.clear();
   applyIaColumnFilter();
 }
@@ -2451,63 +2442,10 @@ function renderIaFlatList(entries, kind, showTierlistStats, rowLookupFn) {
   return html;
 }
 
-// Quick-Search-Box ganz oben im Items&Augments-Fenster: zeigt dieselben
-// global gespeicherten Presets wie auf der Champion-Seite (champPresetPill)
-// als einklappbare Pill-Reihe. Klick auf ein Preset filtert die normale
-// Browse-Ansicht darunter auf dessen Eintraege - Tier-Liste/Group/All-
-// Filter bleiben dabei weiter ganz normal nutzbar (im Gegensatz zum alten
-// "Schnellsuche"-Editor, der die Browse-Ansicht komplett ersetzt hat).
-function initIaQuickSearchSection() {
-  const toggle = document.getElementById("iaQuickSearchToggle");
-  const body = document.getElementById("iaQuickSearchBody");
-  if (!toggle || !body || toggle.dataset.bound) {
-    renderIaQuickSearchPills();
-    return;
-  }
-  toggle.dataset.bound = "1";
-  toggle.addEventListener("click", () => {
-    body.classList.toggle("hidden");
-    toggle.classList.toggle("collapsed");
-  });
-  renderIaQuickSearchPills();
-}
-
-async function renderIaQuickSearchPills() {
-  const pillsEl = document.getElementById("iaQuickSearchPills");
-  if (!pillsEl) return;
-  const presets = await loadPresets();
-  if (!presets.length) {
-    pillsEl.innerHTML = `<p class="detailEmpty">${t("champPresetsNoneGlobal")}</p>`;
-    return;
-  }
-  pillsEl.innerHTML = presets.map((p) => `
-    <button class="champPresetPill${p._id === iaQuickSearchPresetId ? " active" : ""}" data-preset-id="${p._id}">
-      ${p.name}${p.createdBy ? ` <span class="champPresetPillCreator">${t("iaPresetByLabel")} ${p.createdBy}</span>` : ""}
-    </button>
-  `).join("");
-  pillsEl.querySelectorAll(".champPresetPill").forEach((btn) => {
-    btn.onclick = () => {
-      const preset = presets.find((p) => p._id === btn.dataset.presetId);
-      if (!preset) return;
-      // Klick auf das bereits aktive Preset hebt den Filter wieder auf.
-      if (iaQuickSearchPresetId === preset._id) {
-        iaQuickSearchPresetId = null;
-        iaQuickSearchPresetEntryIds = null;
-      } else {
-        iaQuickSearchPresetId = preset._id;
-        iaQuickSearchPresetEntryIds = new Set((preset.entries || []).map((e) => iaEntityId(e)));
-      }
-      renderIaQuickSearchPills();
-      renderItemsAugmentsModal();
-      rerenderIaPartnerViewIfOpen();
-    };
-  });
-}
-
 // Rendert die Partner-Detailansicht (falls gerade offen) mit neu - wird
-// nach Suchbegriff-/Quick-Search-Aenderungen zusaetzlich zu
-// renderItemsAugmentsModal() aufgerufen, damit Suche und Schnellsuchen-
-// Pills auch nach dem Klick auf ein Augment/Item weiter funktionieren.
+// nach Suchbegriff-/Kategorie-Aenderungen zusaetzlich zu
+// renderItemsAugmentsModal() aufgerufen, damit Suche und Kategorie-Filter
+// auch nach dem Klick auf ein Augment/Item weiter funktionieren.
 function rerenderIaPartnerViewIfOpen() {
   const detailView = document.getElementById("iaTierListDetailView");
   if (detailView && !detailView.classList.contains("hidden")) {
@@ -2526,11 +2464,7 @@ function renderItemsAugmentsModal() {
     const desc = iaEntryDesc(e);
     const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
     const matchesCategory = !iaCategoryFilters.size || iaEntryCategories(e, name, desc).some((c) => iaCategoryFilters.has(c));
-    // Quick-Search-Preset (Pill oben im Fenster): wenn eins ausgewaehlt
-    // ist, nur dessen Eintraege zeigen - Tier-Liste/Group/All-Filter
-    // bleiben dabei ganz normal weiter aktiv.
-    const matchesQuickSearch = !iaQuickSearchPresetEntryIds || iaQuickSearchPresetEntryIds.has(iaEntityId(iaEntityRef(e, kind)));
-    return matchesTerm && matchesCategory && matchesQuickSearch;
+    return matchesTerm && matchesCategory;
   };
 
   const augments = (arenaAugmentsData || []).filter((e) => filterByTerm(e, "augment"));
@@ -3345,19 +3279,19 @@ function renderIaPartnerTierlist(topPartners) {
     iaPartnerRowByKey.set(`${p.kind}:${p.id}`, { games: p.games, wins: p.wins, winrate: p.winrate, percentileTier: tierInfo.key });
   });
 
-  // NEU: Suchbegriff + Quick-Search-Preset auch in dieser Partner-Ansicht
-  // anwenden (gleiche Logik wie filterByTerm in renderItemsAugmentsModal).
-  // Die S/A/B/C/D-Einteilung oben bleibt bewusst ueber ALLE Partner
-  // berechnet - der Filter aendert nur, welche Kacheln angezeigt werden,
-  // nicht ihre Tier-Zuordnung (sonst wuerde sich beim Tippen staendig die
-  // Perzentil-Grenze verschieben).
+  // Suchbegriff + Kategorie-Filter auch in dieser Partner-Ansicht anwenden
+  // (gleiche Logik wie filterByTerm in renderItemsAugmentsModal). Die
+  // S/A/B/C/D-Einteilung oben bleibt bewusst ueber ALLE Partner berechnet -
+  // der Filter aendert nur, welche Kacheln angezeigt werden, nicht ihre
+  // Tier-Zuordnung (sonst wuerde sich beim Tippen staendig die Perzentil-
+  // Grenze verschieben).
   const term = normName(iaSearchTerm);
-  const filtered = resolved.filter(({ entry, p }) => {
+  const filtered = resolved.filter(({ entry }) => {
     const name = iaEntryName(entry);
     const desc = iaEntryDesc(entry);
     const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
-    const matchesQuickSearch = !iaQuickSearchPresetEntryIds || iaQuickSearchPresetEntryIds.has(iaEntityId(iaEntityRef(entry, p.kind)));
-    return matchesTerm && matchesQuickSearch;
+    const matchesCategory = !iaCategoryFilters.size || iaEntryCategories(entry, name, desc).some((c) => iaCategoryFilters.has(c));
+    return matchesTerm && matchesCategory;
   });
 
   iaPartnerAugmentEntries = filtered.filter((x) => x.p.kind === "augment").map((x) => x.entry);
