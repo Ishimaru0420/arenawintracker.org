@@ -308,6 +308,8 @@ const I18N = {
     iaLoadError: "Items/Augments konnten nicht geladen werden.",
     iaSearchPlaceholder: "Augment oder Item suchen...",
     iaCategoryAll: "Alle Kategorien",
+    iaCategoryFilterHeading: "Kategorien",
+    iaCategoryFilterReset: "Zurücksetzen",
     iaTierListBtn: "📊 Tier-Liste",
     iaTierListHint: "Winrate + Spielanzahl über alle Spieler. Sortiert die Kacheln je Kategorie nach Winrate; Klick auf ein Item/Augment zeigt die 5 besten Partner-Kombinationen.",
     iaTierListNoData: "Ohne Daten",
@@ -600,6 +602,8 @@ const I18N = {
     iaLoadError: "Could not load items/augments.",
     iaSearchPlaceholder: "Search augment or item...",
     iaCategoryAll: "All categories",
+    iaCategoryFilterHeading: "Categories",
+    iaCategoryFilterReset: "Reset",
     iaTierListBtn: "📊 Tier list",
     iaTierListHint: "Win rate + game count across all players. Sorts tiles within each category by win rate; click an item/augment to see its 5 best partner combinations.",
     iaTierListNoData: "No data",
@@ -1024,6 +1028,9 @@ function applyLanguageChange() {
     openChampDetail(currentDetailChamp);
   }
   if (lastFriendsList) renderFriendsList(lastFriendsList);
+  if (!document.getElementById("itemsAugmentsOverlay")?.classList.contains("hidden")) {
+    renderIaCategoryCheckboxes(); // Labels sind sprachabhaengig (labelDe/labelEn)
+  }
   if (rankingLoadedOnce) {
     loadRanking(currentRankingMode);
   }
@@ -1934,7 +1941,7 @@ async function loadRuneData() {
   }
 }
 let iaSearchTerm = "";
-let iaCategoryFilter = ""; // "" = alle, sonst Key aus IA_CATEGORIES
+let iaCategoryFilters = new Set(); // leer = alle, sonst Mehrfachauswahl (ODER-Verknuepfung) aus IA_CATEGORIES-Keys
 let iaQuickSearchPresetId = null; // _id des im Quick-Search-Bereich ausgewaehlten Presets, null = kein Filter
 let iaQuickSearchPresetEntryIds = null; // Set aus iaEntityId(entry)-Strings des ausgewaehlten Presets
 let iaColumnFilter = null; // null = beide Spalten, "augment" = nur Augments, "item" = nur Items
@@ -1955,52 +1962,95 @@ let iaPresetsCache = null; // alle existierenden Presets vom Server
 // Beschreibung eines Augments/Items. Bewusst simple Substring-Suche
 // statt echter NLP - reicht fuer "zeig mir alles mit Heilung" o.ae.
 // und ist sofort nachvollziehbar/erweiterbar.
+// Kategorie-Liste 1:1 nach Vorgabe (Referenzbild aus dem LoL-Shop-Filter +
+// vom Nutzer explizit ergaenzte Kategorien: Anti-Heal, Heal (rein, ohne
+// Omnivamp/Lifesteal), Mana und Mana-Regeneration getrennt, Burn Effects,
+// Ultimate Effects, Gold). Ersetzt die alte, groebere 10er-Liste (die
+// z.B. Ruestung+MR oder AD+AP in einer Kategorie zusammenfasste) komplett.
+// Ueberschneidungen zwischen Kategorien sind bewusst in Kauf genommen
+// (z.B. kann ein Eintrag sowohl "Mana" als auch "Mana-Regeneration"
+// treffen) - das Filtern selbst ist eine ODER-Verknuepfung ueber alle
+// ausgewaehlten Kategorien (siehe iaCategoryFilters/matchesCategory).
 const IA_CATEGORIES = {
-  healing: {
-    labelDe: "Heilung", labelEn: "Healing",
-    keywords: ["heal", "lifesteal", "omnivamp", "regenerat", "heilen", "heilung", "lebensraub", "lebensentzug"]
+  attackDamage: {
+    labelDe: "Angriffsschaden", labelEn: "Attack Damage",
+    keywords: ["attack damage", "angriffsschaden", "bonus ad", "physischen schaden", "physical damage"]
   },
-  damage: {
-    labelDe: "Schaden", labelEn: "Damage",
-    keywords: ["damage", "schaden", "ability power", "attack damage", "fähigkeitsstärke", "angriffsschaden"]
-  },
-  health: {
-    labelDe: "Leben", labelEn: "Health",
-    keywords: ["health", "max hp", "leben", "lebenspunkte", "gesundheit"]
-  },
-  resistance: {
-    labelDe: "Resistenzen", labelEn: "Resistances",
-    keywords: ["armor", "magic resist", "rüstung", "resistenz", "magieresistenz"]
-  },
-  movement: {
-    labelDe: "Tempo/Bewegung", labelEn: "Movement/Haste",
-    keywords: ["move speed", "ability haste", "dash", "slow", "bewegungstempo", "fähigkeitstempo", "verlangsam"]
-  },
-  shield: {
-    labelDe: "Schild", labelEn: "Shield",
-    keywords: ["shield", "schild"]
-  },
-  crit: {
-    labelDe: "Crit", labelEn: "Crit",
+  critChance: {
+    labelDe: "Kritischer Treffer", labelEn: "Critical Strike",
     keywords: ["critical strike", "crit chance", "kritisch", "krit"]
   },
   attackSpeed: {
     labelDe: "Angriffstempo", labelEn: "Attack Speed",
     keywords: ["attack speed", "angriffstempo"]
   },
-  utility: {
-    labelDe: "Utility", labelEn: "Utility",
-    keywords: ["cooldown", "mana", "abklingzeit"]
+  onHitEffects: {
+    labelDe: "Bei-Treffer-Effekte", labelEn: "On-Hit Effects",
+    keywords: ["on-hit", "on hit", "onhit", "bei jedem treffer", "auf-treffer-effekte", "on-attack"]
   },
-  cc: {
-    labelDe: "CC", labelEn: "CC",
-    keywords: [
-      "stun", "betäub", "root", "wurzel", "snare", "fessel", "knock up", "knockup", "hochschleuder",
-      "knockback", "zurückstoß", "fear", "furcht", "charm", "bezauber", "taunt", "verspott",
-      "silence", "zum schweigen", "suppress", "unterdrück", "polymorph", "verwandl",
-      "immobiliz", "festsetz", "bewegungsunfähig", "slow", "verlangsam",
-      "crowd control", "kontrollierten gegner", "stunned enemy", "immobilized enemy"
-    ]
+  armorPen: {
+    labelDe: "Rüstungsdurchdringung", labelEn: "Armor Penetration",
+    keywords: ["armor penetration", "rüstungsdurchdringung", "lethality", "brutalität"]
+  },
+  abilityPower: {
+    labelDe: "Fähigkeitsstärke", labelEn: "Ability Power",
+    keywords: ["ability power", "fähigkeitsstärke"]
+  },
+  mana: {
+    labelDe: "Mana", labelEn: "Mana",
+    keywords: ["mana"]
+  },
+  manaRegen: {
+    labelDe: "Mana-Regeneration", labelEn: "Mana Regeneration",
+    keywords: ["mana regeneration", "manaregeneration", "mana regen"]
+  },
+  magicPen: {
+    labelDe: "Magiedurchdringung", labelEn: "Magic Penetration",
+    keywords: ["magic penetration", "magiedurchdringung", "magic pen"]
+  },
+  healthRegen: {
+    labelDe: "Leben & Regeneration", labelEn: "Health & Regeneration",
+    keywords: ["health", "max hp", "leben", "lebenspunkte", "gesundheit", "health regeneration", "lebensregeneration", "hp regeneration"]
+  },
+  armor: {
+    labelDe: "Rüstung", labelEn: "Armor",
+    keywords: ["armor", "rüstung"]
+  },
+  magicResist: {
+    labelDe: "Magieresistenz", labelEn: "Magic Resistance",
+    keywords: ["magic resist", "magieresistenz"]
+  },
+  abilityHaste: {
+    labelDe: "Fähigkeitstempo", labelEn: "Ability Haste",
+    keywords: ["ability haste", "fähigkeitstempo", "cooldown reduction", "abklingzeitverringerung", "abklingzeit"]
+  },
+  movement: {
+    labelDe: "Lauftempo", labelEn: "Movement",
+    keywords: ["move speed", "movement speed", "lauftempo", "bewegungstempo", "dash"]
+  },
+  lifestealVamp: {
+    labelDe: "Lebensraub & Vampir", labelEn: "Life Steal & Vamp",
+    keywords: ["lifesteal", "omnivamp", "lebensraub", "lebensentzug", "omnivampir"]
+  },
+  antiHeal: {
+    labelDe: "Anti-Heal", labelEn: "Anti-Heal",
+    keywords: ["grievous wounds", "verringerte heilung", "heilungsreduzierung", "reduced healing", "healing reduction"]
+  },
+  heal: {
+    labelDe: "Heilung", labelEn: "Heal",
+    keywords: ["heal power", "healing power", "heilkraft", "erhöhte heilung", "increased heal", "gain heal"]
+  },
+  burnEffects: {
+    labelDe: "Brenneffekte", labelEn: "Burn Effects",
+    keywords: ["burn", "brenn", "verbrennung", "damage over time"]
+  },
+  ultimateEffects: {
+    labelDe: "Ultimate-Effekte", labelEn: "Ultimate Effects",
+    keywords: ["ultimate", "ultimative fähigkeit"]
+  },
+  gold: {
+    labelDe: "Gold", labelEn: "Gold",
+    keywords: ["gold"]
   }
 };
 
@@ -2115,12 +2165,14 @@ function openItemsAugmentsModal() {
   iaSortMode = "tier";
   iaQuickSearchPresetId = null;
   iaQuickSearchPresetEntryIds = null;
+  iaCategoryFilters.clear();
   const groupCb = document.getElementById("iaBrowseGroupToggle");
   if (groupCb) groupCb.checked = false;
   const sortSel = document.getElementById("iaSortModeSelect");
   if (sortSel) { sortSel.value = "tier"; sortSel.disabled = false; }
   applyIaColumnFilter();
   initIaQuickSearchSection();
+  renderIaCategoryCheckboxes();
   renderItemsAugmentsModal();
   loadItemAugmentTierlist().then((ok) => {
     if (!ok) console.error("[ItemAugmentTierlist] Konnte Tierlist-Daten nicht laden.");
@@ -2142,6 +2194,7 @@ function closeItemsAugmentsModal() {
   iaColumnFilter = null;
   iaQuickSearchPresetId = null;
   iaQuickSearchPresetEntryIds = null;
+  iaCategoryFilters.clear();
   applyIaColumnFilter();
 }
 
@@ -2440,7 +2493,7 @@ function renderItemsAugmentsModal() {
     const name = iaEntryName(e);
     const desc = iaEntryDesc(e);
     const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
-    const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
+    const matchesCategory = !iaCategoryFilters.size || iaEntryCategories(e, name, desc).some((c) => iaCategoryFilters.has(c));
     // Quick-Search-Preset (Pill oben im Fenster): wenn eins ausgewaehlt
     // ist, nur dessen Eintraege zeigen - Tier-Liste/Group/All-Filter
     // bleiben dabei ganz normal weiter aktiv.
@@ -2705,7 +2758,7 @@ function renderIaPresetGrid() {
     const name = iaEntryName(e);
     const desc = iaEntryDesc(e);
     const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
-    const matchesCategory = !iaCategoryFilter || iaEntryCategories(e, name, desc).includes(iaCategoryFilter);
+    const matchesCategory = !iaCategoryFilters.size || iaEntryCategories(e, name, desc).some((c) => iaCategoryFilters.has(c));
     return matchesTerm && matchesCategory;
   };
   const augments = (arenaAugmentsData || []).filter(filterByTerm);
@@ -3480,27 +3533,62 @@ safeBind("iaSearchInput", "oninput", (e) => {
   renderItemsAugmentsModal();
   rerenderIaPartnerViewIfOpen();
 });
-// Kategorie-Dropdown (Heilung/Schaden/Leben/Resistenzen/CC/...) befuellen.
-// Frueher teilten sich Hauptsuche UND Synergie-Editor denselben Filter-
-// State - der Editor ist komplett entfernt, es gibt jetzt nur noch dieses
-// eine Dropdown.
-function populateIaCategoryDropdown(selectEl) {
-  if (!selectEl) return;
-  selectEl.innerHTML = `<option value="">${t("iaCategoryAll")}</option>` +
-    Object.keys(IA_CATEGORIES).map((key) => {
-      const cat = IA_CATEGORIES[key];
-      const label = currentLang === "de" ? cat.labelDe : cat.labelEn;
-      return `<option value="${key}">${label}</option>`;
-    }).join("");
-  selectEl.value = iaCategoryFilter;
+// Kategorie-Filter (Angriffsschaden/Crit/Mana/Anti-Heal/...) als Checkbox-
+// Liste mit Mehrfachauswahl (ODER-Verknuepfung) statt frueher einem
+// Single-Select-Dropdown - man kann jetzt z.B. gleichzeitig "Mana" UND
+// "Anti-Heal" anhaken, um beides gemeinsam zu sehen.
+function renderIaCategoryCheckboxes() {
+  const listEl = document.getElementById("iaCategoryFilterList");
+  if (!listEl) return;
+  listEl.innerHTML = Object.keys(IA_CATEGORIES).map((key) => {
+    const cat = IA_CATEGORIES[key];
+    const label = currentLang === "de" ? cat.labelDe : cat.labelEn;
+    const checked = iaCategoryFilters.has(key) ? "checked" : "";
+    return `
+      <label class="iaCategoryCheckboxItem">
+        <input type="checkbox" data-cat-key="${key}" ${checked} />
+        <span>${label}</span>
+      </label>`;
+  }).join("");
+  listEl.querySelectorAll("input[type=checkbox]").forEach((cb) => {
+    cb.onchange = () => {
+      const key = cb.dataset.catKey;
+      if (cb.checked) iaCategoryFilters.add(key);
+      else iaCategoryFilters.delete(key);
+      updateIaCategoryFilterSummary();
+      renderItemsAugmentsModal();
+      rerenderIaPartnerViewIfOpen();
+      if (iaPresetMode) renderIaPresetGrid();
+    };
+  });
+  updateIaCategoryFilterSummary();
 }
-function onIaCategoryChange(e) {
-  iaCategoryFilter = e.target.value;
+// Zeigt die Anzahl aktiver Kategorien im (einklappbaren) Header an, damit
+// man auch bei zugeklapptem Panel sieht, ob/wie viel gerade gefiltert ist.
+function updateIaCategoryFilterSummary() {
+  const summaryEl = document.getElementById("iaCategoryFilterSummary");
+  if (summaryEl) summaryEl.textContent = iaCategoryFilters.size ? `(${iaCategoryFilters.size})` : "";
+}
+function resetIaCategoryFilters() {
+  iaCategoryFilters.clear();
+  renderIaCategoryCheckboxes();
   renderItemsAugmentsModal();
+  rerenderIaPartnerViewIfOpen();
   if (iaPresetMode) renderIaPresetGrid();
 }
-populateIaCategoryDropdown(document.getElementById("iaCategoryFilter"));
-safeBind("iaCategoryFilter", "onchange", onIaCategoryChange);
+renderIaCategoryCheckboxes();
+safeBind("iaCategoryFilterReset", "onclick", resetIaCategoryFilters);
+{
+  const catToggle = document.getElementById("iaCategoryFilterToggle");
+  const catBody = document.getElementById("iaCategoryFilterBody");
+  if (catToggle && catBody && !catToggle.dataset.bound) {
+    catToggle.dataset.bound = "1";
+    catToggle.addEventListener("click", () => {
+      catBody.classList.toggle("hidden");
+      catToggle.classList.toggle("collapsed");
+    });
+  }
+}
 
 // Ein-/Ausklappen der Tier-Abschnitte (Silber/Gold/Prismatic/Legendary/...).
 // Delegierter Listener auf dem Modal-Container statt auf den einzelnen
