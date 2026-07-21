@@ -142,6 +142,7 @@
 
       <section id="top30Trio"></section>
       <div id="rightSidebarCol">
+        <button id="openPatchNotesBtn" data-i18n="openPatchNotesBtn">📰 Patch Notes</button>
         <button id="openItemsAugmentsBtn" data-i18n="openItemsAugmentsBtn">📦 Items &amp; Augments</button>
         <section id="champBuildSidebar" class="hidden"></section>
         <!-- Meta-Trios entfernt - stattdessen permanenter Spielverlauf hier
@@ -157,6 +158,17 @@
     <div id="champTooltip" class="hidden"></div>
     <div id="mateTrioTooltip" class="hidden"></div>
 
+  </div>
+
+  <div id="patchNotesOverlay" class="hidden">
+    <div id="patchNotesBox">
+      <div id="patchNotesHeader">
+        <h2 data-i18n="patchNotesHeading">Arena Patch Notes</h2>
+        <button id="patchNotesClose" title="Schließen" data-i18n-title="closeTitle">✕</button>
+      </div>
+      <div id="patchNotesMeta"></div>
+      <div id="patchNotesBody"></div>
+    </div>
   </div>
 
   <div id="itemsAugmentsOverlay" class="hidden">

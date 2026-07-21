@@ -284,6 +284,12 @@ const I18N = {
     closeTitle: "Schließen",
     manualSyncTitle: "Jetzt synchronisieren",
     themeToggleTitle: "Theme umschalten",
+    openPatchNotesBtn: "📰 Patch Notes",
+    patchNotesHeading: "Arena Patch Notes",
+    patchNotesLoading: "Lade Patchnotes...",
+    patchNotesError: "Patchnotes konnten nicht geladen werden.",
+    patchNotesNoData: "Noch keine Patchnotes vorhanden.",
+    patchNotesSource: "Quelle: offizielle Riot-Patchnotes",
     openItemsAugmentsBtn: "📦 Items & Augments",
     itemsAugmentsHeading: "Arena Items & Augments",
     itemsAugmentsHint: "Auf ein Augment oder Item klicken, um nur dazu passende Treffer zu sehen.",
@@ -571,6 +577,12 @@ const I18N = {
     closeTitle: "Close",
     manualSyncTitle: "Sync now",
     themeToggleTitle: "Toggle theme",
+    openPatchNotesBtn: "📰 Patch Notes",
+    patchNotesHeading: "Arena Patch Notes",
+    patchNotesLoading: "Loading patch notes...",
+    patchNotesError: "Couldn't load patch notes.",
+    patchNotesNoData: "No patch notes available yet.",
+    patchNotesSource: "Source: official Riot patch notes",
     openItemsAugmentsBtn: "📦 Items & Augments",
     itemsAugmentsHeading: "Arena Items & Augments",
     itemsAugmentsHint: "Click an augment or item to only show matching results.",
@@ -2088,6 +2100,57 @@ async function loadArenaItemsAugments() {
   }
 }
 
+// ---------- Patch Notes: Arena-Abschnitt der offiziellen Riot-Patchnotes ----------
+// Wird NICHT bei jedem Oeffnen neu geladen (patchNotesData bleibt fuer die
+// Dauer der Session gecacht) - passend zum Muster der anderen einmalig-
+// vom-Agent-befuellten Daten (arenaItems/arenaAugments etc.).
+let patchNotesData = undefined; // undefined = noch nicht geladen, null = geladen aber leer/Fehler
+
+async function loadPatchNotesData() {
+  if (patchNotesData !== undefined) return patchNotesData;
+  try {
+    const res = await authFetch(serverUrl("/patch-notes"));
+    patchNotesData = res.ok ? await res.json() : null;
+  } catch {
+    patchNotesData = null;
+  }
+  return patchNotesData;
+}
+
+function renderPatchNotes(data) {
+  const metaEl = document.getElementById("patchNotesMeta");
+  const bodyEl = document.getElementById("patchNotesBody");
+  if (!metaEl || !bodyEl) return;
+  if (!data || !data.arenaHtml) {
+    metaEl.innerHTML = "";
+    bodyEl.innerHTML = `<p class="detailEmpty">${t("patchNotesNoData")}</p>`;
+    return;
+  }
+  const patchLabel = data.patchVersion ? `Patch ${data.patchVersion}` : "";
+  const dateLabel = data.fetchedAt ? new Date(data.fetchedAt).toLocaleDateString(currentLang === "de" ? "de-DE" : "en-US") : "";
+  metaEl.innerHTML = `
+    <strong>${patchLabel}</strong>${data.subtitle ? ` — ${data.subtitle}` : ""}
+    ${dateLabel ? `<br>${t("patchNotesSource")} (${dateLabel})` : ""}
+    ${data.sourceUrl ? ` — <a href="${data.sourceUrl}" target="_blank" rel="noopener">leagueoflegends.com</a>` : ""}
+  `;
+  // arenaHtml wurde bereits serverseitig im Agent auf eine feste Tag-
+  // Allowlist bereinigt (siehe syncPatchNotes.js) - direktes innerHTML
+  // ist hier bewusst OK, kein Nutzer-generierter Inhalt.
+  bodyEl.innerHTML = data.arenaHtml;
+}
+
+async function openPatchNotesModal() {
+  document.getElementById("patchNotesOverlay")?.classList.remove("hidden");
+  const bodyEl = document.getElementById("patchNotesBody");
+  if (bodyEl && patchNotesData === undefined) bodyEl.innerHTML = `<p class="detailEmpty">${t("patchNotesLoading")}</p>`;
+  const data = await loadPatchNotesData();
+  renderPatchNotes(data);
+}
+
+function closePatchNotesModal() {
+  document.getElementById("patchNotesOverlay")?.classList.add("hidden");
+}
+
 function openItemsAugmentsModal() {
   document.getElementById("itemsAugmentsOverlay").classList.remove("hidden");
   const searchInput = document.getElementById("iaSearchInput");
@@ -3411,6 +3474,8 @@ function hideIaTooltip() {
   if (iaTooltipEl) iaTooltipEl.classList.add("hidden");
 }
 
+safeBind("openPatchNotesBtn", "onclick", openPatchNotesModal);
+safeBind("patchNotesClose", "onclick", closePatchNotesModal);
 safeBind("openItemsAugmentsBtn", "onclick", openItemsAugmentsModal);
 safeBind("itemsAugmentsClose", "onclick", closeItemsAugmentsModal);
 safeBind("iaTierListBack", "onclick", backToTierListOverview);
