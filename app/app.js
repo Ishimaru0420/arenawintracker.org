@@ -2165,6 +2165,17 @@ function bindIaCategoryFilterBox(idPrefix, onChange) {
   if (resetBtn) resetBtn.onclick = () => { iaCategoryFilters.clear(); onChange(); };
 }
 
+// Generisches Suchfeld-Markup - Gegenstueck zu iaCategoryFilterBoxHtml,
+// fuer Ansichten ausserhalb des Haupt-Items&Augments-Modals (Champion-
+// Statistik-Sektion, Partner-Detailansicht), die ein eigenes Suchfeld
+// mit eigenem Zustand brauchen (statt des globalen iaSearchTerm/
+// iaSearchInput im Modal).
+function iaSearchRowHtml(idPrefix, currentValue) {
+  return `<div class="iaSearchRowBox">
+    <input type="text" class="iaSearchInputBox" id="${idPrefix}Input" placeholder="${t("iaSearchPlaceholder")}" value="${currentValue ? currentValue.replace(/"/g, "&quot;") : ""}" />
+  </div>`;
+}
+
 async function loadArenaItemsAugments() {
   if (arenaAugmentsData && arenaItemsData) return true;
   try {
@@ -4003,12 +4014,27 @@ let championStatsGroupMode = false; // Gruppieren-Haken: an = nach Rarity-Katego
 let championStatsCurrentStats = null; // fuer Re-Render beim Umschalten des Gruppieren-Hakens ohne Neu-Laden
 let championStatsCurrentRows = null;
 let championStatsCurrentComps = null; // beste Duo-Partner-Champions (championCompStats), ebenfalls fuer Re-Render zwischengespeichert
+let championStatsSearchTerm = ""; // Suchbegriff nur fuer den Augments/Items-Grid dieser Seite
 
 function championStatsRowForEntry(entry, kind) {
   if (!championStatsRowByKey || !entry) return null;
   const numId = entry.id ?? entry.augmentId ?? entry.itemId;
   if (numId === undefined || numId === null) return null;
   return championStatsRowByKey.get(`${kind}:${numId}`) || null;
+}
+
+// Gemeinsames Filter-Praedikat fuer den Augments/Items-Grid auf der
+// Champion-Seite: Kategorie-Checkboxen UND Suchbegriff muessen beide
+// passen. Wird sowohl beim Rendern (renderChampionStatsEntitiesGridHtml)
+// als auch beim Neu-Binden der Kachel-Events (bindEntityTiles) benutzt,
+// damit beide immer exakt dieselbe gefilterte Menge sehen.
+function championStatsEntityMatchesFilters(entry) {
+  if (!matchesIaCategoryFilters(entry)) return false;
+  const term = normName(championStatsSearchTerm);
+  if (!term) return true;
+  const name = iaEntryName(entry);
+  const desc = iaEntryDesc(entry);
+  return normName(name).includes(term) || normName(desc).includes(term);
 }
 
 function renderChampionStatsPlaceholder() {
@@ -4059,6 +4085,38 @@ function renderChampionCompList(list) {
   return html;
 }
 
+// Nur der Augments/Items-Grid-Block (dbTwoCol) - eigene Funktion, damit
+// Kategorie-/Suchfeld-Aenderungen NUR diesen Teil neu rendern koennen,
+// ohne Ueberschrift/Stat-Karten/Kategorie-Filter-Box/Suchfeld (und damit
+// den Tipp-Fokus im Suchfeld) mit neu aufzubauen. Zeigt "keine Daten" nur
+// fuer diesen Block - Top-Listen/Comps darunter bleiben davon unberuehrt.
+function renderChampionStatsEntitiesGridHtml() {
+  const augments = (arenaAugmentsData || []).filter((e) => championStatsRowForEntry(e, "augment") && championStatsEntityMatchesFilters(e));
+  const items = (arenaItemsData || []).filter((e) => championStatsRowForEntry(e, "item") && championStatsEntityMatchesFilters(e));
+
+  if (!augments.length && !items.length) {
+    return `<p class="detailEmpty" style="margin-top:10px;">${t("championStatsNoEntityData")}</p>`;
+  }
+
+  let html = `<div class="dbTwoCol" style="margin-top:14px;">`;
+  html += `<div><p class="detailSkillOrderLabel">${t("iaAugmentsHeading")}</p>`;
+  html += augments.length
+    ? (championStatsGroupMode
+        ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", true, championStatsRowForEntry)).join("")
+        : renderIaFlatList(augments, "augment", true, championStatsRowForEntry))
+    : `<p class="detailEmpty">${t("championStatsNoEntityData")}</p>`;
+  html += `</div>`;
+  html += `<div><p class="detailSkillOrderLabel">${t("iaItemsHeading")}</p>`;
+  html += items.length
+    ? (championStatsGroupMode
+        ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", true, championStatsRowForEntry)).join("")
+        : renderIaFlatList(items, "item", true, championStatsRowForEntry))
+    : `<p class="detailEmpty">${t("championStatsNoEntityData")}</p>`;
+  html += `</div>`;
+  html += `</div>`;
+  return html;
+}
+
 function renderChampionStatsContent(stats, rows, comps) {
   let html = `<div class="iaColumnToggleRow" style="justify-content:space-between; margin-bottom:10px;">
     <h3 style="margin:0;">${t("championStatsHeading")}</h3>
@@ -4081,31 +4139,8 @@ function renderChampionStatsContent(stats, rows, comps) {
   if (statCards.length) html += `<div class="dbStatGrid">${statCards.join("")}</div>`;
 
   html += iaCategoryFilterBoxHtml("championStatsCategoryFilter");
-
-  const augments = (arenaAugmentsData || []).filter((e) => championStatsRowForEntry(e, "augment") && matchesIaCategoryFilters(e));
-  const items = (arenaItemsData || []).filter((e) => championStatsRowForEntry(e, "item") && matchesIaCategoryFilters(e));
-
-  if (!augments.length && !items.length) {
-    html += `<p class="detailEmpty" style="margin-top:10px;">${t("championStatsNoEntityData")}</p>`;
-    return html;
-  }
-
-  html += `<div class="dbTwoCol" style="margin-top:14px;">`;
-  html += `<div><p class="detailSkillOrderLabel">${t("iaAugmentsHeading")}</p>`;
-  html += augments.length
-    ? (championStatsGroupMode
-        ? IA_AUGMENT_TIERS.map((tier) => renderIaTierGroup(augments, tier, "augment", true, championStatsRowForEntry)).join("")
-        : renderIaFlatList(augments, "augment", true, championStatsRowForEntry))
-    : `<p class="detailEmpty">${t("championStatsNoEntityData")}</p>`;
-  html += `</div>`;
-  html += `<div><p class="detailSkillOrderLabel">${t("iaItemsHeading")}</p>`;
-  html += items.length
-    ? (championStatsGroupMode
-        ? IA_ITEM_TIERS.map((tier) => renderIaTierGroup(items, tier, "item", true, championStatsRowForEntry)).join("")
-        : renderIaFlatList(items, "item", true, championStatsRowForEntry))
-    : `<p class="detailEmpty">${t("championStatsNoEntityData")}</p>`;
-  html += `</div>`;
-  html += `</div>`;
+  html += iaSearchRowHtml("championStatsSearch", championStatsSearchTerm);
+  html += `<div id="championStatsEntitiesGrid">${renderChampionStatsEntitiesGridHtml()}</div>`;
 
   // Augments+Items gemischt, einmal nach Winrate und einmal nach
   // Pickrate (=Spielanzahl) sortiert, Top 10.
@@ -4169,33 +4204,57 @@ function bindChampionStatsInteractions(section) {
       bindChampionStatsInteractions(section);
     });
   }
-  const bindTiles = (entries, kind) => {
-    section.querySelectorAll(`.iaTile[data-kind="${kind}"]`).forEach((tile) => {
-      const idx = parseInt(tile.dataset.idx, 10);
-      const entry = entries[idx];
-      if (!entry) return;
-      tile.addEventListener("mouseenter", (e) => {
-        // Beste Augment-/Item-Partner fuer diesen Eintrag BEI DIESEM
-        // Champion (aus championItemAugmentStats) mit in den Tooltip geben
-        // - links Augments, rechts Items (bzw. leer, falls keiner der
-        // beiden Seiten genug Datenbasis hat).
-        const row = championStatsRowForEntry(entry, kind);
-        const partnerData = row ? { augmentPartners: row.augmentPartners, itemPartners: row.itemPartners } : null;
-        showIaTooltip(e, entry, kind, partnerData);
+  // In eine eigene Funktion ausgelagert (statt einmalig inline), damit sie
+  // nach jeder Suchfeld-Aenderung erneut aufgerufen werden kann, ohne den
+  // Rest der Sektion (und damit den Suchfeld-Fokus) neu aufzubauen. Nutzt
+  // dieselbe championStatsEntityMatchesFilters-Filterung wie
+  // renderChampionStatsEntitiesGridHtml, damit tile.dataset.idx (Index
+  // innerhalb der GEFILTERTEN Liste, siehe renderIaTileHtml) immer auf den
+  // richtigen Eintrag zeigt.
+  const bindEntityTiles = () => {
+    const bindTiles = (entries, kind) => {
+      section.querySelectorAll(`.iaTile[data-kind="${kind}"]`).forEach((tile) => {
+        const idx = parseInt(tile.dataset.idx, 10);
+        const entry = entries[idx];
+        if (!entry) return;
+        tile.addEventListener("mouseenter", (e) => {
+          // Beste Augment-/Item-Partner fuer diesen Eintrag BEI DIESEM
+          // Champion (aus championItemAugmentStats) mit in den Tooltip geben
+          // - links Augments, rechts Items (bzw. leer, falls keiner der
+          // beiden Seiten genug Datenbasis hat).
+          const row = championStatsRowForEntry(entry, kind);
+          const partnerData = row ? { augmentPartners: row.augmentPartners, itemPartners: row.itemPartners } : null;
+          showIaTooltip(e, entry, kind, partnerData);
+        });
+        tile.addEventListener("mousemove", positionIaTooltip);
+        tile.addEventListener("mouseleave", hideIaTooltip);
+        tile.style.cursor = "pointer";
+        tile.addEventListener("click", () => {
+          hideIaTooltip();
+          openItemOrAugmentDetail(iaEntryName(entry), kind);
+        });
       });
-      tile.addEventListener("mousemove", positionIaTooltip);
-      tile.addEventListener("mouseleave", hideIaTooltip);
-      tile.style.cursor = "pointer";
-      tile.addEventListener("click", () => {
-        hideIaTooltip();
-        openItemOrAugmentDetail(iaEntryName(entry), kind);
-      });
-    });
+    };
+    const augments = (arenaAugmentsData || []).filter((e) => championStatsRowForEntry(e, "augment") && championStatsEntityMatchesFilters(e));
+    const items = (arenaItemsData || []).filter((e) => championStatsRowForEntry(e, "item") && championStatsEntityMatchesFilters(e));
+    if (augments.length) bindTiles(augments, "augment");
+    if (items.length) bindTiles(items, "item");
   };
-  const augments = (arenaAugmentsData || []).filter((e) => championStatsRowForEntry(e, "augment"));
-  const items = (arenaItemsData || []).filter((e) => championStatsRowForEntry(e, "item"));
-  if (augments.length) bindTiles(augments, "augment");
-  if (items.length) bindTiles(items, "item");
+  bindEntityTiles();
+
+  // Suchfeld: aendert nur championStatsSearchTerm + den Grid-Container -
+  // Ueberschrift/Stat-Karten/Kategorie-Filter-Box bleiben unberuehrt, damit
+  // der Fokus im Feld beim Tippen nicht verloren geht (kein section.innerHTML-
+  // Neuaufbau wie bei Kategorie-Checkbox/Gruppieren-Haken).
+  const searchInput = section.querySelector("#championStatsSearchInput");
+  if (searchInput) {
+    searchInput.oninput = (e) => {
+      championStatsSearchTerm = e.target.value;
+      const grid = document.getElementById("championStatsEntitiesGrid");
+      if (grid) grid.innerHTML = renderChampionStatsEntitiesGridHtml();
+      bindEntityTiles();
+    };
+  }
 
   section.querySelectorAll("[data-champtop-name]").forEach((row) => {
     row.style.cursor = "pointer";
@@ -4224,6 +4283,7 @@ async function loadChampionStatsSection(champ) {
   // zuruecksetzen, statt den zuletzt gesetzten Haken vom vorherigen
   // Champion zu behalten.
   championStatsGroupMode = false;
+  championStatsSearchTerm = "";
   try {
     const [statsRes, entityRes, compRes] = await Promise.all([
       authFetch(serverUrl(`/champion-stats/${champ.key}`)),
@@ -4527,6 +4587,12 @@ function openChampDetail(champ) {
   document.getElementById("rankingPanel").classList.add("hidden");
   const detail = document.getElementById("champDetail");
   detail.classList.remove("hidden");
+  // Falls zuvor eine Item-/Augment-Detailansicht offen war, hat die dort
+  // gesetzte detail.onclick-Tier-Toggle-Funktion (siehe openItemOrAugmentDetail)
+  // noch am Element gehangen - erst zuruecksetzen, sonst wuerde sie beim
+  // Zurueckkommen hierher zusammen mit dem eigenen section.onclick der
+  // Champion-Stats-Sektion doppelt feuern (auf->zu->auf = sichtbar nichts).
+  detail.onclick = null;
 
   detail.innerHTML = `
     <div class="detailHeader">
@@ -4652,6 +4718,7 @@ function renderChampPresetEntries(preset) {
 async function openItemOrAugmentDetail(name, type) {
   const heading = type === "item" ? t("itemDetailHeading") : t("augmentDetailHeading");
   const detail = document.getElementById("champDetail");
+  let itemDetailSearchTerm = ""; // eigener, lokaler Suchbegriff nur fuer diese eine Detailansicht
 
   detail.innerHTML = `
     <div class="detailHeader">
@@ -4660,9 +4727,27 @@ async function openItemOrAugmentDetail(name, type) {
     </div>
     <div class="detailSection"><h3>${heading} · ${t("detailSynergyHeading")}</h3>
       ${iaCategoryFilterBoxHtml("itemDetailCategoryFilter")}
+      ${iaSearchRowHtml("itemDetailSearch", "")}
       <div id="itemDetailSynergyBody"><p class="detailEmpty">…</p></div>
     </div>`;
   document.getElementById("itemDetailBackBtn").addEventListener("click", () => openChampDetail(currentDetailChamp));
+
+  // Auf-/Zuklapp-Listener fuer die S/A/B/C/D-Tier-Gruppen in dieser
+  // Ansicht: #champDetail hat sonst KEINEN delegierten data-tier-toggle-
+  // Listener (der im Items&Augments-Modal und in bindChampionStatsInteractions
+  // ist jeweils auf ein anderes Element gescoped) - ohne diesen hier liessen
+  // sich die Tier-Gruppen in der Partner-Ansicht nicht auf-/zuklappen.
+  // Als Zuweisung (onclick), nicht addEventListener, damit wiederholte
+  // Aufrufe von openItemOrAugmentDetail (weiterklicken von Partner zu
+  // Partner) keine sich aufaddierenden Listener hinterlassen. openChampDetail
+  // setzt detail.onclick beim Zurueckgehen zur Champion-Seite wieder auf
+  // null, damit sich diese Funktion nicht mit deren eigenem section.onclick
+  // ueberschneidet.
+  detail.onclick = (e) => {
+    const label = e.target.closest("[data-tier-toggle]");
+    if (!label) return;
+    label.closest(".iaTierGroup")?.classList.toggle("collapsed");
+  };
 
   const bodyEl = document.getElementById("itemDetailSynergyBody");
   await loadArenaItemsAugments();
@@ -4703,7 +4788,14 @@ async function openItemOrAugmentDetail(name, type) {
     // nur die Anzeige wird gefiltert (gleiches Prinzip wie
     // renderIaPartnerTierlist im Items&Augments-Modal).
     const renderFilteredLists = () => {
-      const filtered = resolved.filter((x) => matchesIaCategoryFilters(x.entry));
+      const term = normName(itemDetailSearchTerm);
+      const filtered = resolved.filter((x) => {
+        if (!matchesIaCategoryFilters(x.entry)) return false;
+        if (!term) return true;
+        const n = iaEntryName(x.entry);
+        const d = iaEntryDesc(x.entry);
+        return normName(n).includes(term) || normName(d).includes(term);
+      });
       const augEntries = filtered.filter((x) => x.p.kind === "augment").map((x) => x.entry);
       const itemEntries = filtered.filter((x) => x.p.kind === "item").map((x) => x.entry);
 
@@ -4730,6 +4822,13 @@ async function openItemOrAugmentDetail(name, type) {
 
     renderFilteredLists();
     bindIaCategoryFilterBox("itemDetailCategoryFilter", renderFilteredLists);
+    const searchInput = document.getElementById("itemDetailSearchInput");
+    if (searchInput) {
+      searchInput.oninput = (e) => {
+        itemDetailSearchTerm = e.target.value;
+        renderFilteredLists();
+      };
+    }
   } catch (err) {
     console.error("[ItemDetail] Partner-Lookup fehlgeschlagen:", err);
     bodyEl.innerHTML = `<p class="detailEmpty">${t("detailNoSynergyData")}</p>`;

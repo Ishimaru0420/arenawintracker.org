@@ -478,8 +478,8 @@ button.danger:hover { background: #c43b4a; }
 }
 #iaAugmentsCol.iaColHidden, #iaItemsCol.iaColHidden,
 #iaPartnerAugmentsCol.iaColHidden, #iaPartnerItemsCol.iaColHidden { display: none; }
-#iaSearchRow { display: flex; gap: 8px; }
-#iaSearchInput {
+#iaSearchRow, .iaSearchRowBox { display: flex; gap: 8px; margin-bottom: 8px; }
+#iaSearchInput, .iaSearchInputBox {
   flex: 1; min-width: 0; box-sizing: border-box;
   background: #16100d; border: 1px solid #3a2620; color: #fff;
   padding: 9px 11px; border-radius: 5px; font-size: 13px;
