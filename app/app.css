@@ -445,6 +445,18 @@ button.danger:hover { background: #c43b4a; }
   border-radius: 6px; padding: 4px 10px; font-size: 11.5px; cursor: pointer;
 }
 #iaCategoryFilterReset:hover, .iaCategoryFilterReset:hover { border-color: #ff7a3c; color: #ffb37a; }
+.iaCategoryFilterActions { display: flex; gap: 8px; align-items: center; }
+/* "Exakt"-Haekchen: UND- statt ODER-Verknuepfung bei mehreren angehakten
+   Kategorien. Als echte Checkbox (wie "Gruppieren") statt Button, damit
+   sofort ersichtlich ist ob der Modus gerade an ist. Standardmaessig
+   aktiv (siehe iaCategoryMatchAll in app.js). */
+.iaCategoryExactToggle {
+  font-size: 11.5px; color: #a89690; cursor: pointer;
+}
+.iaCategoryExactToggle:hover { color: #ffb37a; }
+.iaCategoryExactToggle input[type="checkbox"] {
+  width: 14px; height: 14px; cursor: pointer; accent-color: #ff7a3c;
+}
 /* Zentrierter Umschalter "All"/"Augments"/"Items" - blendet im Browser
    eine der beiden Spalten aus (oder zeigt wieder beide bei "All"),
    damit man sich auf eine der beiden Listen konzentrieren kann. Reine

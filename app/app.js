@@ -2230,7 +2230,10 @@ function iaCategoryFilterBoxHtml(idPrefix) {
       <div class="iaCategoryFilterList" id="${idPrefix}List">${iaCategoryCheckboxItemsHtml()}</div>
       <div class="iaCategoryFilterActions">
         <button class="iaCategoryFilterReset" id="${idPrefix}Reset">${t("iaCategoryFilterReset")}</button>
-        <button class="iaCategoryExactToggle${iaCategoryMatchAll ? " active" : ""}" id="${idPrefix}ExactToggle" title="${t("iaCategoryFilterExactTitle")}">${t("iaCategoryFilterExact")}</button>
+        <label class="checkboxLabel iaCategoryExactToggle" title="${t("iaCategoryFilterExactTitle")}">
+          <input type="checkbox" id="${idPrefix}ExactToggle" ${iaCategoryMatchAll ? "checked" : ""} />
+          <span>${t("iaCategoryFilterExact")}</span>
+        </label>
       </div>
     </div>
   </div>`;
@@ -2259,9 +2262,8 @@ function bindIaCategoryFilterBox(idPrefix, onChange) {
   if (resetBtn) resetBtn.onclick = () => { iaCategoryFilters.clear(); onChange(); };
   const exactBtn = document.getElementById(`${idPrefix}ExactToggle`);
   if (exactBtn) {
-    exactBtn.onclick = () => {
-      iaCategoryMatchAll = !iaCategoryMatchAll;
-      exactBtn.classList.toggle("active", iaCategoryMatchAll);
+    exactBtn.onchange = () => {
+      iaCategoryMatchAll = exactBtn.checked;
       onChange();
     };
   }
@@ -3740,18 +3742,22 @@ function resetIaCategoryFilters() {
 // das Haupt-Modal seine eigenen, nicht-generischen Render-/Bind-Funktionen
 // benutzt (renderIaCategoryCheckboxes statt iaCategoryFilterBoxHtml).
 function toggleIaCategoryExact() {
-  iaCategoryMatchAll = !iaCategoryMatchAll;
-  document.getElementById("iaCategoryFilterExactToggle")?.classList.toggle("active", iaCategoryMatchAll);
+  const cb = document.getElementById("iaCategoryFilterExactToggle");
+  iaCategoryMatchAll = cb ? cb.checked : true;
   renderItemsAugmentsModal();
   rerenderIaPartnerViewIfOpen();
   if (iaPresetMode) renderIaPresetGrid();
 }
 renderIaCategoryCheckboxes();
 safeBind("iaCategoryFilterReset", "onclick", resetIaCategoryFilters);
-safeBind("iaCategoryFilterExactToggle", "onclick", toggleIaCategoryExact);
-// Anfangszustand (Standard: Exakt aktiv) auf dem statischen HTML-Button
-// aus index.html spiegeln - dort steht kein "active" fest im Markup.
-document.getElementById("iaCategoryFilterExactToggle")?.classList.toggle("active", iaCategoryMatchAll);
+safeBind("iaCategoryFilterExactToggle", "onchange", toggleIaCategoryExact);
+// Anfangszustand (Standard: Exakt aktiv) auf der Checkbox aus index.html
+// spiegeln, falls iaCategoryMatchAll vom "checked"-Attribut im
+// statischen Markup abweicht.
+{
+  const initExactCb = document.getElementById("iaCategoryFilterExactToggle");
+  if (initExactCb) initExactCb.checked = iaCategoryMatchAll;
+}
 // Panel ist jetzt immer ausgeklappt (kein Ein-/Ausklappen mehr noetig) -
 // der fruehere Toggle-Klick-Handler (Zeile mit "collapsed"-Klasse) wurde
 // bewusst entfernt.

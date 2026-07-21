@@ -200,7 +200,10 @@
           <div id="iaCategoryFilterList"></div>
           <div class="iaCategoryFilterActions">
             <button id="iaCategoryFilterReset" data-i18n="iaCategoryFilterReset">Zurücksetzen</button>
-            <button id="iaCategoryFilterExactToggle" class="iaCategoryExactToggle" data-i18n="iaCategoryFilterExact" title="Bei mehreren angehakten Kategorien: nur Einträge zeigen, die ALLE gleichzeitig haben (statt irgendeine davon)" data-i18n-title="iaCategoryFilterExactTitle">Exakt</button>
+            <label class="checkboxLabel iaCategoryExactToggle" title="Bei mehreren angehakten Kategorien: nur Einträge zeigen, die ALLE gleichzeitig haben (statt irgendeine davon)" data-i18n-title="iaCategoryFilterExactTitle">
+              <input id="iaCategoryFilterExactToggle" type="checkbox" checked />
+              <span data-i18n="iaCategoryFilterExact">Exakt</span>
+            </label>
           </div>
         </div>
       </div>
