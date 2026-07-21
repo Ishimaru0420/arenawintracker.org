@@ -310,6 +310,8 @@ const I18N = {
     iaCategoryAll: "Alle Kategorien",
     iaCategoryFilterHeading: "Kategorien",
     iaCategoryFilterReset: "Zurücksetzen",
+    iaCategoryFilterExact: "Exakt",
+    iaCategoryFilterExactTitle: "Bei mehreren angehakten Kategorien: nur Einträge zeigen, die ALLE gleichzeitig haben (statt irgendeine davon)",
     iaTierListBtn: "📊 Tier-Liste",
     iaTierListHint: "Winrate + Spielanzahl über alle Spieler. Sortiert die Kacheln je Kategorie nach Winrate; Klick auf ein Item/Augment zeigt die 5 besten Partner-Kombinationen.",
     iaTierListNoData: "Ohne Daten",
@@ -603,6 +605,8 @@ const I18N = {
     iaCategoryAll: "All categories",
     iaCategoryFilterHeading: "Categories",
     iaCategoryFilterReset: "Reset",
+    iaCategoryFilterExact: "Exact",
+    iaCategoryFilterExactTitle: "With multiple categories checked: only show entries that have ALL of them at once (instead of any one)",
     iaTierListBtn: "📊 Tier list",
     iaTierListHint: "Win rate + game count across all players. Sorts tiles within each category by win rate; click an item/augment to see its 5 best partner combinations.",
     iaTierListNoData: "No data",
@@ -1939,7 +1943,12 @@ async function loadRuneData() {
   }
 }
 let iaSearchTerm = "";
-let iaCategoryFilters = new Set(); // leer = alle, sonst Mehrfachauswahl (ODER-Verknuepfung) aus IA_CATEGORIES-Keys
+let iaCategoryFilters = new Set(); // leer = alle, sonst Mehrfachauswahl aus IA_CATEGORIES-Keys
+// "Exakt"-Knopf: true (Standard) = UND-Verknuepfung, ein Eintrag muss ALLE
+// angehakten Kategorien gleichzeitig haben. false = ODER-Verknuepfung,
+// irgendeine der angehakten Kategorien reicht. Gilt global fuer alle drei
+// Kategorie-Filter-Boxen (Haupt-Modal, Champion Stats, Item-Detailansicht).
+let iaCategoryMatchAll = true;
 let iaColumnFilter = null; // null = beide Spalten, "augment" = nur Augments, "item" = nur Items
 let iaTierListMode = true; // immer an - kein Umschalter mehr, Kacheln zeigen immer Tierlist-Winrate + Badge
 let iaTierListData = null; // Array aus /item-augment-tierlist: {kind,id,games,wins,winrate,topPartners,percentileTier}
@@ -2183,7 +2192,13 @@ function matchesIaCategoryFilters(entry) {
   if (!iaCategoryFilters.size) return true;
   const name = iaEntryName(entry);
   const desc = iaEntryDesc(entry);
-  return iaEntryCategories(entry, name, desc).some((c) => iaCategoryFilters.has(c));
+  const entryCats = iaEntryCategories(entry, name, desc);
+  // Exakt-Modus (Standard): der Eintrag muss ALLE angehakten Kategorien
+  // gleichzeitig haben (UND). Sonst reicht irgendeine davon (ODER) - wie
+  // vor Einfuehrung des Exakt-Knopfs.
+  return iaCategoryMatchAll
+    ? [...iaCategoryFilters].every((c) => entryCats.includes(c))
+    : entryCats.some((c) => iaCategoryFilters.has(c));
 }
 
 // Generische Kategorie-Filter-Box (Icon+Farbe je Kategorie, immer
@@ -2213,7 +2228,10 @@ function iaCategoryFilterBoxHtml(idPrefix) {
     </h3>
     <div class="iaCategoryFilterBody">
       <div class="iaCategoryFilterList" id="${idPrefix}List">${iaCategoryCheckboxItemsHtml()}</div>
-      <button class="iaCategoryFilterReset" id="${idPrefix}Reset">${t("iaCategoryFilterReset")}</button>
+      <div class="iaCategoryFilterActions">
+        <button class="iaCategoryFilterReset" id="${idPrefix}Reset">${t("iaCategoryFilterReset")}</button>
+        <button class="iaCategoryExactToggle${iaCategoryMatchAll ? " active" : ""}" id="${idPrefix}ExactToggle" title="${t("iaCategoryFilterExactTitle")}">${t("iaCategoryFilterExact")}</button>
+      </div>
     </div>
   </div>`;
 }
@@ -2239,6 +2257,14 @@ function bindIaCategoryFilterBox(idPrefix, onChange) {
   }
   const resetBtn = document.getElementById(`${idPrefix}Reset`);
   if (resetBtn) resetBtn.onclick = () => { iaCategoryFilters.clear(); onChange(); };
+  const exactBtn = document.getElementById(`${idPrefix}ExactToggle`);
+  if (exactBtn) {
+    exactBtn.onclick = () => {
+      iaCategoryMatchAll = !iaCategoryMatchAll;
+      exactBtn.classList.toggle("active", iaCategoryMatchAll);
+      onChange();
+    };
+  }
 }
 
 // Generisches Suchfeld-Markup - Gegenstueck zu iaCategoryFilterBoxHtml,
@@ -2626,7 +2652,9 @@ function renderItemsAugmentsModal() {
     const name = iaEntryName(e);
     const desc = iaEntryDesc(e);
     const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
-    const matchesCategory = !iaCategoryFilters.size || iaEntryCategories(e, name, desc).some((c) => iaCategoryFilters.has(c));
+    // matchesIaCategoryFilters respektiert den Exakt-Knopf (UND/ODER) statt
+    // hier erneut fest verdrahtetes .some() (ODER) zu benutzen.
+    const matchesCategory = matchesIaCategoryFilters(e);
     return matchesTerm && matchesCategory;
   };
 
@@ -2887,7 +2915,9 @@ function renderIaPresetGrid() {
     const name = iaEntryName(e);
     const desc = iaEntryDesc(e);
     const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
-    const matchesCategory = !iaCategoryFilters.size || iaEntryCategories(e, name, desc).some((c) => iaCategoryFilters.has(c));
+    // matchesIaCategoryFilters respektiert den Exakt-Knopf (UND/ODER) statt
+    // hier erneut fest verdrahtetes .some() (ODER) zu benutzen.
+    const matchesCategory = matchesIaCategoryFilters(e);
     return matchesTerm && matchesCategory;
   };
   const augments = (arenaAugmentsData || []).filter(filterByTerm);
@@ -3453,7 +3483,7 @@ function renderIaPartnerTierlist(topPartners) {
     const name = iaEntryName(entry);
     const desc = iaEntryDesc(entry);
     const matchesTerm = !term || normName(name).includes(term) || normName(desc).includes(term);
-    const matchesCategory = !iaCategoryFilters.size || iaEntryCategories(entry, name, desc).some((c) => iaCategoryFilters.has(c));
+    const matchesCategory = matchesIaCategoryFilters(entry);
     return matchesTerm && matchesCategory;
   });
 
@@ -3705,8 +3735,23 @@ function resetIaCategoryFilters() {
   rerenderIaPartnerViewIfOpen();
   if (iaPresetMode) renderIaPresetGrid();
 }
+// "Exakt"-Knopf im Haupt-Modal - Gegenstueck zum generischen Exakt-Knopf in
+// bindIaCategoryFilterBox (Champion Stats/Item-Detail), hier separat, weil
+// das Haupt-Modal seine eigenen, nicht-generischen Render-/Bind-Funktionen
+// benutzt (renderIaCategoryCheckboxes statt iaCategoryFilterBoxHtml).
+function toggleIaCategoryExact() {
+  iaCategoryMatchAll = !iaCategoryMatchAll;
+  document.getElementById("iaCategoryFilterExactToggle")?.classList.toggle("active", iaCategoryMatchAll);
+  renderItemsAugmentsModal();
+  rerenderIaPartnerViewIfOpen();
+  if (iaPresetMode) renderIaPresetGrid();
+}
 renderIaCategoryCheckboxes();
 safeBind("iaCategoryFilterReset", "onclick", resetIaCategoryFilters);
+safeBind("iaCategoryFilterExactToggle", "onclick", toggleIaCategoryExact);
+// Anfangszustand (Standard: Exakt aktiv) auf dem statischen HTML-Button
+// aus index.html spiegeln - dort steht kein "active" fest im Markup.
+document.getElementById("iaCategoryFilterExactToggle")?.classList.toggle("active", iaCategoryMatchAll);
 // Panel ist jetzt immer ausgeklappt (kein Ein-/Ausklappen mehr noetig) -
 // der fruehere Toggle-Klick-Handler (Zeile mit "collapsed"-Klasse) wurde
 // bewusst entfernt.
