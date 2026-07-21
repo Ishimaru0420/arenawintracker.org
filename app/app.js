@@ -2042,7 +2042,12 @@ const IA_CATEGORIES = {
   },
   burnEffects: {
     labelDe: "Brenneffekte", labelEn: "Burn Effects",
-    keywords: ["burn", "brenn", "verbrennung", "damage over time"]
+    // "immolat" faengt Immolate/Immolation (Sunfire Aegis, Hollow
+    // Radiance, Void Immolation - Riot nennt das nie woertlich "burn" im
+    // Tooltip, sondern "deal magic damage per second"). "sunfire" faengt
+    // zusaetzlich Icathia's Fall (Quest-Augment, dessen Beschreibung
+    // "Sunfire Aegis" beim Namen nennt).
+    keywords: ["burn", "brenn", "verbrennung", "damage over time", "immolat", "sunfire", "schaden pro sekunde", "damage per second"]
   },
   ultimateEffects: {
     labelDe: "Ultimate-Effekte", labelEn: "Ultimate Effects",
@@ -2054,10 +2059,37 @@ const IA_CATEGORIES = {
   }
 };
 
+// Baut eine Wort-Grenzen-sichere Version des Texts: alles ausser a-z0-9
+// wird zu GENAU EINEM Leerzeichen (nicht geloescht wie bei normName!) -
+// dadurch bleiben echte Wortgrenzen erhalten. Vorne/hinten je ein
+// zusaetzliches Leerzeichen, damit man per einfachem includes() nach
+// " keyword " als GANZEM Wort/Phrase suchen kann.
+function iaCategoryPhraseHaystack(text) {
+  return ` ${(text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+}
+
 function iaEntryCategories(entry, name, desc) {
-  const haystack = normName(`${name} ${desc}`);
+  // Zwei Haystacks noetig:
+  // - stemHaystack (normName, wie bisher): Leerzeichen komplett entfernt,
+  //   damit Wortstamm-Keywords wie "brenn" auch in zusammengesetzten
+  //   Woertern wie "Brenneffekt" oder "Manamune"->"mana" treffen.
+  // - phraseHaystack: Leerzeichen bleiben als Wortgrenzen erhalten, damit
+  //   MEHRWORT-Keywords wie "on hit" NICHT versehentlich ueber eine echte
+  //   Wortgrenze hinweg matchen (Bug: "...champion hit" wurde durch reines
+  //   Leerzeichen-Entfernen zu "...championhit", was das Keyword "on hit"
+  //   /"onhit" faelschlich als Teilstring enthielt - Goredrinker landete
+  //   so faelschlich in der Kategorie "On-Hit Effects").
+  const stemHaystack = normName(`${name} ${desc}`);
+  const phraseHaystack = iaCategoryPhraseHaystack(`${name} ${desc}`);
   return Object.keys(IA_CATEGORIES).filter((key) =>
-    IA_CATEGORIES[key].keywords.some((kw) => haystack.includes(normName(kw)))
+    IA_CATEGORIES[key].keywords.some((kw) => {
+      const kwTrim = kw.trim().toLowerCase();
+      if (kwTrim.includes(" ") || kwTrim.includes("-")) {
+        const kwPhrase = ` ${kwTrim.replace(/[^a-z0-9]+/g, " ").trim()} `;
+        return phraseHaystack.includes(kwPhrase);
+      }
+      return stemHaystack.includes(normName(kwTrim));
+    })
   );
 }
 
