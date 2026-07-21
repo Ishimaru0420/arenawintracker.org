@@ -1969,75 +1969,75 @@ let iaPresetsCache = null; // alle existierenden Presets vom Server
 // ausgewaehlten Kategorien (siehe iaCategoryFilters/matchesCategory).
 const IA_CATEGORIES = {
   attackDamage: {
-    labelDe: "Angriffsschaden", labelEn: "Attack Damage",
+    labelDe: "Angriffsschaden", labelEn: "Attack Damage", icon: "⚔️", color: "#D85A30",
     keywords: ["attack damage", "angriffsschaden", "bonus ad", "physischen schaden", "physical damage"]
   },
   critChance: {
-    labelDe: "Kritischer Treffer", labelEn: "Critical Strike",
+    labelDe: "Kritischer Treffer", labelEn: "Critical Strike", icon: "🎯", color: "#D4537E",
     keywords: ["critical strike", "crit chance", "kritisch", "krit"]
   },
   attackSpeed: {
-    labelDe: "Angriffstempo", labelEn: "Attack Speed",
+    labelDe: "Angriffstempo", labelEn: "Attack Speed", icon: "⚡", color: "#BA7517",
     keywords: ["attack speed", "angriffstempo"]
   },
   onHitEffects: {
-    labelDe: "Bei-Treffer-Effekte", labelEn: "On-Hit Effects",
+    labelDe: "Bei-Treffer-Effekte", labelEn: "On-Hit Effects", icon: "👆", color: "#8A7FE0",
     keywords: ["on-hit", "on hit", "onhit", "bei jedem treffer", "auf-treffer-effekte", "on-attack"]
   },
   armorPen: {
-    labelDe: "Rüstungsdurchdringung", labelEn: "Armor Penetration",
+    labelDe: "Rüstungsdurchdringung", labelEn: "Armor Penetration", icon: "🗡️", color: "#993C1D",
     keywords: ["armor penetration", "rüstungsdurchdringung", "lethality", "brutalität"]
   },
   abilityPower: {
-    labelDe: "Fähigkeitsstärke", labelEn: "Ability Power",
+    labelDe: "Fähigkeitsstärke", labelEn: "Ability Power", icon: "🪄", color: "#534AB7",
     keywords: ["ability power", "fähigkeitsstärke"]
   },
   mana: {
-    labelDe: "Mana", labelEn: "Mana",
+    labelDe: "Mana", labelEn: "Mana", icon: "💧", color: "#378ADD",
     keywords: ["mana"]
   },
   manaRegen: {
-    labelDe: "Mana-Regeneration", labelEn: "Mana Regeneration",
+    labelDe: "Mana-Regeneration", labelEn: "Mana Regeneration", icon: "🔄", color: "#185FA5",
     keywords: ["mana regeneration", "manaregeneration", "mana regen"]
   },
   magicPen: {
-    labelDe: "Magiedurchdringung", labelEn: "Magic Penetration",
+    labelDe: "Magiedurchdringung", labelEn: "Magic Penetration", icon: "✨", color: "#3C3489",
     keywords: ["magic penetration", "magiedurchdringung", "magic pen"]
   },
   healthRegen: {
-    labelDe: "Leben & Regeneration", labelEn: "Health & Regeneration",
+    labelDe: "Leben & Regeneration", labelEn: "Health & Regeneration", icon: "❤️", color: "#639922",
     keywords: ["health", "max hp", "leben", "lebenspunkte", "gesundheit", "health regeneration", "lebensregeneration", "hp regeneration"]
   },
   armor: {
-    labelDe: "Rüstung", labelEn: "Armor",
+    labelDe: "Rüstung", labelEn: "Armor", icon: "🛡️", color: "#8A8880",
     keywords: ["armor", "rüstung"]
   },
   magicResist: {
-    labelDe: "Magieresistenz", labelEn: "Magic Resistance",
+    labelDe: "Magieresistenz", labelEn: "Magic Resistance", icon: "🔷", color: "#0F6E56",
     keywords: ["magic resist", "magieresistenz"]
   },
   abilityHaste: {
-    labelDe: "Fähigkeitstempo", labelEn: "Ability Haste",
+    labelDe: "Fähigkeitstempo", labelEn: "Ability Haste", icon: "⏱️", color: "#EF9F27",
     keywords: ["ability haste", "fähigkeitstempo", "cooldown reduction", "abklingzeitverringerung", "abklingzeit"]
   },
   movement: {
-    labelDe: "Lauftempo", labelEn: "Movement",
+    labelDe: "Lauftempo", labelEn: "Movement", icon: "👟", color: "#1D9E75",
     keywords: ["move speed", "movement speed", "lauftempo", "bewegungstempo", "dash"]
   },
   lifestealVamp: {
-    labelDe: "Lebensraub & Vampir", labelEn: "Life Steal & Vamp",
+    labelDe: "Lebensraub & Vampir", labelEn: "Life Steal & Vamp", icon: "🩸", color: "#D4537E",
     keywords: ["lifesteal", "omnivamp", "lebensraub", "lebensentzug", "omnivampir"]
   },
   antiHeal: {
-    labelDe: "Anti-Heal", labelEn: "Anti-Heal",
+    labelDe: "Anti-Heal", labelEn: "Anti-Heal", icon: "🚫", color: "#E24B4A",
     keywords: ["grievous wounds", "verringerte heilung", "heilungsreduzierung", "reduced healing", "healing reduction"]
   },
   heal: {
-    labelDe: "Heilung", labelEn: "Heal",
+    labelDe: "Heilung", labelEn: "Heal", icon: "➕", color: "#639922",
     keywords: ["heal power", "healing power", "heilkraft", "erhöhte heilung", "increased heal", "gain heal"]
   },
   burnEffects: {
-    labelDe: "Brenneffekte", labelEn: "Burn Effects",
+    labelDe: "Brenneffekte", labelEn: "Burn Effects", icon: "🔥", color: "#E24B4A",
     // "immolat" faengt Immolate/Immolation (Sunfire Aegis, Hollow
     // Radiance, Void Immolation - Riot nennt das nie woertlich "burn" im
     // Tooltip, sondern "deal magic damage per second"). "sunfire" faengt
@@ -2046,11 +2046,13 @@ const IA_CATEGORIES = {
     keywords: ["burn", "brenn", "verbrennung", "damage over time", "immolat", "sunfire", "schaden pro sekunde", "damage per second"]
   },
   ultimateEffects: {
-    labelDe: "Ultimate-Effekte", labelEn: "Ultimate Effects",
+    labelDe: "Ultimate-Effekte", labelEn: "Ultimate Effects", icon: "🚀", color: "#7F77DD",
     keywords: ["ultimate", "ultimative fähigkeit"]
   },
   gold: {
-    labelDe: "Gold", labelEn: "Gold",
+    labelDe: "Gold", labelEn: "Gold", icon: "🪙", color: "#EF9F27",
+    // Sonderfall "Transmute: Gold" (Gold-SELTENHEIT, nicht Waehrung) wird
+    // unten in iaEntryCategories explizit ausgeschlossen.
     keywords: ["gold"]
   }
 };
@@ -2080,6 +2082,14 @@ function iaEntryCategories(entry, name, desc) {
   return Object.keys(IA_CATEGORIES).filter((key) =>
     IA_CATEGORIES[key].keywords.some((kw) => {
       const kwTrim = kw.trim().toLowerCase();
+      // Sonderfall "gold": "Transmute: Gold"/"Transmutation: Gold" meint
+      // die Gold-SELTENHEITSSTUFE der Augmentierung ("Gain a random Gold
+      // Augment"/"zufaellige Gold-Augmentierung"), nicht die Waehrung -
+      // faelschlich als Kategorie "Gold" gelandet, weil "gold" als
+      // Teilstring matcht. " gold augment" (auch als Praefix von
+      // "augmentierung") schliesst genau diesen Fall aus, ohne die echten
+      // Gold-Waehrungs-Effekte (z.B. "Gain 250 Gold") zu beeintraechtigen.
+      if (kwTrim === "gold" && phraseHaystack.includes(" gold augment")) return false;
       if (kwTrim.includes(" ") || kwTrim.includes("-")) {
         const kwPhrase = ` ${kwTrim.replace(/[^a-z0-9]+/g, " ").trim()} `;
         return phraseHaystack.includes(kwPhrase);
@@ -3511,8 +3521,9 @@ function renderIaCategoryCheckboxes() {
     const label = currentLang === "de" ? cat.labelDe : cat.labelEn;
     const checked = iaCategoryFilters.has(key) ? "checked" : "";
     return `
-      <label class="iaCategoryCheckboxItem">
-        <input type="checkbox" data-cat-key="${key}" ${checked} />
+      <label class="iaCategoryCheckboxItem" style="color: ${cat.color};">
+        <input type="checkbox" data-cat-key="${key}" ${checked} style="accent-color: ${cat.color};" />
+        <span class="iaCategoryCheckboxIcon">${cat.icon}</span>
         <span>${label}</span>
       </label>`;
   }).join("");
@@ -3529,8 +3540,7 @@ function renderIaCategoryCheckboxes() {
   });
   updateIaCategoryFilterSummary();
 }
-// Zeigt die Anzahl aktiver Kategorien im (einklappbaren) Header an, damit
-// man auch bei zugeklapptem Panel sieht, ob/wie viel gerade gefiltert ist.
+// Zeigt die Anzahl aktiver Kategorien im Header an.
 function updateIaCategoryFilterSummary() {
   const summaryEl = document.getElementById("iaCategoryFilterSummary");
   if (summaryEl) summaryEl.textContent = iaCategoryFilters.size ? `(${iaCategoryFilters.size})` : "";
@@ -3544,17 +3554,9 @@ function resetIaCategoryFilters() {
 }
 renderIaCategoryCheckboxes();
 safeBind("iaCategoryFilterReset", "onclick", resetIaCategoryFilters);
-{
-  const catToggle = document.getElementById("iaCategoryFilterToggle");
-  const catBody = document.getElementById("iaCategoryFilterBody");
-  if (catToggle && catBody && !catToggle.dataset.bound) {
-    catToggle.dataset.bound = "1";
-    catToggle.addEventListener("click", () => {
-      catBody.classList.toggle("hidden");
-      catToggle.classList.toggle("collapsed");
-    });
-  }
-}
+// Panel ist jetzt immer ausgeklappt (kein Ein-/Ausklappen mehr noetig) -
+// der fruehere Toggle-Klick-Handler (Zeile mit "collapsed"-Klasse) wurde
+// bewusst entfernt.
 
 // Ein-/Ausklappen der Tier-Abschnitte (Silber/Gold/Prismatic/Legendary/...).
 // Delegierter Listener auf dem Modal-Container statt auf den einzelnen
